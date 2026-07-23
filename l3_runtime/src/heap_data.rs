@@ -307,10 +307,8 @@ pub fn index_mut<'a>(container: &'a mut StackValue, index: &StackValue, heap: &'
 }
 
 fn index_value(sv: &StackValue, heap: &Heap) -> Result<i64, crate::error::RuntimeError> {
-    if let Some(p) = extract_primitive(sv, heap) {
-        if let Primitive::Integer(i) = p {
-            return Ok(i);
-        }
+    if let Some(Primitive::Integer(i)) = extract_primitive(sv, heap) {
+        return Ok(i);
     }
     Err(crate::error::RuntimeError::type_error("index to a container must be an integer"))
 }

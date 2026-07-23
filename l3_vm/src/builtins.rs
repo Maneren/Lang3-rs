@@ -21,7 +21,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
             Ok(StackValue::Nil)
         })),
         ("assert", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-            if args.len() < 1 {
+            if args.is_empty() {
                 return Err(RuntimeError::type_error("assert requires at least 1 argument"));
             }
             if !args[0].is_truthy(heap) {
@@ -215,7 +215,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
             }
         })),
         ("range", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-            let start = if args.len() > 0 {
+            let start = if !args.is_empty() {
                 match args[0].as_primitive() {
                     Some(Primitive::Integer(i)) => i,
                     _ => return Err(RuntimeError::type_error("range requires integer arguments")),
@@ -430,7 +430,7 @@ pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
                         let elems: Vec<String> = v.iter().map(|sv| format_stack_value(sv, heap)).collect();
                         format!("[{}]", elems.join(", "))
                     }
-                    HeapData::String(s) => format!("{}", s),
+                    HeapData::String(s) => s.to_string(),
                 }
             } else {
                 "<dead>".to_string()

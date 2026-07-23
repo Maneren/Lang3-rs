@@ -9,8 +9,9 @@ pub struct Slice {
     pub end: Option<i64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum StackValue {
+    #[default]
     Nil,
     Primitive(Primitive),
     Heap(DefaultKey),
@@ -79,12 +80,6 @@ impl StackValue {
         } else {
             None
         }
-    }
-}
-
-impl Default for StackValue {
-    fn default() -> Self {
-        StackValue::Nil
     }
 }
 

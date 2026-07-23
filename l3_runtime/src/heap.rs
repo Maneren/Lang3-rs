@@ -32,17 +32,15 @@ impl HeapCell {
                     mark_stack_value(sv, heap);
                 }
             }
-            HeapData::Function(f) => {
-                if let Function::Bytecode(bc) = f {
-                    for arg in &bc.curried_args {
-                        mark_stack_value(arg, heap);
-                    }
-                    for uv in &bc.captured_upvalues {
-                        if let Ok(uv) = uv.try_borrow() {
-                            if let Some(key) = uv.value.get_heap_key() {
-                                if let Some(cell) = heap.get(key) {
-                                    cell.mark(heap);
-                                }
+            HeapData::Function(Function::Bytecode(bc)) => {
+                for arg in &bc.curried_args {
+                    mark_stack_value(arg, heap);
+                }
+                for uv in &bc.captured_upvalues {
+                    if let Ok(uv) = uv.try_borrow() {
+                        if let Some(key) = uv.value.get_heap_key() {
+                            if let Some(cell) = heap.get(key) {
+                                cell.mark(heap);
                             }
                         }
                     }

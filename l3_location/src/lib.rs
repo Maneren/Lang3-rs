@@ -46,7 +46,7 @@ impl fmt::Display for Position {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Location {
     pub begin: Position,
     pub end: Position,
@@ -67,12 +67,6 @@ impl Location {
 
     pub fn lines(&mut self, count: Counter) {
         self.end.lines(count);
-    }
-}
-
-impl Default for Location {
-    fn default() -> Self {
-        Self { begin: Position::default(), end: Position::default() }
     }
 }
 

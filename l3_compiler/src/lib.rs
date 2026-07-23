@@ -26,7 +26,6 @@ struct LoopContext {
     break_jumps: Vec<usize>,
     continue_jumps: Vec<usize>,
     body_locals_snapshot: usize,
-    loop_start: usize,
 }
 
 enum VarType {
@@ -142,7 +141,7 @@ impl Compiler {
             }
         }
         // Check outer's upvalues
-        for (_i, _uv) in outer.upvalues.iter().enumerate() {
+        for _uv in outer.upvalues.iter() {
             // We need to find if the outer captures this name
             // For MVP, we only handle one level of upvalue nesting
         }
@@ -325,7 +324,6 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot: self.contexts.last().unwrap().locals.len(),
-            loop_start,
         });
 
         self.compile_expression(&w.condition)?;
@@ -395,7 +393,6 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot,
-            loop_start,
         });
 
         // Loop condition: index < length
@@ -483,7 +480,6 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot,
-            loop_start: for_idx,
         });
 
         self.emit(Instruction::ForLoop {
@@ -651,6 +647,12 @@ impl Compiler {
                 }
             }
             LastStatement::Continue(_) => {
+                if let Some(lc) = self.loop_contexts.last() {
+                    let body_locals = self.contexts.last().unwrap().locals.len() - lc.body_locals_snapshot;
+                    if body_locals > 0 {
+                        self.emit(Instruction::Pop { count: body_locals }, Location::default());
+                    }
+                }
                 let jump = self.current_chunk().code.len();
                 self.emit(Instruction::Jump { offset: 0 }, Location::default());
                 if let Some(lc) = self.loop_contexts.last_mut() {

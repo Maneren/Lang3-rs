@@ -45,6 +45,7 @@ impl<'input> Parser<'input> {
         Err(format!("expected {:?}, got {:?}", expected, self.peek_token()))
     }
 
+    #[allow(dead_code)]
     fn expect_any(&mut self, expected: &[Token<'input>]) -> Result<(), String> {
         if let Some((_, ref t, _)) = self.peek {
             if expected.contains(t) {
