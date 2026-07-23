@@ -93,6 +93,7 @@ pub struct Heap {
     pub next_gc_threshold: usize,
     pub sweep_count: usize,
     pub output_lines: Vec<String>,
+    pub current_line: String,
     pub input_queue: VecDeque<String>,
     pub rng_state: u64,
 }
@@ -106,6 +107,7 @@ impl Heap {
             next_gc_threshold: 1024,
             sweep_count: 0,
             output_lines: Vec::new(),
+            current_line: String::new(),
             input_queue: VecDeque::new(),
             rng_state: 42,
         }
@@ -149,6 +151,12 @@ impl Heap {
         self.added_since_last_sweep = 0;
         self.next_gc_threshold = (self.size * 2).max(1024);
         erased
+    }
+
+    pub fn flush_print(&mut self) {
+        if !self.current_line.is_empty() {
+            self.output_lines.push(std::mem::take(&mut self.current_line));
+        }
     }
 
     pub fn maybe_gc(&mut self) {

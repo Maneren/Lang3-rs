@@ -65,6 +65,7 @@ impl BytecodeVM {
         self.frames.push(frame);
 
         loop {
+            self.gc_mark_roots();
             self.heap.maybe_gc();
 
             let chunk_id = self.frames.last().unwrap().chunk_id;
@@ -86,6 +87,32 @@ impl BytecodeVM {
 
         self.program = None;
         Ok(())
+    }
+
+    fn gc_mark_roots(&mut self) {
+        for sv in &self.stack {
+            mark_stack_value(sv, &self.heap.cells);
+        }
+        for frame in &self.frames {
+            for uv in &frame.upvalues {
+                if let Ok(uv) = uv.try_borrow() {
+                    mark_stack_value(&uv.value, &self.heap.cells);
+                }
+            }
+            for (_, cell) in &frame.captured_locals {
+                if let Ok(cell) = cell.try_borrow() {
+                    mark_stack_value(&cell.value, &self.heap.cells);
+                }
+            }
+        }
+        for (_, sv) in &self.global_symbols {
+            mark_stack_value(sv, &self.heap.cells);
+        }
+        if let Some(prog) = &self.program {
+            for hc in &prog.constants {
+                hc.mark(&self.heap.cells);
+            }
+        }
     }
 
     fn dispatch(&mut self, inst: &Instruction) -> Result<(), RuntimeError> {
@@ -391,6 +418,14 @@ impl BytecodeVM {
             let a = self.stack.pop().unwrap_or(StackValue::Nil);
             let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
             self.stack.push(result);
+        }
+    }
+}
+
+fn mark_stack_value(sv: &StackValue, cells: &slotmap::SlotMap<slotmap::DefaultKey, l3_runtime::HeapCell>) {
+    if let StackValue::Heap(key) = sv {
+        if let Some(cell) = cells.get(*key) {
+            cell.mark(cells);
         }
     }
 }

@@ -66,7 +66,9 @@ fn main() {
 
     // Execute
     let mut vm = BytecodeVM::new(cli.debug_vm);
-    if let Err(e) = vm.execute(bytecode) {
+    let result = vm.execute(bytecode);
+    vm.heap.flush_print();
+    if let Err(e) = result {
         for line in &vm.heap.output_lines {
             println!("{}", line);
         }

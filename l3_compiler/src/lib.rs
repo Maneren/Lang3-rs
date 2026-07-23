@@ -817,19 +817,36 @@ impl Compiler {
     }
 
     fn compile_comparison(&mut self, cmp: &Comparison) -> Result<(), CompileError> {
+        let comparisons = &cmp.comparisons;
+        let len = comparisons.len();
+
         self.compile_expression(&cmp.start)?;
-        for (op, expr) in &cmp.comparisons {
+        let (op, expr) = &comparisons[0];
+        self.compile_expression(expr)?;
+        self.emit(match_comparison_op(*op, false), Location::default());
+
+        for i in 1..len {
+            let (_, prev_rhs) = &comparisons[i - 1];
+            let (op, expr) = &comparisons[i];
+
+            let jump = self.current_chunk().code.len();
+            self.emit(Instruction::JumpIf {
+                offset: 0,
+                expected: false,
+                keep_stay: false,
+                keep_jump: true,
+            }, Location::default());
+
+            self.compile_expression(prev_rhs)?;
             self.compile_expression(expr)?;
-            let inst = match op {
-                ComparisonOperator::Equal => Instruction::Equal { keep_rhs: false },
-                ComparisonOperator::NotEqual => Instruction::NotEqual { keep_rhs: false },
-                ComparisonOperator::Less => Instruction::Less { keep_rhs: false },
-                ComparisonOperator::LessEqual => Instruction::LessEqual { keep_rhs: false },
-                ComparisonOperator::Greater => Instruction::Greater { keep_rhs: false },
-                ComparisonOperator::GreaterEqual => Instruction::GreaterEqual { keep_rhs: false },
-            };
-            self.emit(inst, Location::default());
+            self.emit(match_comparison_op(*op, false), Location::default());
+
+            let patch = self.current_chunk().code.len();
+            if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[jump] {
+                *offset = patch;
+            }
         }
+
         Ok(())
     }
 
@@ -900,6 +917,17 @@ impl Compiler {
 
     fn deduplicate_constants(&mut self) {
         // For MVP, skip deduplication
+    }
+}
+
+fn match_comparison_op(op: ComparisonOperator, keep_rhs: bool) -> Instruction {
+    match op {
+        ComparisonOperator::Equal => Instruction::Equal { keep_rhs },
+        ComparisonOperator::NotEqual => Instruction::NotEqual { keep_rhs },
+        ComparisonOperator::Less => Instruction::Less { keep_rhs },
+        ComparisonOperator::LessEqual => Instruction::LessEqual { keep_rhs },
+        ComparisonOperator::Greater => Instruction::Greater { keep_rhs },
+        ComparisonOperator::GreaterEqual => Instruction::GreaterEqual { keep_rhs },
     }
 }
 

@@ -6,21 +6,18 @@ type Builtin = Rc<dyn Fn(Vec<StackValue>, &mut Heap) -> Result<StackValue, Runti
 pub fn builtins() -> Vec<(&'static str, Builtin)> {
     vec![
         ("print", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-            let mut line = String::new();
             for (i, arg) in args.iter().enumerate() {
-                if i > 0 { line.push(' '); }
-                line.push_str(&format_stack_value(arg, heap));
+                if i > 0 { heap.current_line.push(' '); }
+                heap.current_line.push_str(&format_stack_value(arg, heap));
             }
-            heap.output_lines.push(line);
             Ok(StackValue::Nil)
         })),
         ("println", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-            let mut line = String::new();
             for (i, arg) in args.iter().enumerate() {
-                if i > 0 { line.push(' '); }
-                line.push_str(&format_stack_value(arg, heap));
+                if i > 0 { heap.current_line.push(' '); }
+                heap.current_line.push_str(&format_stack_value(arg, heap));
             }
-            heap.output_lines.push(line);
+            heap.output_lines.push(std::mem::take(&mut heap.current_line));
             Ok(StackValue::Nil)
         })),
         ("assert", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
