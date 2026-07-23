@@ -1,0 +1,77 @@
+#!/bin/env lang3
+# Run-length encoding decoder
+#
+# Reads a run-length encoded string from stdin and prints the decoded string to
+# stdout
+#
+# Example:
+#    $ echo "2[a2[bc]]3[cd]ef" | rle.l3
+#    abcbcabcbccdcdcdef
+
+fn load_brackets_inner(depth, acc, data)
+  if not data then
+    error("Encountered EOF while parsing brackets")
+  end
+
+  let x, xs = head(data)
+
+  if x == "[" then
+    depth += 1
+  elif x == "]" then
+    depth -= 1
+
+    if depth == 0 then
+      return [acc, xs]
+    end
+  end
+
+  return load_brackets_inner(depth, acc + x, xs)
+end
+
+let load_brackets = load_brackets_inner(1, "")
+
+fn is_digit(x) return "0" <= x <= "9" end
+
+fn load_number(data)
+  fn inner(acc, data)
+    if not data then return [int(acc), data] end
+
+    let x, xs = head(data)
+    if is_digit(x) then
+      return inner(acc + x, xs)
+    end
+
+    return [int(acc), data]
+  end
+
+  return inner("", data)
+end
+
+fn rle_decoder(data)
+  if not data then return data end
+
+  let x, xs = head(data)
+
+  if is_digit(x) then
+    let count, xs = load_number(data)
+
+    if not xs then error("Number can't be followed by EOF") end
+
+    let mut y, ys = head(xs)
+
+    if y == "[" then
+      y, ys = load_brackets(ys)
+    end
+
+    return count * rle_decoder(y) + rle_decoder(ys)
+  elif x == "[" then
+    let y, ys = load_brackets(xs)
+    return rle_decoder(y) + rle_decoder(ys)
+  elif x == "]" then
+    error("Unmatched close bracket")
+  end
+
+  return x + rle_decoder(xs)
+end
+
+println(rle_decoder(input()))

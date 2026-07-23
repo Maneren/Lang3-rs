@@ -1,0 +1,11 @@
+#!/bin/env lang3
+
+let a = 0
+
+fn c() if a == 5 then return a else a += 1 return c() end end
+
+fn b()
+  println(c())
+end
+
+b()

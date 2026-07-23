@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::collections::VecDeque;
 use slotmap::{DefaultKey, SlotMap};
 use crate::stack_value::StackValue;
 use crate::heap_data::HeapData;
@@ -92,6 +93,8 @@ pub struct Heap {
     pub next_gc_threshold: usize,
     pub sweep_count: usize,
     pub output_lines: Vec<String>,
+    pub input_queue: VecDeque<String>,
+    pub rng_state: u64,
 }
 
 impl Heap {
@@ -103,6 +106,8 @@ impl Heap {
             next_gc_threshold: 1024,
             sweep_count: 0,
             output_lines: Vec::new(),
+            input_queue: VecDeque::new(),
+            rng_state: 42,
         }
     }
 

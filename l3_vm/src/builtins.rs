@@ -7,7 +7,8 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
     vec![
         ("print", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
             let mut line = String::new();
-            for arg in &args {
+            for (i, arg) in args.iter().enumerate() {
+                if i > 0 { line.push(' '); }
                 line.push_str(&format_stack_value(arg, heap));
             }
             heap.output_lines.push(line);
@@ -15,7 +16,8 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         })),
         ("println", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
             let mut line = String::new();
-            for arg in &args {
+            for (i, arg) in args.iter().enumerate() {
+                if i > 0 { line.push(' '); }
                 line.push_str(&format_stack_value(arg, heap));
             }
             heap.output_lines.push(line);
@@ -258,6 +260,129 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         })),
         ("id", Rc::new(|args: Vec<StackValue>, _heap: &mut Heap| -> Result<StackValue, RuntimeError> {
             Ok(args.into_iter().next().unwrap_or(StackValue::Nil))
+        })),
+        ("map", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
+            if args.len() < 2 {
+                return Err(RuntimeError::type_error("map requires a function and a vector"));
+            }
+            let func_sv = &args[0];
+            let func_data = match func_sv {
+                StackValue::Heap(key) => {
+                    if let Some(cell) = heap.cells.get(*key) {
+                        cell.value.clone()
+                    } else {
+                        return Err(RuntimeError::type_error("invalid function reference"));
+                    }
+                }
+                _ => return Err(RuntimeError::type_error("map requires a function as first argument")),
+            };
+            let vec_sv = &args[1];
+            let vec = match vec_sv {
+                StackValue::Heap(key) => {
+                    if let Some(cell) = heap.cells.get(*key) {
+                        if let HeapData::Vector(v) = &cell.value {
+                            v.clone()
+                        } else {
+                            return Err(RuntimeError::type_error("map requires a vector as second argument"));
+                        }
+                    } else {
+                        return Err(RuntimeError::type_error("invalid heap reference"));
+                    }
+                }
+                _ => return Err(RuntimeError::type_error("map requires a vector as second argument")),
+            };
+            match func_data {
+                HeapData::Function(Function::Builtin(b)) => {
+                    let mut result = Vec::new();
+                    for elem in &vec {
+                        let r = b.invoke(vec![elem.clone()], heap)?;
+                        result.push(r);
+                    }
+                    Ok(heap.alloc_vector(result))
+                }
+                _ => Err(RuntimeError::type_error("map currently only supports builtin functions")),
+            }
+        })),
+        ("count", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
+            if args.len() < 2 {
+                return Err(RuntimeError::type_error("count requires a predicate and a vector"));
+            }
+            let func_sv = &args[0];
+            let func_data = match func_sv {
+                StackValue::Heap(key) => {
+                    if let Some(cell) = heap.cells.get(*key) {
+                        cell.value.clone()
+                    } else {
+                        return Err(RuntimeError::type_error("invalid function reference"));
+                    }
+                }
+                _ => return Err(RuntimeError::type_error("count requires a function as first argument")),
+            };
+            let vec_sv = &args[1];
+            let vec = match vec_sv {
+                StackValue::Heap(key) => {
+                    if let Some(cell) = heap.cells.get(*key) {
+                        if let HeapData::Vector(v) = &cell.value {
+                            v.clone()
+                        } else {
+                            return Err(RuntimeError::type_error("count requires a vector as second argument"));
+                        }
+                    } else {
+                        return Err(RuntimeError::type_error("invalid heap reference"));
+                    }
+                }
+                _ => return Err(RuntimeError::type_error("count requires a vector as second argument")),
+            };
+            match func_data {
+                HeapData::Function(Function::Builtin(b)) => {
+                    let mut total = 0i64;
+                    for elem in &vec {
+                        let r = b.invoke(vec![elem.clone()], heap)?;
+                        if r.is_truthy(heap) {
+                            total += 1;
+                        }
+                    }
+                    Ok(StackValue::Primitive(Primitive::Integer(total)))
+                }
+                _ => Err(RuntimeError::type_error("count currently only supports builtin functions")),
+            }
+        })),
+        ("random", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
+            heap.rng_state = heap.rng_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let val = heap.rng_state;
+            let limit = if !args.is_empty() {
+                match args[0].as_primitive() {
+                    Some(Primitive::Integer(i)) if i > 0 => i as u64,
+                    _ => return Err(RuntimeError::type_error("random requires a positive integer argument")),
+                }
+            } else {
+                u64::MAX
+            };
+            Ok(StackValue::Primitive(Primitive::Integer((val % limit) as i64)))
+        })),
+        ("input", Rc::new(|_: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
+            if let Some(line) = heap.input_queue.pop_front() {
+                return Ok(heap.alloc_string(line));
+            }
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line).ok();
+            if line.ends_with('\n') {
+                line.pop();
+                if line.ends_with('\r') { line.pop(); }
+            }
+            Ok(heap.alloc_string(line))
+        })),
+        ("sleep", Rc::new(|args: Vec<StackValue>, _heap: &mut Heap| -> Result<StackValue, RuntimeError> {
+            let ms = if !args.is_empty() {
+                match args[0].as_primitive() {
+                    Some(Primitive::Integer(i)) if i >= 0 => i as u64,
+                    _ => return Err(RuntimeError::type_error("sleep requires a non-negative integer argument")),
+                }
+            } else {
+                0
+            };
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+            Ok(StackValue::Nil)
         })),
         ("sum", Rc::new(|args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
             if args.is_empty() {

@@ -1,0 +1,91 @@
+#!/bin/env lang3
+
+# Demonstation of the language
+
+# Variable declaration
+let a = 1 + 2 + 2 * -3
+let b = a * -3
+
+# Function calls
+println(a + b)
+
+# Function declaration
+fn add(a, b)
+  return a + b
+end
+
+# Trailing commas
+let c = add(a, b,)
+
+# First-class closures
+fn curry_add(a)
+  return fn(b) return a + b end
+end
+let add_three = curry_add(3)
+println(add_three(4)) # 7
+
+# Auto-currying
+let curried = add(a)
+let d = curried(b)
+
+# Control flow
+if d == c then
+  println("currying works")
+else
+  println("currying doesn't work")
+end
+
+# Loops
+let mut i = 0
+while i < 10 do
+  println(i)
+  i += 1
+
+  if i == 5 then
+    break
+  end
+end
+
+for i in 0..=10 step 2 do
+  println(i)
+end
+
+let numbers = [10, 20, 30, 40, 50]
+let mut total = 0
+for n in numbers do total += n end
+println("Sum:", total)
+
+# Error handling via abort
+fn div(a, b)
+  assert(b != 0, "cannot divide by zero")
+  return a / b
+end
+
+# div(10, 0)
+
+# Conditional expression and chained comparison
+let message = if not (0 <= c < 10) and a == b == 0 then
+  return "valid"
+else
+  return "invalid"
+end
+
+println(message)
+
+# Optimized for functional coding style
+let arr = [1, 2, 3, 4]
+
+fn stringify(arr)
+  # Multiple assignment
+  let x, xs = head(arr)
+
+  if xs then
+    return str(x) + ", " + stringify(xs)
+  else
+    return str(x)
+  end
+end
+
+println(stringify(arr))
+
+println(sum(map(int, ["1", "2", "3", "4"])))
