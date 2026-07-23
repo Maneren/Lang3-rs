@@ -1,6 +1,13 @@
-[package]
-name = "lang3-rs"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
+[workspace]
+resolver = "2"
+members = [
+    "l3_location",
+    "l3_ast",
+    "l3_runtime",
+    "l3_bytecode",
+    "l3_parser",
+    "l3_compiler",
+    "l3_vm",
+    "l3_cli",
+    "l3",
+]

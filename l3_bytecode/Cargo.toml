@@ -1,0 +1,8 @@
+[package]
+name = "l3_bytecode"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+l3_runtime = { path = "../l3_runtime" }
+l3_location = { path = "../l3_location" }

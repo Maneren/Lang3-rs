@@ -1,0 +1,4 @@
+[package]
+name = "l3_location"
+version = "0.1.0"
+edition = "2021"
