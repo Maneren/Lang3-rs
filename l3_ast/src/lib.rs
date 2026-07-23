@@ -73,7 +73,10 @@ pub struct Identifier {
 
 impl Identifier {
     pub fn new(name: impl Into<String>, location: Location) -> Self {
-        Self { name: name.into(), location }
+        Self {
+            name: name.into(),
+            location,
+        }
     }
 }
 
@@ -93,6 +96,7 @@ pub struct Nil {
 }
 
 impl Nil {
+    #[must_use]
     pub fn new(location: Location) -> Self {
         Self { location }
     }
@@ -105,6 +109,7 @@ pub struct Boolean {
 }
 
 impl Boolean {
+    #[must_use]
     pub fn new(value: bool, location: Location) -> Self {
         Self { value, location }
     }
@@ -117,6 +122,7 @@ pub struct Number {
 }
 
 impl Number {
+    #[must_use]
     pub fn new(value: i64, location: Location) -> Self {
         Self { value, location }
     }
@@ -129,6 +135,7 @@ pub struct Float {
 }
 
 impl Float {
+    #[must_use]
     pub fn new(value: f64, location: Location) -> Self {
         Self { value, location }
     }
@@ -142,7 +149,10 @@ pub struct StringLiteral {
 
 impl StringLiteral {
     pub fn new(value: impl Into<String>, location: Location) -> Self {
-        Self { value: value.into(), location }
+        Self {
+            value: value.into(),
+            location,
+        }
     }
 }
 
@@ -164,6 +174,7 @@ pub struct Array {
 }
 
 impl Array {
+    #[must_use]
     pub fn new(elements: ExpressionList, location: Location) -> Self {
         Self { elements, location }
     }
@@ -180,6 +191,7 @@ pub enum Literal {
 }
 
 impl Literal {
+    #[must_use]
     pub fn location(&self) -> &Location {
         match self {
             Literal::Nil(n) => &n.location,
@@ -204,8 +216,13 @@ pub struct IndexExpression {
 }
 
 impl IndexExpression {
+    #[must_use]
     pub fn new(base: Variable, index: Expression, location: Location) -> Self {
-        Self { base: Box::new(base), index: Box::new(index), location }
+        Self {
+            base: Box::new(base),
+            index: Box::new(index),
+            location,
+        }
     }
 }
 
@@ -216,6 +233,7 @@ pub enum Variable {
 }
 
 impl Variable {
+    #[must_use]
     pub fn location(&self) -> &Location {
         match self {
             Variable::Identifier(i) => &i.location,
@@ -236,8 +254,13 @@ pub struct UnaryExpression {
 }
 
 impl UnaryExpression {
+    #[must_use]
     pub fn new(op: UnaryOperator, expression: Expression, location: Location) -> Self {
-        Self { op, expression: Box::new(expression), location }
+        Self {
+            op,
+            expression: Box::new(expression),
+            location,
+        }
     }
 }
 
@@ -250,8 +273,14 @@ pub struct BinaryExpression {
 }
 
 impl BinaryExpression {
+    #[must_use]
     pub fn new(lhs: Expression, op: BinaryOperator, rhs: Expression, location: Location) -> Self {
-        Self { lhs: Box::new(lhs), op, rhs: Box::new(rhs), location }
+        Self {
+            lhs: Box::new(lhs),
+            op,
+            rhs: Box::new(rhs),
+            location,
+        }
     }
 }
 
@@ -264,8 +293,14 @@ pub struct LogicalExpression {
 }
 
 impl LogicalExpression {
+    #[must_use]
     pub fn new(lhs: Expression, op: LogicalOperator, rhs: Expression, location: Location) -> Self {
-        Self { lhs: Box::new(lhs), op, rhs: Box::new(rhs), location }
+        Self {
+            lhs: Box::new(lhs),
+            op,
+            rhs: Box::new(rhs),
+            location,
+        }
     }
 }
 
@@ -277,7 +312,13 @@ pub struct Comparison {
 }
 
 impl Comparison {
-    pub fn new(start: Expression, op: ComparisonOperator, rhs: Expression, location: Location) -> Self {
+    #[must_use]
+    pub fn new(
+        start: Expression,
+        op: ComparisonOperator,
+        rhs: Expression,
+        location: Location,
+    ) -> Self {
         Self {
             start: Box::new(start),
             comparisons: vec![(op, rhs)],
@@ -300,8 +341,13 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    #[must_use]
     pub fn new(name: Identifier, arguments: ExpressionList, location: Location) -> Self {
-        Self { name, arguments, location }
+        Self {
+            name,
+            arguments,
+            location,
+        }
     }
 }
 
@@ -313,8 +359,13 @@ pub struct FunctionBody {
 }
 
 impl FunctionBody {
+    #[must_use]
     pub fn new(parameters: NameList, block: Block, location: Location) -> Self {
-        Self { parameters, block, location }
+        Self {
+            parameters,
+            block,
+            location,
+        }
     }
 }
 
@@ -325,6 +376,7 @@ pub struct AnonymousFunction {
 }
 
 impl AnonymousFunction {
+    #[must_use]
     pub fn new(body: FunctionBody, location: Location) -> Self {
         Self { body, location }
     }
@@ -338,8 +390,13 @@ pub struct NamedFunction {
 }
 
 impl NamedFunction {
+    #[must_use]
     pub fn new(name: Identifier, body: FunctionBody, location: Location) -> Self {
-        Self { name, body, location }
+        Self {
+            name,
+            body,
+            location,
+        }
     }
 }
 
@@ -355,8 +412,13 @@ pub struct IfBase {
 }
 
 impl IfBase {
+    #[must_use]
     pub fn new(condition: Expression, block: Block, location: Location) -> Self {
-        Self { condition: Box::new(condition), block, location }
+        Self {
+            condition: Box::new(condition),
+            block,
+            location,
+        }
     }
 }
 
@@ -371,8 +433,14 @@ pub struct IfExpression {
 }
 
 impl IfExpression {
+    #[must_use]
     pub fn new(base_if: IfBase, elseif: ElseIfList, else_block: Block, location: Location) -> Self {
-        Self { base_if, elseif, else_block, location }
+        Self {
+            base_if,
+            elseif,
+            else_block,
+            location,
+        }
     }
 }
 
@@ -385,8 +453,19 @@ pub struct IfStatement {
 }
 
 impl IfStatement {
-    pub fn new(base_if: IfBase, elseif: ElseIfList, else_block: Option<Block>, location: Location) -> Self {
-        Self { base_if, elseif, else_block, location }
+    #[must_use]
+    pub fn new(
+        base_if: IfBase,
+        elseif: ElseIfList,
+        else_block: Option<Block>,
+        location: Location,
+    ) -> Self {
+        Self {
+            base_if,
+            elseif,
+            else_block,
+            location,
+        }
     }
 }
 
@@ -402,8 +481,13 @@ pub struct While {
 }
 
 impl While {
+    #[must_use]
     pub fn new(condition: Expression, body: Block, location: Location) -> Self {
-        Self { condition: Box::new(condition), body, location }
+        Self {
+            condition: Box::new(condition),
+            body,
+            location,
+        }
     }
 }
 
@@ -417,6 +501,7 @@ pub struct ForLoop {
 }
 
 impl ForLoop {
+    #[must_use]
     pub fn new(
         variable: Identifier,
         collection: Expression,
@@ -483,7 +568,10 @@ pub struct ReturnStatement {
 
 impl ReturnStatement {
     pub fn new(expression: Option<Expression>, location: Location) -> Self {
-        Self { expression: expression.map(Box::new), location }
+        Self {
+            expression: expression.map(Box::new),
+            location,
+        }
     }
 }
 
@@ -493,6 +581,7 @@ pub struct BreakStatement {
 }
 
 impl BreakStatement {
+    #[must_use]
     pub fn new(location: Location) -> Self {
         Self { location }
     }
@@ -504,6 +593,7 @@ pub struct ContinueStatement {
 }
 
 impl ContinueStatement {
+    #[must_use]
     pub fn new(location: Location) -> Self {
         Self { location }
     }
@@ -529,8 +619,19 @@ pub struct OperatorAssignment {
 }
 
 impl OperatorAssignment {
-    pub fn new(variable: Variable, op: AssignmentOperator, expression: Expression, location: Location) -> Self {
-        Self { variable, op, expression: Box::new(expression), location }
+    #[must_use]
+    pub fn new(
+        variable: Variable,
+        op: AssignmentOperator,
+        expression: Expression,
+        location: Location,
+    ) -> Self {
+        Self {
+            variable,
+            op,
+            expression: Box::new(expression),
+            location,
+        }
     }
 }
 
@@ -542,8 +643,13 @@ pub struct NameAssignment {
 }
 
 impl NameAssignment {
+    #[must_use]
     pub fn new(names: NameList, expression: Expression, location: Location) -> Self {
-        Self { names, expression: Box::new(expression), location }
+        Self {
+            names,
+            expression: Box::new(expression),
+            location,
+        }
     }
 }
 
@@ -572,13 +678,20 @@ impl Declaration {
         mutability: Mutability,
         location: Location,
     ) -> Self {
-        Self { names, expression: expression.map(Box::new), mutability, location }
+        Self {
+            names,
+            expression: expression.map(Box::new),
+            mutability,
+            location,
+        }
     }
 
+    #[must_use]
     pub fn is_const(&self) -> bool {
         matches!(self.mutability, Mutability::Immutable)
     }
 
+    #[must_use]
     pub fn is_mutable(&self) -> bool {
         matches!(self.mutability, Mutability::Mutable)
     }
@@ -595,11 +708,13 @@ pub struct Block {
 }
 
 impl Block {
+    #[must_use]
     pub fn with_statement(mut self, stmt: Statement) -> Self {
         self.statements.push(stmt);
         self
     }
 
+    #[must_use]
     pub fn with_last(mut self, last: LastStatement) -> Self {
         self.last_statement = Some(last);
         self

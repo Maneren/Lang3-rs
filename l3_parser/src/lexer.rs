@@ -6,6 +6,7 @@ pub struct Lexer<'input> {
 }
 
 impl<'input> Lexer<'input> {
+    #[must_use]
     pub fn new(input: &'input str) -> Self {
         Self { input, pos: 0 }
     }
@@ -133,7 +134,11 @@ impl<'input> Iterator for Lexer<'input> {
         }
 
         // Multi-character operators
-        let two = if remaining.len() >= 2 { &remaining[..2] } else { "" };
+        let two = if remaining.len() >= 2 {
+            &remaining[..2]
+        } else {
+            ""
+        };
         let token = match two {
             ".." => {
                 // Check for ..=
@@ -145,16 +150,46 @@ impl<'input> Iterator for Lexer<'input> {
                     Token::DotDot
                 }
             }
-            "==" => { self.pos += 2; Token::EqualEqual }
-            "!=" => { self.pos += 2; Token::NotEqual }
-            "<=" => { self.pos += 2; Token::LessEqual }
-            ">=" => { self.pos += 2; Token::GreaterEqual }
-            "+=" => { self.pos += 2; Token::PlusEqual }
-            "-=" => { self.pos += 2; Token::MinusEqual }
-            "*=" => { self.pos += 2; Token::StarEqual }
-            "/=" => { self.pos += 2; Token::SlashEqual }
-            "%=" => { self.pos += 2; Token::PercentEqual }
-            "^=" => { self.pos += 2; Token::CaretEqual }
+            "==" => {
+                self.pos += 2;
+                Token::EqualEqual
+            }
+            "!=" => {
+                self.pos += 2;
+                Token::NotEqual
+            }
+            "<=" => {
+                self.pos += 2;
+                Token::LessEqual
+            }
+            ">=" => {
+                self.pos += 2;
+                Token::GreaterEqual
+            }
+            "+=" => {
+                self.pos += 2;
+                Token::PlusEqual
+            }
+            "-=" => {
+                self.pos += 2;
+                Token::MinusEqual
+            }
+            "*=" => {
+                self.pos += 2;
+                Token::StarEqual
+            }
+            "/=" => {
+                self.pos += 2;
+                Token::SlashEqual
+            }
+            "%=" => {
+                self.pos += 2;
+                Token::PercentEqual
+            }
+            "^=" => {
+                self.pos += 2;
+                Token::CaretEqual
+            }
             _ => {
                 // Single-character operators and punctuation
                 let c = remaining.chars().next().unwrap();
@@ -179,7 +214,10 @@ impl<'input> Iterator for Lexer<'input> {
                     '<' => Token::Less,
                     '>' => Token::Greater,
                     '=' => Token::Equal,
-                    _ => { self.pos += 1; Token::Error }
+                    _ => {
+                        self.pos += 1;
+                        Token::Error
+                    }
                 }
             }
         };

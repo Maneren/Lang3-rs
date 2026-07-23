@@ -10,8 +10,13 @@ pub struct Position {
 }
 
 impl Position {
+    #[must_use]
     pub fn new(filename: Option<String>, line: Counter, column: Counter) -> Self {
-        Self { filename, line, column }
+        Self {
+            filename,
+            line,
+            column,
+        }
     }
 
     pub fn lines(&mut self, count: Counter) {
@@ -28,7 +33,11 @@ impl Position {
 
 impl Default for Position {
     fn default() -> Self {
-        Self { filename: None, line: 1, column: 1 }
+        Self {
+            filename: None,
+            line: 1,
+            column: 1,
+        }
     }
 }
 
@@ -53,6 +62,7 @@ pub struct Location {
 }
 
 impl Location {
+    #[must_use]
     pub fn new(begin: Position, end: Position) -> Self {
         Self { begin, end }
     }
@@ -76,10 +86,10 @@ impl fmt::Display for Location {
         if self.begin == self.end {
             return Ok(());
         }
-        if self.begin.line != self.end.line {
-            write!(f, "-{}.{}", self.end.line, self.end.column)
-        } else {
+        if self.begin.line == self.end.line {
             write!(f, "-{}", self.end.column)
+        } else {
+            write!(f, "-{}.{}", self.end.line, self.end.column)
         }
     }
 }

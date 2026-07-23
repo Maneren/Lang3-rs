@@ -3,6 +3,9 @@ name = "l3_compiler"
 version = "0.1.0"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [dependencies]
 l3_ast = { path = "../l3_ast" }
 l3_bytecode = { path = "../l3_bytecode" }

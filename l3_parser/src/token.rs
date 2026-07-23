@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Token<'input> {
     // Keywords
     If,
@@ -73,7 +73,7 @@ pub enum Token<'input> {
     Error,
 }
 
-impl<'input> fmt::Display for Token<'input> {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::If => write!(f, "if"),
@@ -129,9 +129,9 @@ impl<'input> fmt::Display for Token<'input> {
             Token::SlashEqual => write!(f, "/="),
             Token::PercentEqual => write!(f, "%="),
             Token::CaretEqual => write!(f, "^="),
-            Token::Number(n) => write!(f, "{}", n),
-            Token::Str(s) => write!(f, "\"{}\"", s),
-            Token::Ident(s) => write!(f, "{}", s),
+            Token::Number(n) => write!(f, "{n}"),
+            Token::Str(s) => write!(f, "\"{s}\""),
+            Token::Ident(s) => write!(f, "{s}"),
             Token::Error => write!(f, "<error>"),
         }
     }

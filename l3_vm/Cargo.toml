@@ -3,6 +3,9 @@ name = "l3_vm"
 version = "0.1.0"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [dependencies]
 l3_bytecode = { path = "../l3_bytecode" }
 l3_runtime = { path = "../l3_runtime" }

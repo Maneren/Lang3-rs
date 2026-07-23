@@ -1,6 +1,6 @@
-pub mod token;
 pub mod lexer;
 pub mod parser;
+pub mod token;
 
 use l3_ast::Program;
 use parser::Parser;

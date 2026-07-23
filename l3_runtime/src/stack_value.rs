@@ -1,7 +1,7 @@
-use std::fmt;
-use slotmap::DefaultKey;
-use crate::primitive::Primitive;
 use crate::heap::Heap;
+use crate::primitive::Primitive;
+use slotmap::DefaultKey;
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Slice {
@@ -18,26 +18,40 @@ pub enum StackValue {
 }
 
 impl StackValue {
+    #[must_use]
     pub fn is_nil(&self) -> bool {
         matches!(self, StackValue::Nil)
     }
 
+    #[must_use]
     pub fn is_primitive(&self) -> bool {
         matches!(self, StackValue::Primitive(_))
     }
 
+    #[must_use]
     pub fn as_primitive(&self) -> Option<Primitive> {
-        if let StackValue::Primitive(p) = self { Some(*p) } else { None }
+        if let StackValue::Primitive(p) = self {
+            Some(*p)
+        } else {
+            None
+        }
     }
 
+    #[must_use]
     pub fn holds_heap_cell(&self) -> bool {
         matches!(self, StackValue::Heap(_))
     }
 
+    #[must_use]
     pub fn get_heap_key(&self) -> Option<DefaultKey> {
-        if let StackValue::Heap(k) = self { Some(*k) } else { None }
+        if let StackValue::Heap(k) = self {
+            Some(*k)
+        } else {
+            None
+        }
     }
 
+    #[must_use]
     pub fn is_truthy(&self, heap: &Heap) -> bool {
         match self {
             StackValue::Nil => false,
@@ -52,6 +66,7 @@ impl StackValue {
         }
     }
 
+    #[must_use]
     pub fn type_name(&self, heap: &Heap) -> &'static str {
         match self {
             StackValue::Nil => "nil",
@@ -66,6 +81,7 @@ impl StackValue {
         }
     }
 
+    #[must_use]
     pub fn as_heap_ref<'a>(&self, heap: &'a Heap) -> Option<&'a crate::heap_data::HeapData> {
         if let StackValue::Heap(key) = self {
             heap.cells.get(*key).map(|c| &c.value)
@@ -74,7 +90,10 @@ impl StackValue {
         }
     }
 
-    pub fn as_heap_mut<'a>(&mut self, heap: &'a mut Heap) -> Option<&'a mut crate::heap_data::HeapData> {
+    pub fn as_heap_mut<'a>(
+        &mut self,
+        heap: &'a mut Heap,
+    ) -> Option<&'a mut crate::heap_data::HeapData> {
         if let StackValue::Heap(key) = self {
             heap.cells.get_mut(*key).map(|c| &mut c.value)
         } else {
@@ -93,10 +112,8 @@ impl fmt::Display for StackValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             StackValue::Nil => write!(f, "nil"),
-            StackValue::Primitive(p) => write!(f, "{}", p),
+            StackValue::Primitive(p) => write!(f, "{p}"),
             StackValue::Heap(_) => write!(f, "<heap>"),
         }
     }
 }
-
-

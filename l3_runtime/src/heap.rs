@@ -1,9 +1,9 @@
+use crate::function::Function;
+use crate::heap_data::HeapData;
+use crate::stack_value::StackValue;
+use slotmap::{DefaultKey, SlotMap};
 use std::cell::Cell;
 use std::collections::VecDeque;
-use slotmap::{DefaultKey, SlotMap};
-use crate::stack_value::StackValue;
-use crate::heap_data::HeapData;
-use crate::function::Function;
 
 /// A GC-managed cell on the heap. The `marked` flag uses `Cell<bool>` so
 /// the mark phase can traverse the object graph without exclusive `&mut` access
@@ -15,8 +15,12 @@ pub struct HeapCell {
 }
 
 impl HeapCell {
+    #[must_use]
     pub fn new(value: HeapData) -> Self {
-        Self { value, marked: Cell::new(false) }
+        Self {
+            value,
+            marked: Cell::new(false),
+        }
     }
 
     /// Recursively mark this cell and all cells it references.
@@ -68,8 +72,12 @@ pub struct UpvalueCell {
 }
 
 impl UpvalueCell {
+    #[must_use]
     pub fn new(value: StackValue) -> Self {
-        Self { value, marked: Cell::new(false) }
+        Self {
+            value,
+            marked: Cell::new(false),
+        }
     }
 
     pub fn mark(&self, heap: &SlotMap<DefaultKey, HeapCell>) {
@@ -97,6 +105,7 @@ pub struct Heap {
 }
 
 impl Heap {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             cells: SlotMap::with_capacity(1024),
@@ -153,7 +162,8 @@ impl Heap {
 
     pub fn flush_print(&mut self) {
         if !self.current_line.is_empty() {
-            self.output_lines.push(std::mem::take(&mut self.current_line));
+            self.output_lines
+                .push(std::mem::take(&mut self.current_line));
         }
     }
 

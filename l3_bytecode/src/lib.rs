@@ -19,11 +19,17 @@ pub struct UpvalueDesc {
 pub enum Instruction {
     Return,
 
-    Constant { index: usize },
+    Constant {
+        index: usize,
+    },
 
-    Pop { count: usize },
+    Pop {
+        count: usize,
+    },
 
-    Duplicate { index: usize },
+    Duplicate {
+        index: usize,
+    },
 
     Add,
     Subtract,
@@ -33,19 +39,39 @@ pub enum Instruction {
     Power,
     Negate,
 
-    Equal { keep_rhs: bool },
-    NotEqual { keep_rhs: bool },
-    Greater { keep_rhs: bool },
-    GreaterEqual { keep_rhs: bool },
-    Less { keep_rhs: bool },
-    LessEqual { keep_rhs: bool },
+    Equal {
+        keep_rhs: bool,
+    },
+    NotEqual {
+        keep_rhs: bool,
+    },
+    Greater {
+        keep_rhs: bool,
+    },
+    GreaterEqual {
+        keep_rhs: bool,
+    },
+    Less {
+        keep_rhs: bool,
+    },
+    LessEqual {
+        keep_rhs: bool,
+    },
     Not,
 
-    GetGlobal { name_index: usize },
-    SetGlobal { name_index: usize },
+    GetGlobal {
+        name_index: usize,
+    },
+    SetGlobal {
+        name_index: usize,
+    },
 
-    GetLocal { index: usize },
-    SetLocal { index: usize },
+    GetLocal {
+        index: usize,
+    },
+    SetLocal {
+        index: usize,
+    },
 
     ForLoop {
         control_index: usize,
@@ -55,7 +81,9 @@ pub enum Instruction {
         step_index: Option<usize>,
     },
 
-    Jump { offset: usize },
+    Jump {
+        offset: usize,
+    },
 
     JumpIf {
         offset: usize,
@@ -69,7 +97,9 @@ pub enum Instruction {
         keep_return_value: bool,
     },
 
-    MakeArray { count: usize },
+    MakeArray {
+        count: usize,
+    },
 
     GetIndex,
     SetIndex,
@@ -79,8 +109,12 @@ pub enum Instruction {
         upvalues: Vec<UpvalueDesc>,
     },
 
-    GetUpvalue { index: usize },
-    SetUpvalue { index: usize },
+    GetUpvalue {
+        index: usize,
+    },
+    SetUpvalue {
+        index: usize,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -111,8 +145,12 @@ pub struct ProgramBytecode {
 }
 
 impl ProgramBytecode {
+    #[must_use]
     pub fn new() -> Self {
-        Self { chunks: Vec::new(), constants: Vec::new() }
+        Self {
+            chunks: Vec::new(),
+            constants: Vec::new(),
+        }
     }
 }
 

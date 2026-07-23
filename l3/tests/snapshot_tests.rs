@@ -10,7 +10,7 @@ fn input_files() -> Vec<PathBuf> {
     let inputs_dir = snapshot_dir().join("inputs");
     let mut files: Vec<_> = fs::read_dir(&inputs_dir)
         .expect("snapshot inputs directory not found")
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "l3"))
         .map(|e| e.path())
         .collect();
@@ -24,7 +24,7 @@ fn expected_lines(name: &str) -> Vec<String> {
         .join(name)
         .join("output.txt");
     let content = fs::read_to_string(&path).unwrap_or_default();
-    content.lines().map(|l| l.to_string()).collect()
+    content.lines().map(ToString::to_string).collect()
 }
 
 fn normalize(v: &[String]) -> Vec<String> {
@@ -64,34 +64,30 @@ fn compare_output(name: &str, actual: &[String], expected: &[String]) {
         i += 1;
     }
 
-    if !failures.is_empty() {
-        panic!(
-            "\n--- {} ---\nActual output:\n{}\n\nExpected output:\n{}\n\nMismatches:\n{}",
-            name,
-            actual.join("\n"),
-            expected.join("\n"),
-            failures
-                .iter()
-                .map(|(line, a, e)| format!("  line {}: actual={:?} expected={:?}", line, a, e))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
-    }
+    assert!(
+        failures.is_empty(),
+        "\n--- {name} ---\nActual output:\n{}\n\nExpected output:\n{}\n\nMismatches:\n{}",
+        actual.join("\n"),
+        expected.join("\n"),
+        failures
+            .iter()
+            .map(|(line, a, e)| format!("  line {line}: actual={a:?} expected={e:?}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
 }
 
 #[test]
 fn all_snapshots() {
     let files = input_files();
-    if files.is_empty() {
-        panic!("No snapshot input files found");
-    }
+    assert!(!files.is_empty(), "No snapshot input files found");
 
     let failures: Vec<String> = files
         .into_iter()
         .filter_map(|input| {
             let name = input.file_stem().unwrap().to_str().unwrap().to_string();
             let source = fs::read_to_string(&input).unwrap();
-            println!("--- {} ---", name);
+            println!("--- {name} ---");
 
             let result = l3::run_pipeline(&source, input.to_str().unwrap());
             match result {
@@ -107,17 +103,19 @@ fn all_snapshots() {
                         } else {
                             "unknown error".to_string()
                         };
-                        Some(format!("{}:\n{}", name, msg))
+                        Some(format!("{name}:\n{msg}"))
                     } else {
                         None
                     }
                 }
-                Err(e) => Some(format!("{}: {}", name, e)),
+                Err(e) => Some(format!("{name}: {e}")),
             }
         })
         .collect();
 
-    if !failures.is_empty() {
-        panic!("\n\nSnapshot failures:\n{}\n", failures.join("\n---\n"));
-    }
+    assert!(
+        failures.is_empty(),
+        "\n\nSnapshot failures:\n{}\n",
+        failures.join("\n---\n")
+    );
 }

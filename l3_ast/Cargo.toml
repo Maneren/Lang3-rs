@@ -3,5 +3,8 @@ name = "l3_ast"
 version = "0.1.0"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [dependencies]
 l3_location = { path = "../l3_location" }

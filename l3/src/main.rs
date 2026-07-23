@@ -1,11 +1,11 @@
+use clap::Parser;
+use l3_cli::Cli;
+use l3_compiler::Compiler;
+use l3_parser::parse_program;
+use l3_vm::BytecodeVM;
 use std::fs;
 use std::io::Read;
 use std::process;
-use clap::Parser;
-use l3_cli::Cli;
-use l3_parser::parse_program;
-use l3_compiler::Compiler;
-use l3_vm::BytecodeVM;
 
 fn main() {
     let cli = Cli::parse();
@@ -14,7 +14,7 @@ fn main() {
         match fs::read_to_string(file) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("Error reading file '{}': {}", file, e);
+                eprintln!("Error reading file '{file}': {e}");
                 process::exit(1);
             }
         }
@@ -34,14 +34,14 @@ fn main() {
     let program = match parse_program(&source, &filename) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Parse error: {}", e);
+            eprintln!("Parse error: {e}");
             process::exit(1);
         }
     };
 
     if cli.debug_ast {
         println!("=== AST ===");
-        println!("{:#?}", program);
+        println!("{program:#?}");
     }
 
     // Compile
@@ -49,7 +49,7 @@ fn main() {
     let bytecode = match compiler.compile(&program) {
         Ok(bc) => bc,
         Err(e) => {
-            eprintln!("Compile error: {}", e);
+            eprintln!("Compile error: {e}");
             process::exit(1);
         }
     };
@@ -57,9 +57,9 @@ fn main() {
     if cli.debug_bytecode {
         println!("=== Bytecode ===");
         for (chunk_id, chunk) in bytecode.chunks.iter().enumerate() {
-            println!("Chunk {}:", chunk_id);
+            println!("Chunk {chunk_id}:");
             for (offset, inst) in chunk.code.iter().enumerate() {
-                println!("  {:>4}: {:?}", offset, inst);
+                println!("  {offset:>4}: {inst:?}");
             }
         }
     }
@@ -70,12 +70,12 @@ fn main() {
     vm.heap.flush_print();
     if let Err(e) = result {
         for line in &vm.heap.output_lines {
-            println!("{}", line);
+            println!("{line}");
         }
-        eprintln!("Runtime error: {}", e);
+        eprintln!("Runtime error: {e}");
         process::exit(1);
     }
     for line in &vm.heap.output_lines {
-        println!("{}", line);
+        println!("{line}");
     }
 }
