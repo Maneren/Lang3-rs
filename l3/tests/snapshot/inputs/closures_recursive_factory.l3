@@ -1,0 +1,22 @@
+fn make_power(exponent)
+  fn power(base)
+    if exponent == 0 then
+      return 1
+    end
+
+    if exponent == 1 then
+      return base
+    end
+
+    let prev = make_power(exponent - 1)
+    return base * prev(base)
+  end
+
+  return power
+end
+
+let square = make_power(2)
+let cube = make_power(3)
+
+println(square(5))
+println(cube(4))

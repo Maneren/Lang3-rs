@@ -1,0 +1,23 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'mid'
+▏ ▏ Parameters
+▏ ▏ Block
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "mid called"
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'mid'
+▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Number 2

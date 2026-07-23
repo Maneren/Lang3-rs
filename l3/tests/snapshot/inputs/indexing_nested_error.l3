@@ -1,0 +1,6 @@
+let nested = [[1, 2], [3, 4]]
+println(nested[1][1])
+
+# First index resolves to primitive, second index should fail.
+println(nested[1][1][0])
+println("unreachable")

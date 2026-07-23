@@ -1,0 +1,19 @@
+fn add3(a, b, c)
+  return a + b + c
+end
+
+let step1 = add3(2)
+let step2 = step1(3)
+println(step2(4))
+
+let add_ten = add3(10,)
+println(add_ten(20, 30))
+
+fn blend(a, b, c, d)
+  return str(a) + ":" + str(b) + ":" + str(c) + ":" + str(d)
+end
+
+let b1 = blend("A")
+let b2 = b1("B")
+let b3 = b2("C")
+println(b3("D"))

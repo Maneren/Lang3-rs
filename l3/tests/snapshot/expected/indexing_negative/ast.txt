@@ -1,0 +1,24 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'values'
+▏ ▏ Array
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 2
+▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ String "unreachable"

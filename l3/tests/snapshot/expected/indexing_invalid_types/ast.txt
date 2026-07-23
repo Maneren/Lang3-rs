@@ -1,0 +1,26 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'xs'
+▏ ▏ Array
+▏ ▏ ▏ Number 10
+▏ ▏ ▏ Number 20
+▏ ▏ ▏ Number 30
+▏ Declaration Immutable
+▏ ▏ Identifier 'key'
+▏ ▏ String "1"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'xs'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'xs'
+▏ ▏ ▏ ▏ Identifier 'key'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ String "unreachable"

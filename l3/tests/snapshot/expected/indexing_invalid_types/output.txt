@@ -1,0 +1,3 @@
+10
+RuntimeError: TypeError: index to a container must be an integer
+  at indexing_invalid_types.l3:7.9-16

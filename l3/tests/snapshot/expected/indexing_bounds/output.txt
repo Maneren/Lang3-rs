@@ -1,0 +1,6 @@
+7
+9
+x
+z
+RuntimeError: ValueError: index out of bounds
+  at indexing_bounds.l3:10.9-16

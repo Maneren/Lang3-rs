@@ -1,0 +1,108 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'add3'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ Identifier 'c'
+▏ ▏ Block
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'c'
+▏ Declaration Immutable
+▏ ▏ Identifier 'step1'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'add3'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'step2'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'step1'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'step2'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 4
+▏ Declaration Immutable
+▏ ▏ Identifier 'add_ten'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'add3'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 10
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'add_ten'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 20
+▏ ▏ ▏ ▏ ▏ Number 30
+▏ NamedFunction
+▏ ▏ Identifier 'blend'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ Identifier 'c'
+▏ ▏ ▏ Identifier 'd'
+▏ ▏ Block
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'str'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ String ":"
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'str'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ String ":"
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'str'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'c'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ String ":"
+▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'str'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'd'
+▏ Declaration Immutable
+▏ ▏ Identifier 'b1'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'blend'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ String "A"
+▏ Declaration Immutable
+▏ ▏ Identifier 'b2'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'b1'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ String "B"
+▏ Declaration Immutable
+▏ ▏ Identifier 'b3'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'b2'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ String "C"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'b3'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "D"

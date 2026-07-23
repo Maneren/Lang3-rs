@@ -1,0 +1,87 @@
+Block
+▏ Declaration Mutable
+▏ ▏ Identifier 's'
+▏ ▏ String "abcde"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 's'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 's'
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Mutable
+▏ ▏ Identifier 'values'
+▏ ▏ Array
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 2
+▏ ▏ ▏ Number 3
+▏ OperatorAssignment Plus
+▏ ▏ IndexExpression
+▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ Number 0
+▏ ▏ Number 9
+▏ OperatorAssignment Multiply
+▏ ▏ IndexExpression
+▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ Number 1
+▏ ▏ Number 3
+▏ OperatorAssignment Minus
+▏ ▏ IndexExpression
+▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ Number 2
+▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'values'
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Mutable
+▏ ▏ Identifier 'nested'
+▏ ▏ Array
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 10
+▏ ▏ ▏ ▏ Number 11
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 20
+▏ ▏ ▏ ▏ Number 21
+▏ OperatorAssignment Assign
+▏ ▏ IndexExpression
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'nested'
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 0
+▏ ▏ Number 99
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'nested'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'nested'
+▏ ▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ Number 1

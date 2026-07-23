@@ -1,0 +1,6 @@
+fn mid()
+  println("mid called")
+  return 1
+end
+
+println(0 < mid() < 2)

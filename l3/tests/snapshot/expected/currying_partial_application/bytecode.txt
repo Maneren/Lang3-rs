@@ -1,0 +1,73 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (nil)
+0001 | CONSTANT      0 (nil)
+0002 | CONSTANT      1 (function <add3>)
+0003 | SET_LOCAL     0
+0004 | GET_LOCAL     0
+0005 | CONSTANT      2 (2)
+0006 | CALL          1 true
+0007 | GET_LOCAL     2
+0008 | CONSTANT      3 (3)
+0009 | CALL          1 true
+0010 | GET_GLOBAL    4 '"println"'
+0011 | GET_LOCAL     3
+0012 | CONSTANT      5 (4)
+0013 | CALL          1 true
+0014 | CALL          1 false
+0015 | GET_LOCAL     0
+0016 | CONSTANT      6 (10)
+0017 | CALL          1 true
+0018 | GET_GLOBAL    4 '"println"'
+0019 | GET_LOCAL     4
+0020 | CONSTANT      7 (20)
+0021 | CONSTANT      8 (30)
+0022 | CALL          2 true
+0023 | CALL          1 false
+0024 | CONSTANT     11 (function <blend>)
+0025 | SET_LOCAL     1
+0026 | GET_LOCAL     1
+0027 | CONSTANT     12 ("A")
+0028 | CALL          1 true
+0029 | GET_LOCAL     5
+0030 | CONSTANT     13 ("B")
+0031 | CALL          1 true
+0032 | GET_LOCAL     6
+0033 | CONSTANT     14 ("C")
+0034 | CALL          1 true
+0035 | GET_GLOBAL    4 '"println"'
+0036 | GET_LOCAL     7
+0037 | CONSTANT     15 ("D")
+0038 | CALL          1 true
+0039 | CALL          1 false
+0040 | CONSTANT      0 (nil)
+0041 | RETURN
+== Chunk 1 ==
+0000 | GET_LOCAL     0
+0001 | GET_LOCAL     1
+0002 | ADD
+0003 | GET_LOCAL     2
+0004 | ADD
+0005 | RETURN
+== Chunk 2 ==
+0000 | GET_GLOBAL    9 '"str"'
+0001 | GET_LOCAL     0
+0002 | CALL          1 true
+0003 | CONSTANT     10 (":")
+0004 | ADD
+0005 | GET_GLOBAL    9 '"str"'
+0006 | GET_LOCAL     1
+0007 | CALL          1 true
+0008 | ADD
+0009 | CONSTANT     10 (":")
+0010 | ADD
+0011 | GET_GLOBAL    9 '"str"'
+0012 | GET_LOCAL     2
+0013 | CALL          1 true
+0014 | ADD
+0015 | CONSTANT     10 (":")
+0016 | ADD
+0017 | GET_GLOBAL    9 '"str"'
+0018 | GET_LOCAL     3
+0019 | CALL          1 true
+0020 | ADD
+0021 | RETURN

@@ -1,0 +1,21 @@
+#!/bin/env lang3
+
+let word = "lang3"
+println(word[0])
+println(word[4])
+
+let nums = [10, 20, 30, 40]
+println(nums[0])
+println(nums[2])
+
+let i = 1
+println(nums[i + 1])
+
+nums[1] = 25
+nums[3] = nums[1] + 10
+println(nums)
+
+let matrix = [[1, 2], [3, 4]]
+println(matrix)
+println(matrix[0][1])
+println(matrix[1][0])

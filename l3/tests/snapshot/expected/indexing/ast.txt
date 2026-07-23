@@ -1,0 +1,93 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'word'
+▏ ▏ String "lang3"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'word'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'word'
+▏ ▏ ▏ ▏ Number 4
+▏ Declaration Immutable
+▏ ▏ Identifier 'nums'
+▏ ▏ Array
+▏ ▏ ▏ Number 10
+▏ ▏ ▏ Number 20
+▏ ▏ ▏ Number 30
+▏ ▏ ▏ Number 40
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'i'
+▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ OperatorAssignment Assign
+▏ ▏ IndexExpression
+▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ Number 1
+▏ ▏ Number 25
+▏ OperatorAssignment Assign
+▏ ▏ IndexExpression
+▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ Number 3
+▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'nums'
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 10
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'nums'
+▏ Declaration Immutable
+▏ ▏ Identifier 'matrix'
+▏ ▏ Array
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ Number 4
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'matrix'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'matrix'
+▏ ▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'matrix'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 0

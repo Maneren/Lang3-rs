@@ -1,0 +1,36 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (7)
+0001 | CONSTANT      1 (8)
+0002 | CONSTANT      2 (9)
+0003 | MAKE_ARRAY    3
+0004 | GET_GLOBAL    3 '"println"'
+0005 | GET_LOCAL     0
+0006 | CONSTANT      4 (0)
+0007 | GET_INDEX
+0008 | CALL          1 false
+0009 | GET_GLOBAL    3 '"println"'
+0010 | GET_LOCAL     0
+0011 | CONSTANT      5 (2)
+0012 | GET_INDEX
+0013 | CALL          1 false
+0014 | CONSTANT      6 ("xyz")
+0015 | GET_GLOBAL    3 '"println"'
+0016 | GET_LOCAL     1
+0017 | CONSTANT      4 (0)
+0018 | GET_INDEX
+0019 | CALL          1 false
+0020 | GET_GLOBAL    3 '"println"'
+0021 | GET_LOCAL     1
+0022 | CONSTANT      5 (2)
+0023 | GET_INDEX
+0024 | CALL          1 false
+0025 | GET_GLOBAL    3 '"println"'
+0026 | GET_LOCAL     0
+0027 | CONSTANT      7 (3)
+0028 | GET_INDEX
+0029 | CALL          1 false
+0030 | GET_GLOBAL    3 '"println"'
+0031 | CONSTANT      8 ("unreachable")
+0032 | CALL          1 false
+0033 | CONSTANT      9 (nil)
+0034 | RETURN

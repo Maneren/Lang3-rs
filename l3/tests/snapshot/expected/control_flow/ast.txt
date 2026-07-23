@@ -1,0 +1,73 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'a'
+▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'b'
+▏ ▏ Number 5
+▏ IfStatement
+▏ ▏ Condition
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ Block
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "lt"
+▏ ▏ Condition
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ Block
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "eq"
+▏ ▏ Else
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ String "gt"
+▏ Declaration Mutable
+▏ ▏ Identifier 'i'
+▏ ▏ Number 0
+▏ While
+▏ ▏ Condition
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Number 4
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Continue
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Break
+▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ Number 1

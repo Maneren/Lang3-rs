@@ -1,0 +1,51 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (2)
+0001 | CONSTANT      1 (5)
+0002 | GET_LOCAL     0
+0003 | GET_LOCAL     1
+0004 | LESS
+0005 | JUMP_IF      10 false
+0006 | GET_GLOBAL    2 '"println"'
+0007 | CONSTANT      3 ("lt")
+0008 | CALL          1 false
+0009 | JUMP         21
+0010 | GET_LOCAL     0
+0011 | GET_LOCAL     1
+0012 | EQUAL
+0013 | JUMP_IF      18 false
+0014 | GET_GLOBAL    2 '"println"'
+0015 | CONSTANT      4 ("eq")
+0016 | CALL          1 false
+0017 | JUMP         21
+0018 | GET_GLOBAL    2 '"println"'
+0019 | CONSTANT      5 ("gt")
+0020 | CALL          1 false
+0021 | CONSTANT      6 (0)
+0022 | GET_LOCAL     2
+0023 | CONSTANT      7 (4)
+0024 | LESS
+0025 | JUMP_IF      48 false
+0026 | GET_LOCAL     2
+0027 | CONSTANT      8 (1)
+0028 | EQUAL
+0029 | JUMP_IF      35 false
+0030 | GET_LOCAL     2
+0031 | CONSTANT      8 (1)
+0032 | ADD
+0033 | SET_LOCAL     2
+0034 | JUMP         22
+0035 | GET_LOCAL     2
+0036 | CONSTANT      9 (3)
+0037 | EQUAL
+0038 | JUMP_IF      40 false
+0039 | JUMP         48
+0040 | GET_GLOBAL    2 '"println"'
+0041 | GET_LOCAL     2
+0042 | CALL          1 false
+0043 | GET_LOCAL     2
+0044 | CONSTANT      8 (1)
+0045 | ADD
+0046 | SET_LOCAL     2
+0047 | JUMP         22
+0048 | CONSTANT     10 (nil)
+0049 | RETURN

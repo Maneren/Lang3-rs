@@ -1,0 +1,49 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (nil)
+0001 | CONSTANT      2 (function <make_counter>)
+0002 | SET_LOCAL     0
+0003 | GET_LOCAL     0
+0004 | CONSTANT      3 (0)
+0005 | CALL          1 true
+0006 | GET_LOCAL     0
+0007 | CONSTANT      4 (10)
+0008 | CALL          1 true
+0009 | GET_GLOBAL    5 '"println"'
+0010 | GET_LOCAL     1
+0011 | CONSTANT      6 (1)
+0012 | CALL          1 true
+0013 | CALL          1 false
+0014 | GET_GLOBAL    5 '"println"'
+0015 | GET_LOCAL     1
+0016 | CONSTANT      7 (5)
+0017 | CALL          1 true
+0018 | CALL          1 false
+0019 | GET_GLOBAL    5 '"println"'
+0020 | GET_LOCAL     2
+0021 | CONSTANT      8 (2)
+0022 | CALL          1 true
+0023 | CALL          1 false
+0024 | GET_GLOBAL    5 '"println"'
+0025 | GET_LOCAL     1
+0026 | CONSTANT      9 (3)
+0027 | CALL          1 true
+0028 | CALL          1 false
+0029 | GET_GLOBAL    5 '"println"'
+0030 | GET_LOCAL     2
+0031 | CONSTANT      6 (1)
+0032 | CALL          1 true
+0033 | CALL          1 false
+0034 | CONSTANT      0 (nil)
+0035 | RETURN
+== Chunk 1 ==
+0000 | GET_LOCAL     0
+0001 | CLOSURE       1 'function <<anonymous>>'
+0001 |                     local 1
+0002 | RETURN
+== Chunk 2 ==
+0000 | GET_UPVALUE    0
+0001 | GET_LOCAL     0
+0002 | ADD
+0003 | SET_UPVALUE    0
+0004 | GET_UPVALUE    0
+0005 | RETURN

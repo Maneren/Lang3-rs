@@ -1,0 +1,11 @@
+let data = [7, 8, 9]
+println(data[0])
+println(data[2])
+
+let text = "xyz"
+println(text[0])
+println(text[2])
+
+# Out of bounds should raise and stop execution.
+println(data[3])
+println("unreachable")

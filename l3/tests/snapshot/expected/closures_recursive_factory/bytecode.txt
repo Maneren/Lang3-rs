@@ -1,0 +1,55 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (nil)
+0001 | CLOSURE       4 'function <make_power>'
+0001 |                     local 0
+0002 | SET_LOCAL     0
+0003 | GET_LOCAL     0
+0004 | CONSTANT      5 (2)
+0005 | CALL          1 true
+0006 | GET_LOCAL     0
+0007 | CONSTANT      6 (3)
+0008 | CALL          1 true
+0009 | GET_GLOBAL    7 '"println"'
+0010 | GET_LOCAL     1
+0011 | CONSTANT      8 (5)
+0012 | CALL          1 true
+0013 | CALL          1 false
+0014 | GET_GLOBAL    7 '"println"'
+0015 | GET_LOCAL     2
+0016 | CONSTANT      9 (4)
+0017 | CALL          1 true
+0018 | CALL          1 false
+0019 | CONSTANT      0 (nil)
+0020 | RETURN
+== Chunk 1 ==
+0000 | CONSTANT      0 (nil)
+0001 | CLOSURE       3 'function <power>'
+0001 |                     local 0
+0001 |                     upvalue 0
+0002 | SET_LOCAL     1
+0003 | GET_LOCAL     1
+0004 | RETURN
+== Chunk 2 ==
+0000 | GET_UPVALUE    0
+0001 | CONSTANT      1 (0)
+0002 | EQUAL
+0003 | JUMP_IF       6 false
+0004 | CONSTANT      2 (1)
+0005 | RETURN
+0006 | GET_UPVALUE    0
+0007 | CONSTANT      2 (1)
+0008 | EQUAL
+0009 | JUMP_IF      12 false
+0010 | GET_LOCAL     0
+0011 | RETURN
+0012 | GET_UPVALUE    1
+0013 | GET_UPVALUE    0
+0014 | CONSTANT      2 (1)
+0015 | SUBTRACT
+0016 | CALL          1 true
+0017 | GET_LOCAL     0
+0018 | GET_LOCAL     1
+0019 | GET_LOCAL     0
+0020 | CALL          1 true
+0021 | MULTIPLY
+0022 | RETURN

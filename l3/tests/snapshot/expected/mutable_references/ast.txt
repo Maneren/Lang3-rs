@@ -1,0 +1,29 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'set_index'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'arr'
+▏ ▏ ▏ Identifier 'idx'
+▏ ▏ ▏ Identifier 'value'
+▏ ▏ Block
+▏ ▏ ▏ OperatorAssignment Assign
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'arr'
+▏ ▏ ▏ ▏ ▏ Identifier 'idx'
+▏ ▏ ▏ ▏ Identifier 'value'
+▏ Declaration Immutable
+▏ ▏ Identifier 'arr'
+▏ ▏ Array
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 2
+▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'set_index'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'arr'
+▏ ▏ ▏ Number 0
+▏ ▏ ▏ Number 99
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'arr'

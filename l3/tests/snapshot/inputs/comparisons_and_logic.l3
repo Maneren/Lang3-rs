@@ -1,0 +1,15 @@
+let a = 5
+let b = 8
+let c = 8
+
+println(0 < a < b)
+println(a == b)
+println(b == c)
+println(not (a == b) and (b == c or a > b))
+
+let message = if a < b then
+  return "ok"
+else
+  return "bad"
+end
+println(message)

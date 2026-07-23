@@ -1,0 +1,43 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (0)
+0001 | CONSTANT      0 (0)
+0002 | CONSTANT      1 (6)
+0003 | CONSTANT      2 (2)
+0004 | GET_LOCAL     1
+0005 | GET_LOCAL     3
+0006 | SUBTRACT
+0007 | SET_LOCAL     1
+0008 | JUMP         15
+0009 | GET_LOCAL     1
+0010 | GET_LOCAL     0
+0011 | GET_LOCAL     4
+0012 | ADD
+0013 | SET_LOCAL     0
+0014 | POP           1
+0015 | FOR_LOOP   ctrl=   1 lim=   2 body=   9 LE step=   3
+0016 | POP           3
+0017 | GET_GLOBAL    3 '"println"'
+0018 | GET_LOCAL     0
+0019 | CALL          1 false
+0020 | CONSTANT      0 (0)
+0021 | CONSTANT      4 (1)
+0022 | CONSTANT      1 (6)
+0023 | CONSTANT      4 (1)
+0024 | GET_LOCAL     2
+0025 | GET_LOCAL     4
+0026 | SUBTRACT
+0027 | SET_LOCAL     2
+0028 | JUMP         35
+0029 | GET_LOCAL     2
+0030 | GET_LOCAL     1
+0031 | GET_LOCAL     5
+0032 | ADD
+0033 | SET_LOCAL     1
+0034 | POP           1
+0035 | FOR_LOOP   ctrl=   2 lim=   3 body=  29 LT step=   4
+0036 | POP           3
+0037 | GET_GLOBAL    3 '"println"'
+0038 | GET_LOCAL     1
+0039 | CALL          1 false
+0040 | CONSTANT      5 (nil)
+0041 | RETURN

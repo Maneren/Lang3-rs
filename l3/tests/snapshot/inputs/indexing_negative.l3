@@ -1,0 +1,6 @@
+let values = [1, 2, 3]
+println(values[0])
+
+# Negative index currently surfaces as runtime error.
+println(values[-1])
+println("unreachable")

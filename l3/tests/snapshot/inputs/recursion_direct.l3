@@ -1,0 +1,18 @@
+fn factorial(n)
+  if n == 0 then
+    return 1
+  end
+
+  return n * factorial(n - 1)
+end
+
+fn fib(n)
+  if n < 2 then
+    return n
+  end
+
+  return fib(n - 1) + fib(n - 2)
+end
+
+println(factorial(6))
+println(fib(10))

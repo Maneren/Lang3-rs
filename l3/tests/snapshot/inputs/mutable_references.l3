@@ -1,0 +1,7 @@
+fn set_index(arr, idx, value)
+  arr[idx] = value
+end
+
+let arr = [1, 2, 3]
+set_index(arr, 0, 99)
+println(arr)

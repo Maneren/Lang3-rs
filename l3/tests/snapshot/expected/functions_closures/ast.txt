@@ -1,0 +1,70 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'add'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ Identifier 'b'
+▏ ▏ Block
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ NamedFunction
+▏ ▏ Identifier 'curry_add'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'a'
+▏ ▏ Block
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ AnonymousFunction
+▏ ▏ ▏ ▏ ▏ ▏ Parameters
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ Declaration Immutable
+▏ ▏ Identifier 'add_five'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'curry_add'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 5
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'add'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'add_five'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 7
+▏ Declaration Mutable
+▏ ▏ Identifier 'sum'
+▏ ▏ Number 0
+▏ ForLoop (Immutable)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'n'
+▏ ▏ Collection
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ Number 4
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'sum'

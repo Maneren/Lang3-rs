@@ -1,0 +1,76 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'make_power'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'exponent'
+▏ ▏ Block
+▏ ▏ ▏ NamedFunction
+▏ ▏ ▏ ▏ Identifier 'power'
+▏ ▏ ▏ ▏ Parameters
+▏ ▏ ▏ ▏ ▏ Identifier 'base'
+▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'exponent'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'exponent'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'base'
+▏ ▏ ▏ ▏ ▏ Declaration Immutable
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'prev'
+▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'make_power'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'exponent'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Multiply
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'base'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'prev'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'base'
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ Identifier 'power'
+▏ Declaration Immutable
+▏ ▏ Identifier 'square'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'make_power'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'cube'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'make_power'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'square'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 5
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'cube'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 4

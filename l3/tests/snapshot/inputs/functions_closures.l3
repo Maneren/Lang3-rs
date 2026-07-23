@@ -1,0 +1,19 @@
+fn add(a, b)
+  return a + b
+end
+
+fn curry_add(a)
+  return fn(b)
+    return a + b
+  end
+end
+
+let add_five = curry_add(5)
+println(add(2, 3))
+println(add_five(7))
+
+let mut sum = 0
+for n in [1, 2, 3, 4] do
+  sum += n
+end
+println(sum)

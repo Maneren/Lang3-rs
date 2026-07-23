@@ -1,0 +1,32 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'nested'
+▏ ▏ Array
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ Number 4
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ Identifier 'nested'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'nested'
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ String "unreachable"

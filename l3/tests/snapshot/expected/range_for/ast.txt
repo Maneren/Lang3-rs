@@ -1,0 +1,41 @@
+Block
+▏ Declaration Mutable
+▏ ▏ Identifier 'inclusive_sum'
+▏ ▏ Number 0
+▏ RangeForLoop (Immutable, Inclusive)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'i'
+▏ ▏ Start
+▏ ▏ ▏ Number 0
+▏ ▏ End
+▏ ▏ ▏ Number 6
+▏ ▏ Step
+▏ ▏ ▏ Number 2
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'inclusive_sum'
+▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'inclusive_sum'
+▏ Declaration Mutable
+▏ ▏ Identifier 'exclusive_sum'
+▏ ▏ Number 0
+▏ RangeForLoop (Immutable, Exclusive)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'j'
+▏ ▏ Start
+▏ ▏ ▏ Number 1
+▏ ▏ End
+▏ ▏ ▏ Number 6
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'exclusive_sum'
+▏ ▏ ▏ ▏ ▏ Identifier 'j'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'exclusive_sum'

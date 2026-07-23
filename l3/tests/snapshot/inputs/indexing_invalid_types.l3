@@ -1,0 +1,8 @@
+let xs = [10, 20, 30]
+let key = "1"
+
+println(xs[0])
+
+# String index for vector should fail.
+println(xs[key])
+println("unreachable")

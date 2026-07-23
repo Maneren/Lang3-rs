@@ -1,0 +1,38 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'x'
+▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ BinaryExpression Multiply
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ Number 3
+▏ Declaration Immutable
+▏ ▏ Identifier 'y'
+▏ ▏ BinaryExpression Divide
+▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ Identifier 'x'
+▏ ▏ ▏ ▏ Number 10
+▏ ▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'z'
+▏ ▏ Float 42
+▏ Declaration Immutable
+▏ ▏ Identifier 'w'
+▏ ▏ Float 3.14
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'x'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'y'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'z'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'w'

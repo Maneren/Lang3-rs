@@ -1,0 +1,68 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'make_counter'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'start'
+▏ ▏ Block
+▏ ▏ ▏ Declaration Mutable
+▏ ▏ ▏ ▏ Identifier 'value'
+▏ ▏ ▏ ▏ Identifier 'start'
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ AnonymousFunction
+▏ ▏ ▏ ▏ ▏ ▏ Parameters
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'delta'
+▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'value'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'delta'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'value'
+▏ Declaration Immutable
+▏ ▏ Identifier 'c1'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'make_counter'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 0
+▏ Declaration Immutable
+▏ ▏ Identifier 'c2'
+▏ ▏ FunctionCall
+▏ ▏ ▏ Identifier 'make_counter'
+▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ Number 10
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'c1'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'c1'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 5
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'c2'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'c1'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'c2'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 1

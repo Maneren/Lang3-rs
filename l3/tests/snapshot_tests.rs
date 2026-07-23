@@ -1,13 +1,9 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn snapshot_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("Lang3/test/snapshot")
+    println!("cwd: {}", std::env::current_dir().unwrap().display());
+    PathBuf::from("tests").join("snapshot")
 }
 
 fn input_files() -> Vec<PathBuf> {
@@ -15,7 +11,7 @@ fn input_files() -> Vec<PathBuf> {
     let mut files: Vec<_> = fs::read_dir(&inputs_dir)
         .expect("snapshot inputs directory not found")
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "l3"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "l3"))
         .map(|e| e.path())
         .collect();
     files.sort();
@@ -23,7 +19,10 @@ fn input_files() -> Vec<PathBuf> {
 }
 
 fn expected_lines(name: &str) -> Vec<String> {
-    let path = snapshot_dir().join("expected").join(name).join("output.txt");
+    let path = snapshot_dir()
+        .join("expected")
+        .join(name)
+        .join("output.txt");
     let content = fs::read_to_string(&path).unwrap_or_default();
     content.lines().map(|l| l.to_string()).collect()
 }
@@ -94,7 +93,7 @@ fn all_snapshots() {
             let source = fs::read_to_string(&input).unwrap();
             println!("--- {} ---", name);
 
-            let result = l3::run_pipeline(&source, &input.to_str().unwrap());
+            let result = l3::run_pipeline(&source, input.to_str().unwrap());
             match result {
                 Ok(actual) => {
                     let expected = expected_lines(&name);
@@ -119,9 +118,6 @@ fn all_snapshots() {
         .collect();
 
     if !failures.is_empty() {
-        panic!(
-            "\n\nSnapshot failures:\n{}\n",
-            failures.join("\n---\n")
-        );
+        panic!("\n\nSnapshot failures:\n{}\n", failures.join("\n---\n"));
     }
 }

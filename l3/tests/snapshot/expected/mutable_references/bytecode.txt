@@ -1,0 +1,25 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (nil)
+0001 | CONSTANT      1 (function <set_index>)
+0002 | SET_LOCAL     0
+0003 | CONSTANT      2 (1)
+0004 | CONSTANT      3 (2)
+0005 | CONSTANT      4 (3)
+0006 | MAKE_ARRAY    3
+0007 | GET_LOCAL     0
+0008 | GET_LOCAL     1
+0009 | CONSTANT      5 (0)
+0010 | CONSTANT      6 (99)
+0011 | CALL          3 false
+0012 | GET_GLOBAL    7 '"println"'
+0013 | GET_LOCAL     1
+0014 | CALL          1 false
+0015 | CONSTANT      0 (nil)
+0016 | RETURN
+== Chunk 1 ==
+0000 | GET_LOCAL     0
+0001 | GET_LOCAL     1
+0002 | GET_LOCAL     2
+0003 | SET_INDEX
+0004 | CONSTANT      0 (nil)
+0005 | RETURN

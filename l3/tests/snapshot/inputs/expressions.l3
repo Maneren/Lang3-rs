@@ -1,0 +1,9 @@
+let x = 1 + 2 * -3
+let y = (x + 10) / 2
+let z = 42.
+let w = 3.14
+
+println(x)
+println(y)
+println(z)
+println(w)

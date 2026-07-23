@@ -1,0 +1,44 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'data'
+▏ ▏ Array
+▏ ▏ ▏ Number 7
+▏ ▏ ▏ Number 8
+▏ ▏ ▏ Number 9
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'data'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'data'
+▏ ▏ ▏ ▏ Number 2
+▏ Declaration Immutable
+▏ ▏ Identifier 'text'
+▏ ▏ String "xyz"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'text'
+▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'text'
+▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ IndexExpression
+▏ ▏ ▏ ▏ Identifier 'data'
+▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ String "unreachable"

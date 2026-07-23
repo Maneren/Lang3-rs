@@ -1,0 +1,76 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 ("lang3")
+0001 | GET_GLOBAL    1 '"println"'
+0002 | GET_LOCAL     0
+0003 | CONSTANT      2 (0)
+0004 | GET_INDEX
+0005 | CALL          1 false
+0006 | GET_GLOBAL    1 '"println"'
+0007 | GET_LOCAL     0
+0008 | CONSTANT      3 (4)
+0009 | GET_INDEX
+0010 | CALL          1 false
+0011 | CONSTANT      4 (10)
+0012 | CONSTANT      5 (20)
+0013 | CONSTANT      6 (30)
+0014 | CONSTANT      7 (40)
+0015 | MAKE_ARRAY    4
+0016 | GET_GLOBAL    1 '"println"'
+0017 | GET_LOCAL     1
+0018 | CONSTANT      2 (0)
+0019 | GET_INDEX
+0020 | CALL          1 false
+0021 | GET_GLOBAL    1 '"println"'
+0022 | GET_LOCAL     1
+0023 | CONSTANT      8 (2)
+0024 | GET_INDEX
+0025 | CALL          1 false
+0026 | CONSTANT      9 (1)
+0027 | GET_GLOBAL    1 '"println"'
+0028 | GET_LOCAL     1
+0029 | GET_LOCAL     2
+0030 | CONSTANT      9 (1)
+0031 | ADD
+0032 | GET_INDEX
+0033 | CALL          1 false
+0034 | GET_LOCAL     1
+0035 | CONSTANT      9 (1)
+0036 | CONSTANT     10 (25)
+0037 | SET_INDEX
+0038 | GET_LOCAL     1
+0039 | CONSTANT     11 (3)
+0040 | GET_LOCAL     1
+0041 | CONSTANT      9 (1)
+0042 | GET_INDEX
+0043 | CONSTANT      4 (10)
+0044 | ADD
+0045 | SET_INDEX
+0046 | GET_GLOBAL    1 '"println"'
+0047 | GET_LOCAL     1
+0048 | CALL          1 false
+0049 | CONSTANT      9 (1)
+0050 | CONSTANT      8 (2)
+0051 | MAKE_ARRAY    2
+0052 | CONSTANT     11 (3)
+0053 | CONSTANT      3 (4)
+0054 | MAKE_ARRAY    2
+0055 | MAKE_ARRAY    2
+0056 | GET_GLOBAL    1 '"println"'
+0057 | GET_LOCAL     3
+0058 | CALL          1 false
+0059 | GET_GLOBAL    1 '"println"'
+0060 | GET_LOCAL     3
+0061 | CONSTANT      2 (0)
+0062 | GET_INDEX
+0063 | CONSTANT      9 (1)
+0064 | GET_INDEX
+0065 | CALL          1 false
+0066 | GET_GLOBAL    1 '"println"'
+0067 | GET_LOCAL     3
+0068 | CONSTANT      9 (1)
+0069 | GET_INDEX
+0070 | CONSTANT      2 (0)
+0071 | GET_INDEX
+0072 | CALL          1 false
+0073 | CONSTANT     12 (nil)
+0074 | RETURN

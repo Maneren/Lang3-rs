@@ -1,0 +1,72 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'a'
+▏ ▏ Number 5
+▏ Declaration Immutable
+▏ ▏ Identifier 'b'
+▏ ▏ Number 8
+▏ Declaration Immutable
+▏ ▏ Identifier 'c'
+▏ ▏ Number 8
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 'c'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ LogicalExpression And
+▏ ▏ ▏ ▏ UnaryExpression Not
+▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ LogicalExpression Or
+▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'c'
+▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ Greater
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ Declaration Immutable
+▏ ▏ Identifier 'message'
+▏ ▏ IfExpression
+▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'b'
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ String "ok"
+▏ ▏ ▏ Else
+▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ String "bad"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'message'

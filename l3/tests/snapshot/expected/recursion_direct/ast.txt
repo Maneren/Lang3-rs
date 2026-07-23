@@ -1,0 +1,70 @@
+Block
+▏ NamedFunction
+▏ ▏ Identifier 'factorial'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'n'
+▏ ▏ Block
+▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ BinaryExpression Multiply
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'factorial'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ NamedFunction
+▏ ▏ Identifier 'fib'
+▏ ▏ Parameters
+▏ ▏ ▏ Identifier 'n'
+▏ ▏ Block
+▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ Return
+▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'fib'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'fib'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'factorial'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 6
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'fib'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Number 10
