@@ -120,12 +120,11 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             Ok(StackValue::Primitive(Primitive::Integer(i64::from(*b))))
                         }
                         StackValue::Heap(key) => {
-                            if let Some(cell) = heap.cells.get(*key) {
-                                if let Some(s) = cell.value.as_string() {
-                                    if let Ok(n) = s.parse::<i64>() {
-                                        return Ok(StackValue::Primitive(Primitive::Integer(n)));
-                                    }
-                                }
+                            if let Some(cell) = heap.cells.get(*key)
+                                && let Some(s) = cell.value.as_string()
+                                && let Ok(n) = s.parse::<i64>()
+                            {
+                                return Ok(StackValue::Primitive(Primitive::Integer(n)));
                             }
                             Ok(StackValue::Primitive(Primitive::Integer(0)))
                         }
@@ -344,7 +343,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             _ => {
                                 return Err(RuntimeError::type_error(
                                     "range requires integer arguments",
-                                ))
+                                ));
                             }
                         }
                     };
@@ -354,7 +353,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             _ => {
                                 return Err(RuntimeError::type_error(
                                     "range requires integer arguments",
-                                ))
+                                ));
                             }
                         }
                     } else {
@@ -366,7 +365,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             _ => {
                                 return Err(RuntimeError::type_error(
                                     "range requires non-zero integer step",
-                                ))
+                                ));
                             }
                         }
                     } else {
@@ -419,7 +418,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                         _ => {
                             return Err(RuntimeError::type_error(
                                 "map requires a function as first argument",
-                            ))
+                            ));
                         }
                     };
                     let vec_sv = &args[1];
@@ -440,7 +439,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                         _ => {
                             return Err(RuntimeError::type_error(
                                 "map requires a vector as second argument",
-                            ))
+                            ));
                         }
                     };
                     match func_data {
@@ -480,7 +479,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                         _ => {
                             return Err(RuntimeError::type_error(
                                 "count requires a function as first argument",
-                            ))
+                            ));
                         }
                     };
                     let vec_sv = &args[1];
@@ -501,7 +500,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                         _ => {
                             return Err(RuntimeError::type_error(
                                 "count requires a vector as second argument",
-                            ))
+                            ));
                         }
                     };
                     match func_data {
@@ -539,7 +538,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             _ => {
                                 return Err(RuntimeError::type_error(
                                     "random requires a positive integer argument",
-                                ))
+                                ));
                             }
                         }
                     };
@@ -580,7 +579,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                             _ => {
                                 return Err(RuntimeError::type_error(
                                     "sleep requires a non-negative integer argument",
-                                ))
+                                ));
                             }
                         }
                     };
@@ -598,19 +597,18 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                     }
                     let mut total: f64 = 0.0;
                     let mut is_int = true;
-                    if let StackValue::Heap(key) = &args[0] {
-                        if let Some(cell) = heap.cells.get(*key) {
-                            if let HeapData::Vector(v) = &cell.value {
-                                for sv in v {
-                                    match sv.as_primitive() {
-                                        Some(Primitive::Integer(i)) => total += i as f64,
-                                        Some(Primitive::Double(f)) => {
-                                            total += f;
-                                            is_int = false;
-                                        }
-                                        _ => {}
-                                    }
+                    if let StackValue::Heap(key) = &args[0]
+                        && let Some(cell) = heap.cells.get(*key)
+                        && let HeapData::Vector(v) = &cell.value
+                    {
+                        for sv in v {
+                            match sv.as_primitive() {
+                                Some(Primitive::Integer(i)) => total += i as f64,
+                                Some(Primitive::Double(f)) => {
+                                    total += f;
+                                    is_int = false;
                                 }
+                                _ => {}
                             }
                         }
                     }

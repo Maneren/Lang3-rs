@@ -36,7 +36,6 @@ pub fn unescape_string(s: &str) -> String {
             match chars.next() {
                 Some('n') => result.push('\n'),
                 Some('t') => result.push('\t'),
-                Some('\\') => result.push('\\'),
                 Some('"') => result.push('"'),
                 Some('x') => {
                     let hex: String = chars.by_ref().take(2).collect();
@@ -44,8 +43,8 @@ pub fn unescape_string(s: &str) -> String {
                         result.push(code as char);
                     }
                 }
+                Some('\\') | None => result.push('\\'),
                 Some(c) => result.push(c),
-                None => result.push('\\'),
             }
         } else {
             result.push(c);

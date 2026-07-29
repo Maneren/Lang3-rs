@@ -42,12 +42,11 @@ impl HeapCell {
                     mark_stack_value(arg, heap);
                 }
                 for uv in &bc.captured_upvalues {
-                    if let Ok(uv) = uv.try_borrow() {
-                        if let Some(key) = uv.value.get_heap_key() {
-                            if let Some(cell) = heap.get(key) {
-                                cell.mark(heap);
-                            }
-                        }
+                    if let Ok(uv) = uv.try_borrow()
+                        && let Some(key) = uv.value.get_heap_key()
+                        && let Some(cell) = heap.get(key)
+                    {
+                        cell.mark(heap);
                     }
                 }
             }
@@ -57,10 +56,10 @@ impl HeapCell {
 }
 
 fn mark_stack_value(sv: &StackValue, heap: &SlotMap<DefaultKey, HeapCell>) {
-    if let StackValue::Heap(key) = sv {
-        if let Some(cell) = heap.get(*key) {
-            cell.mark(heap);
-        }
+    if let StackValue::Heap(key) = sv
+        && let Some(cell) = heap.get(*key)
+    {
+        cell.mark(heap);
     }
 }
 

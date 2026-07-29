@@ -55,62 +55,62 @@ impl<'input> Iterator for Lexer<'input> {
         let remaining = &self.input[self.pos..];
 
         // Identifiers and keywords
-        if let Some(c) = remaining.chars().next() {
-            if is_ident_start(c) {
-                self.pos += c.len_utf8();
-                while self.pos < self.input.len() {
-                    let c = self.input[self.pos..].chars().next().unwrap();
-                    if is_ident_continue(c) {
-                        self.pos += c.len_utf8();
-                    } else {
-                        break;
-                    }
+        if let Some(c) = remaining.chars().next()
+            && is_ident_start(c)
+        {
+            self.pos += c.len_utf8();
+            while self.pos < self.input.len() {
+                let c = self.input[self.pos..].chars().next().unwrap();
+                if is_ident_continue(c) {
+                    self.pos += c.len_utf8();
+                } else {
+                    break;
                 }
-                let word = &self.input[start..self.pos];
-                let token = match word {
-                    "if" => Token::If,
-                    "else" => Token::Else,
-                    "elif" => Token::Elif,
-                    "then" => Token::Then,
-                    "end" => Token::End,
-                    "while" => Token::While,
-                    "do" => Token::Do,
-                    "for" => Token::For,
-                    "in" => Token::In,
-                    "step" => Token::Step,
-                    "return" => Token::Return,
-                    "break" => Token::Break,
-                    "continue" => Token::Continue,
-                    "fn" => Token::Fn,
-                    "let" => Token::Let,
-                    "mut" => Token::Mut,
-                    "true" => Token::True,
-                    "false" => Token::False,
-                    "nil" => Token::Nil,
-                    "not" => Token::Not,
-                    "and" => Token::And,
-                    "or" => Token::Or,
-                    _ => Token::Ident(word),
-                };
-                return Some(Ok((start, token, self.pos)));
             }
+            let word = &self.input[start..self.pos];
+            let token = match word {
+                "if" => Token::If,
+                "else" => Token::Else,
+                "elif" => Token::Elif,
+                "then" => Token::Then,
+                "end" => Token::End,
+                "while" => Token::While,
+                "do" => Token::Do,
+                "for" => Token::For,
+                "in" => Token::In,
+                "step" => Token::Step,
+                "return" => Token::Return,
+                "break" => Token::Break,
+                "continue" => Token::Continue,
+                "fn" => Token::Fn,
+                "let" => Token::Let,
+                "mut" => Token::Mut,
+                "true" => Token::True,
+                "false" => Token::False,
+                "nil" => Token::Nil,
+                "not" => Token::Not,
+                "and" => Token::And,
+                "or" => Token::Or,
+                _ => Token::Ident(word),
+            };
+            return Some(Ok((start, token, self.pos)));
         }
 
         // Numbers
-        if let Some(c) = remaining.chars().next() {
-            if c.is_ascii_digit() {
-                self.pos += c.len_utf8();
-                while self.pos < self.input.len() {
-                    let c = self.input[self.pos..].chars().next().unwrap();
-                    if c.is_ascii_digit() {
-                        self.pos += c.len_utf8();
-                    } else {
-                        break;
-                    }
+        if let Some(c) = remaining.chars().next()
+            && c.is_ascii_digit()
+        {
+            self.pos += c.len_utf8();
+            while self.pos < self.input.len() {
+                let c = self.input[self.pos..].chars().next().unwrap();
+                if c.is_ascii_digit() {
+                    self.pos += c.len_utf8();
+                } else {
+                    break;
                 }
-                let num: i64 = self.input[start..self.pos].parse().unwrap();
-                return Some(Ok((start, Token::Number(num), self.pos)));
             }
+            let num: i64 = self.input[start..self.pos].parse().unwrap();
+            return Some(Ok((start, Token::Number(num), self.pos)));
         }
 
         // Strings

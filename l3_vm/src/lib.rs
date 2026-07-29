@@ -637,9 +637,9 @@ fn mark_stack_value(
     sv: &StackValue,
     cells: &slotmap::SlotMap<slotmap::DefaultKey, l3_runtime::HeapCell>,
 ) {
-    if let StackValue::Heap(key) = sv {
-        if let Some(cell) = cells.get(*key) {
-            cell.mark(cells);
-        }
+    if let StackValue::Heap(key) = sv
+        && let Some(cell) = cells.get(*key)
+    {
+        cell.mark(cells);
     }
 }

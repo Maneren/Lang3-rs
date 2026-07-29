@@ -132,12 +132,11 @@ impl Compiler {
         // Check if this context already captures the given name from the outer context
         let cur = self.contexts.last().unwrap();
         for (j, existing) in cur.upvalues.iter().enumerate() {
-            if existing.is_local {
-                if let Some(l) = self.contexts[outer_idx].locals.get(existing.index) {
-                    if l.name == name {
-                        return Some(j);
-                    }
-                }
+            if existing.is_local
+                && let Some(l) = self.contexts[outer_idx].locals.get(existing.index)
+                && l.name == name
+            {
+                return Some(j);
             }
         }
         let outer = &self.contexts[outer_idx];
