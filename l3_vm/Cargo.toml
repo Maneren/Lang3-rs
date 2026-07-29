@@ -1,7 +1,7 @@
 [package]
 name = "l3_vm"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [lints]
 workspace = true
@@ -11,4 +11,4 @@ l3_bytecode = { path = "../l3_bytecode" }
 l3_runtime = { path = "../l3_runtime" }
 l3_ast = { path = "../l3_ast" }
 l3_location = { path = "../l3_location" }
-slotmap = "1.0"
+slotmap.workspace = true

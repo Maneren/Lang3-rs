@@ -1,15 +1,15 @@
 [package]
 name = "l3_parser"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [lints]
 workspace = true
 
-[build-dependencies]
-lalrpop = "0.23"
-
 [dependencies]
-lalrpop-util = "0.23"
 l3_ast = { path = "../l3_ast" }
 l3_location = { path = "../l3_location" }
+lalrpop-util.workspace = true
+
+[build-dependencies]
+lalrpop.workspace = true

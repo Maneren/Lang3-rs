@@ -1,13 +1,13 @@
 [package]
 name = "l3"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
+clap.workspace = true
 l3_cli = { path = "../l3_cli" }
 l3_parser = { path = "../l3_parser" }
 l3_compiler = { path = "../l3_compiler" }
