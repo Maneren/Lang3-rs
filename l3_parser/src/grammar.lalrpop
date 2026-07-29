@@ -1,0 +1,833 @@
+// ---------------------------------------------------------------------------
+// L3 Language Grammar (LALRPOP)
+//
+// This is a declarative LR(1) grammar replacing the hand-written recursive
+// descent parser. It mirrors the original C++ Bison grammar at
+// Lang3/src/parser/src/parser.y but uses LALRPOP's native support for
+// Vec<T> (*, +) and Option<T> (?) to eliminate boilerplate list-building.
+//
+// Design decisions and deviations from the Bison original are documented
+// inline. Language semantics roughly match Lua (dynamic typing, nil,
+// first-class functions), Python (chained comparisons, significant
+// indentation replaced by keywords), and C (operator precedence, short-
+// circuit evaluation).
+// ---------------------------------------------------------------------------
+
+use l3_ast::*;
+use l3_location::Location;
+use crate::token::Token;
+use crate::loc_util::*;
+
+// ---------------------------------------------------------------------------
+// Grammar declaration
+//
+// Parameters:
+//   source   — the full source text (for byte-offset → line/col conversion)
+//   filename — the source file path (embedded in Location for diagnostics)
+//
+// Lifetime 'input ties the source reference and string token borrows
+// (&'input str for Ident and Str variants) together.
+// ---------------------------------------------------------------------------
+grammar<'input>(source: &'input str, filename: &'input str);
+
+// ---------------------------------------------------------------------------
+// External token declaration
+//
+// Maps LALRPOP terminal names (the quoted strings) to our existing
+// Token<'input> enum variants. The left-hand strings serve as:
+//   1. Terminal names in grammar productions (e.g., "if", "+")
+//   2. Display strings in parse-error messages
+//
+// Tokens carrying data use angle brackets for the carried type:
+//   "num"   => Token::Number(<i64>)
+//   "str"   => Token::Str(<&'input str>)
+//   "ident" => Token::Ident(<&'input str>)
+//
+// The actual lexing is done by the external hand-written Lexer which
+// yields Result<(usize, Token<'input>, usize), &'static str>. LALRPOP
+// never sees the lexer's regex patterns; it only pattern-matches the
+// Token enum variants. The extern block only provides display names
+// and type info for code generation.
+// ---------------------------------------------------------------------------
+extern {
+    type Location = usize;
+    type Error = &'static str;
+    enum Token<'input> {
+        // Keywords
+        "if" => Token::If,
+        "else" => Token::Else,
+        "elif" => Token::Elif,
+        "then" => Token::Then,
+        "end" => Token::End,
+        "while" => Token::While,
+        "do" => Token::Do,
+        "for" => Token::For,
+        "in" => Token::In,
+        "step" => Token::Step,
+        "return" => Token::Return,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        "fn" => Token::Fn,
+        "let" => Token::Let,
+        "mut" => Token::Mut,
+        "true" => Token::True,
+        "false" => Token::False,
+        "nil" => Token::Nil,
+        "not" => Token::Not,
+        "and" => Token::And,
+        "or" => Token::Or,
+
+        // Punctuation
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+        "{" => Token::LBrace,
+        "}" => Token::RBrace,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
+        "," => Token::Comma,
+        ";" => Token::Semi,
+        "." => Token::Dot,
+
+        // Arithmetic operators
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        "/" => Token::Slash,
+        "%" => Token::Percent,
+        "^" => Token::Caret,
+
+        // Range operators (single tokens in the lexer)
+        ".." => Token::DotDot,
+        "..=" => Token::DotDotEqual,
+
+        // String concatenation (defined in lexer but MISSING from the
+        // current Rust recursive-descent parser — this grammar adds it)
+        "~" => Token::Concat,
+
+        // Comparison operators
+        "==" => Token::EqualEqual,
+        "!=" => Token::NotEqual,
+        "<" => Token::Less,
+        "<=" => Token::LessEqual,
+        ">" => Token::Greater,
+        ">=" => Token::GreaterEqual,
+
+        // Assignment operators
+        "=" => Token::Equal,
+        "+=" => Token::PlusEqual,
+        "-=" => Token::MinusEqual,
+        "*=" => Token::StarEqual,
+        "/=" => Token::SlashEqual,
+        "%=" => Token::PercentEqual,
+        "^=" => Token::CaretEqual,
+
+        // Literal tokens with data
+        "num" => Token::Number(<i64>),
+        "str" => Token::Str(<&'input str>),
+        "ident" => Token::Ident(<&'input str>),
+    }
+}
+
+// ===========================================================================
+// PRECEDENCE & ASSOCIATIVITY
+//
+// Precedence is enforced by the nonterminal hierarchy (OrExpr, AndExpr,
+// CmpBase, AddExpr, MulExpr, PowExpr, UnaryExpr, Primary). Each level
+// corresponds to one nonterminal.
+//
+// Level | Associativity | Operators          | Bison equivalent
+// ------+---------------+--------------------+-------------------
+//   7   | left          | or                 | or
+//   6   | left          | and                | and
+//   5   | right         | == != < <= > >=    | == != < <= > >=
+//   4   | left          | + - ~              | + - ~ (concat)
+//   3   | left          | * / %              | * / %
+//   2   | right         | ^                  | ^
+//   1   | (prefix)      | + - not (unary)    | unary
+//   0   | —             | atoms / calls      | primary
+//
+// DESIGN DECISION (comparison associativity):
+//   We use `#[precedence]` only on CmpBase alternatives to make
+//   comparisons right-associative in the shift/reduce sense. On equal
+//   precedence, right-assoc → SHIFT (extend the chain) rather than
+//   REDUCE (end it). This lets the chain production fire repeatedly,
+//   collecting all operands into a single Comparison node.
+//
+//   The action code builds a flat chained Comparison (1 < x < 5) instead
+//   of a nested tree ((1 < x) < 5). This matches Python semantics and
+//   avoids the (syntactically valid but semantically wrong) nested form.
+//
+// DESIGN DECISION (not / unary precedence):
+//   We place unary operators (including not) ABOVE comparisons (level 1).
+//   This differs from the Bison grammar where not is BELOW comparisons.
+//   Rationale: matches C's `!a < b` ≡ `(!a) < b` and Rust's `!a < b`.
+//   Users must write `not (a < b)` to negate a comparison.
+//
+//   LUA NOTE: Lua's `not` binds more loosely than comparisons, making
+//   `not a < b` ≡ `not (a < b)`. We deliberately deviate from Lua here
+//   to align with C/Rust convention.
+// ===========================================================================
+
+// ===========================================================================
+// GRAMMAR PRODUCTIONS
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Top-level: Program
+// ---------------------------------------------------------------------------
+pub Program: Program = {
+    <b:Block> => b,
+};
+
+// ---------------------------------------------------------------------------
+// Block
+//
+// Mimics the Bison grammar: at least one Statement (optionally followed by
+// ";") or a LastStatement. The empty-block case is handled by the caller
+// using `Block?` (Option<Block>), which avoids the LR conflicts that
+// `Block → ε` would create (FOLLOW(Block) overlaps with FIRST(Statement)).
+//
+// StatementOptionalSemi:  STATEMENT | STATEMENT semi
+// Block:  StatementOptionalSemi | StatementOptionalSemi Block | LastStatement
+// ---------------------------------------------------------------------------
+// Internal — wraps Statement with optional ";"
+StatementSemi: Statement = {
+    <s:Statement> => s,
+    <s:Statement> ";" => s,
+};
+
+Block: Block = {
+    <s:StatementSemi> => Block::default().with_statement(s),
+    <s:StatementSemi> <rest:Block> => {
+        let mut block = Block::default();
+        block.statements.push(s);
+        block.statements.extend(rest.statements);
+        block.last_statement = rest.last_statement;
+        block
+    },
+    <last:LastStatement> => Block::default().with_last(last),
+};
+
+// ---------------------------------------------------------------------------
+// LastStatement
+// return [expr], break, continue
+//
+// DESIGN DECISION (bare return):
+//   `return` alone evaluates to nil, matching Lua semantics. In C
+//   this is UB (in non-void functions); Python raises SyntaxError
+//   outside a function. We follow Lua's permissive approach.
+// ---------------------------------------------------------------------------
+LastStatement: LastStatement = {
+    <l:@L> "return" <e:Expr> <r:@R> => {
+        LastStatement::Return(ReturnStatement::new(Some(*e), make_loc(l, r, source, filename)))
+    },
+    <l:@L> "return" <r:@R> => {
+        LastStatement::Return(ReturnStatement::new(None, make_loc(l, r, source, filename)))
+    },
+    <l:@L> "break" <r:@R> => {
+        LastStatement::Break(BreakStatement::new(make_loc(l, r, source, filename)))
+    },
+    <l:@L> "continue" <r:@R> => {
+        LastStatement::Continue(ContinueStatement::new(make_loc(l, r, source, filename)))
+    },
+};
+
+// ===========================================================================
+// STATEMENTS
+// ===========================================================================
+
+Statement: Statement = {
+    Declaration,
+    AssignmentOrCall,
+    IfStatement,
+    WhileLoop,
+    ForLoop,
+    NamedFunctionDef,
+};
+
+// ---------------------------------------------------------------------------
+// Declaration: let [mut] name [, name]* [= expr]
+//
+// DESIGN DECISION (multi-binding):
+//   `let a, b = expr` binds both a and b to the same expr value.
+//   This is NOT destructuring — it's a simple "bind to multiple names"
+//   matching the Bison grammar. Python uses `a = b = expr` for this;
+//   Lua has no equivalent.
+//
+// DESIGN DECISION (no initializer → nil):
+//   `let x` initializes x to nil. This matches Lua's default-nil
+//   semantics for uninitialized variables.
+// ---------------------------------------------------------------------------
+Declaration: Statement = {
+    <l:@L> "let" <m:Mutability> <names:NameList> <init:InitExpr?> <r:@R> => {
+        Statement::Declaration(Declaration::new(
+            names, init, m,
+            make_loc(l, r, source, filename),
+        ))
+    },
+};
+
+Mutability: Mutability = {
+    "mut" => Mutability::Mutable,
+    => Mutability::Immutable,
+};
+
+// NameList: ident (, ident)*  (no trailing comma)
+// Left-recursive to naturally produce Vec<Identifier> without needing
+// LALRPOP's * or ? operators inside named bindings.
+NameList: Vec<Identifier> = {
+    <first:"ident"> => vec![Identifier::new(first.to_string(), Location::default())],
+    <mut v:NameList> "," <next:"ident"> => {
+        v.push(Identifier::new(next.to_string(), Location::default()));
+        v
+    },
+};
+
+InitExpr: Expression = {
+    "=" <e:Expr> => *e,
+};
+
+// ---------------------------------------------------------------------------
+// Assignment or Function Call (statement-level)
+//
+// After an identifier, the lookahead distinguishes:
+//   (  → function call
+//   =  → name assignment
+//   +=, -= ... → compound assignment on simple variable
+//   [  → indexed expression (then expect assignment after index)
+//
+// LR(1) justification: each lookahead after ident maps to a unique
+// production. No ambiguity.
+// ---------------------------------------------------------------------------
+AssignmentOrCall: Statement = {
+    // Function call: ident ( args )
+    <l:@L> <name:"ident"> <args:ArgList> <r:@R> => {
+        Statement::FunctionCall(FunctionCall::new(
+            mk_id(name, make_loc(l, r, source, filename)),
+            args,
+            make_loc(l, r, source, filename),
+        ))
+    },
+
+    // Simple name assignment: ident = expr
+    <l:@L> <name:"ident"> "=" <e:Expr> <r:@R> => {
+        Statement::NameAssignment(NameAssignment::new(
+            vec![mk_id(name, make_loc(l, r, source, filename))],
+            *e,
+            make_loc(l, r, source, filename),
+        ))
+    },
+
+    // Compound assignment on simple variable: ident op= expr (op != =)
+    <l:@L> <name:"ident"> <op:CompoundOp> <e:Expr> <r:@R> => {
+        Statement::OperatorAssignment(OperatorAssignment::new(
+            Variable::Identifier(mk_id(name, make_loc(l, r, source, filename))),
+            op, *e,
+            make_loc(l, r, source, filename),
+        ))
+    },
+
+    // Assignment on indexed variable: expr[idx] op= expr
+    // IndexedVariable requires at least one [idx], so ident alone never
+    // reduces to it — LR(1) uses [ lookahead to enter this production.
+    <l:@L> <var:IndexedVariable> <op:AssignOp> <e:Expr> <r:@R> => {
+        Statement::OperatorAssignment(OperatorAssignment::new(
+            var, op, *e,
+            make_loc(l, r, source, filename),
+        ))
+    },
+};
+
+// IndexedVariable: ident [ expr ] [ expr ] ...  (at least one index)
+// Not the same as the general Variable concept — this is specifically
+// for the LHS of assignments where indexing is required.
+IndexedVariable: Variable = {
+    <l:@L> <name:"ident"> <idxs:IndexSeq> <r:@R> => {
+        let mut var = Variable::Identifier(mk_id(name, make_loc(l, r, source, filename)));
+        for e in idxs {
+            var = Variable::IndexExpression(IndexExpression::new(
+                var, *e, make_loc(l, r, source, filename),
+            ));
+        }
+        var
+    },
+};
+
+IndexSeq: Vec<Box<Expression>> = {
+    <first:IndexItem> => vec![first],
+    <mut v:IndexSeq> <next:IndexItem> => {
+        v.push(next);
+        v
+    },
+};
+
+IndexItem: Box<Expression> = {
+    "[" <e:Expr> "]" => e,
+};
+
+// ---------------------------------------------------------------------------
+// Assignment operators
+// CompoundOp excludes plain = (handled separately for NameAssignment).
+// AssignOp includes plain = (needed for IndexedVariable assignment).
+// ---------------------------------------------------------------------------
+CompoundOp: AssignmentOperator = {
+    "+=" => AssignmentOperator::Plus,
+    "-=" => AssignmentOperator::Minus,
+    "*=" => AssignmentOperator::Multiply,
+    "/=" => AssignmentOperator::Divide,
+    "%=" => AssignmentOperator::Modulo,
+    "^=" => AssignmentOperator::Power,
+};
+
+AssignOp: AssignmentOperator = {
+    "=" => AssignmentOperator::Assign,
+    "+=" => AssignmentOperator::Plus,
+    "-=" => AssignmentOperator::Minus,
+    "*=" => AssignmentOperator::Multiply,
+    "/=" => AssignmentOperator::Divide,
+    "%=" => AssignmentOperator::Modulo,
+    "^=" => AssignmentOperator::Power,
+};
+
+// ---------------------------------------------------------------------------
+// If Statement
+//
+// DESIGN DECISION (if vs if-expression):
+//   In statement context, `else` is optional. In expression context
+//   (Primary), `else` is required — the result of the if must be
+//   well-defined. This matches Lua's requirement that if-expressions
+//   have an else branch.
+// ---------------------------------------------------------------------------
+IfStatement: Statement = {
+    <l:@L> "if" <cond:Expr> "then" <body:Block>
+        <elifs:ElifList>
+        <else_block:ElseBlock?>
+        "end" <r:@R> => {
+        Statement::IfStatement(IfStatement::new(
+            IfBase::new(*cond, body, make_loc(l, r, source, filename)),
+            elifs,
+            else_block,
+            make_loc(l, r, source, filename),
+        ))
+    },
+};
+
+ElifList: Vec<IfBase> = {
+    => vec![],
+    <mut v:ElifList> "elif" <c:Expr> "then" <b:Block> => {
+        v.push(IfBase::new(*c, b, Location::default()));
+        v
+    },
+};
+
+ElseBlock: Block = {
+    "else" <b:Block> => b,
+};
+
+// ---------------------------------------------------------------------------
+// While Loop
+// ---------------------------------------------------------------------------
+WhileLoop: Statement = {
+    <l:@L> "while" <cond:Expr> "do" <body:Block> "end" <r:@R> => {
+        Statement::While(While::new(*cond, body, make_loc(l, r, source, filename)))
+    },
+};
+
+// ---------------------------------------------------------------------------
+// For Loops
+//
+// Two forms distinguished after parsing the expression following `in`:
+//   for [mut] var in expr .. expr [step e] do block end  → RangeForLoop
+//   for [mut] var in expr do block end                   → ForLoop
+//
+// LR(1) disambiguation: after Expr following `in`:
+//   .. or ..= → RangeForLoop (shift range operator)
+//   do        → ForLoop (shift do)
+//
+// DESIGN DECISION (for mut):
+//   `for mut x in ...` makes the loop variable mutable, analogous to
+//   C++ `for (auto& x : ...)`. Lua and Python do not support this.
+//
+// DESIGN DECISION (step clause):
+//   Only available in RangeForLoop, matching Lua's `for i=start,end,step`.
+// ---------------------------------------------------------------------------
+ForLoop: Statement = {
+    // Range for loop
+    <l:@L> "for" <m:Mutability> <var:"ident"> "in"
+        <start:Expr> <range_op:RangeOp> <end:Expr> <step:StepClause?>
+        "do" <body:Block> "end" <r:@R> => {
+        Statement::RangeForLoop(RangeForLoop::new(
+            mk_id(var, make_loc(l, r, source, filename)),
+            *start, *end, step, body, range_op, m,
+            make_loc(l, r, source, filename),
+        ))
+    },
+
+    // Collection for loop
+    <l:@L> "for" <m:Mutability> <var:"ident"> "in"
+        <coll:Expr>
+        "do" <body:Block> "end" <r:@R> => {
+        Statement::ForLoop(ForLoop::new(
+            mk_id(var, make_loc(l, r, source, filename)),
+            *coll, body, m,
+            make_loc(l, r, source, filename),
+        ))
+    },
+};
+
+RangeOp: RangeOperator = {
+    ".." => RangeOperator::Exclusive,
+    "..=" => RangeOperator::Inclusive,
+};
+
+StepClause: Expression = {
+    "step" <e:Expr> => *e,
+};
+
+// ---------------------------------------------------------------------------
+// Named Function Definition
+// ---------------------------------------------------------------------------
+NamedFunctionDef: Statement = {
+    <l:@L> "fn" <name:"ident"> <params:ParamList> <body:Block> "end" <r:@R> => {
+        Statement::NamedFunction(NamedFunction::new(
+            mk_id(name, make_loc(l, r, source, filename)),
+            FunctionBody::new(params, body, make_loc(l, r, source, filename)),
+            make_loc(l, r, source, filename),
+        ))
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Parameter List: (name [, name]*)
+// ---------------------------------------------------------------------------
+ParamList: Vec<Identifier> = {
+    "(" ")" => vec![],
+    "(" <params:NameList> ")" => params,
+};
+
+// ---------------------------------------------------------------------------
+// Argument List: (expr [, expr]*)
+// DESIGN DECISION (trailing comma): Allowed, like Python/Rust/JS.
+// ---------------------------------------------------------------------------
+ArgList: Vec<Expression> = {
+    "(" ")" => vec![],
+    "(" <args:ExprSeq> ")" => args,
+    "(" <args:ExprSeq> "," ")" => args,
+};
+
+ExprSeq: Vec<Expression> = {
+    <first:Expr> => vec![*first],
+    <mut v:ExprSeq> "," <next:Expr> => {
+        v.push(*next);
+        v
+    },
+};
+
+NonEmptyExprs: Vec<Expression> = {
+    <first:Expr> => vec![*first],
+    <mut v:NonEmptyExprs> "," <next:Expr> => {
+        v.push(*next);
+        v
+    },
+};
+
+// ===========================================================================
+// EXPRESSIONS
+//
+// The expression hierarchy uses LALRPOP's #[precedence] attribute with
+// explicit levels. Each nonterminal corresponds to one precedence level.
+//
+// DESIGN DECISION (comparison chaining):
+//   Comparisons use a right-associative chain production. When the parser
+//   sees Expr < Expr and then another <, it SHIFTS (right-assoc on equal
+//   precedence) rather than REDUCING, extending the chain. The action
+//   code builds a flat Comparison node.
+//
+//   This matches Python's `1 < x < 5` semantics. Without this, the
+//   grammar would produce `(1 < x) < 5` which is syntactically valid
+//   but semantically wrong (comparing a boolean to an integer).
+//
+// POSSIBLE ERROR (type safety):
+//   The chained comparison generates a flat Comparison with all
+//   operators and operands. This is exactly what the compiler expects.
+//   No type-level enforcement is possible at parse time (the language
+//   is dynamically typed).
+// ===========================================================================
+
+// Top-level expression
+pub Expr: Box<Expression> = {
+    OrExpr,
+};
+
+// ---------------------------------------------------------------------------
+// Expression hierarchy (tiered nonterminals, no #[precedence] needed):
+//
+//   OrExpr  ← AndExpr  ← CmpBase  ← AddExpr  ← MulExpr  ← PowExpr  ← UnaryExpr  ← Primary
+//
+// Each level's left-recursive production gives natural left-associativity
+// in LR parsing (the parser reduces left occurrences first, then extends).
+// The exception is comparison chaining (CmpBase), where left-recursion
+// causes the parser to extend the flat Comparison node. Power (PowExpr)
+// uses left-recursion, which would make it left-assoc; we accept this as
+// non-standard (most languages make ^ right-assoc).
+// ---------------------------------------------------------------------------
+
+// Logical OR (lowest precedence)
+OrExpr: Box<Expression> = {
+    <lo:@L> <l:OrExpr> "or" <r:AndExpr> <hi:@R> => {
+        Box::new(Expression::LogicalExpression(
+            LogicalExpression::new(*l, LogicalOperator::Or, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    AndExpr,
+};
+
+// Logical AND
+AndExpr: Box<Expression> = {
+    <lo:@L> <l:AndExpr> "and" <r:CmpBase> <hi:@R> => {
+        Box::new(Expression::LogicalExpression(
+            LogicalExpression::new(*l, LogicalOperator::And, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    CmpBase,
+};
+
+// Comparison — left-recursive because LR default shift resolves
+// `a < b` followed by `<c` by extending the chain.
+CmpBase: Box<Expression> = {
+    <lo:@L> <l:CmpBase> <op:CmpOp> <r:AddExpr> <hi:@R> => {
+        let mut left = l;
+        match *left {
+            Expression::Comparison(ref mut cmp) => {
+                cmp.add_comparison(op, *r.clone());
+                left
+            }
+            _ => {
+                Box::new(Expression::Comparison(
+                    Comparison::new(*left, op, *r.clone(), make_loc(lo, hi, source, filename)),
+                ))
+            }
+        }
+    },
+    AddExpr,
+};
+
+CmpOp: ComparisonOperator = {
+    "==" => ComparisonOperator::Equal,
+    "!=" => ComparisonOperator::NotEqual,
+    "<" => ComparisonOperator::Less,
+    "<=" => ComparisonOperator::LessEqual,
+    ">" => ComparisonOperator::Greater,
+    ">=" => ComparisonOperator::GreaterEqual,
+};
+
+// Additive: +, -, ~ (concat)
+// DESIGN DECISION (concat operator ~):
+//   This was defined in the lexer but never wired into the Rust parser.
+//   The Bison grammar and C++ original support it at the same level as
+//   + and -. We add it here.
+AddExpr: Box<Expression> = {
+    <lo:@L> <l:AddExpr> "+" <r:MulExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Plus, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    <lo:@L> <l:AddExpr> "-" <r:MulExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Minus, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    MulExpr,
+};
+
+// Multiplicative: *, /, %
+MulExpr: Box<Expression> = {
+    <lo:@L> <l:MulExpr> "*" <r:PowExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Multiply, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    <lo:@L> <l:MulExpr> "/" <r:PowExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Divide, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    <lo:@L> <l:MulExpr> "%" <r:PowExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Modulo, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    PowExpr,
+};
+
+// Power: ^ (standard right-assoc, but our left-recursion gives left-assoc)
+PowExpr: Box<Expression> = {
+    <lo:@L> <l:PowExpr> "^" <r:UnaryExpr> <hi:@R> => {
+        Box::new(Expression::BinaryExpression(
+            BinaryExpression::new(*l, BinaryOperator::Power, *r, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    UnaryExpr,
+};
+
+// Unary prefix: +, -, not
+// DESIGN DECISION (not above comparisons):
+//   The Bison grammar puts `not` BELOW comparisons. We place unary
+//   operators at level 1 (above arithmetic and comparisons). This
+//   matches C's `!a < b` → `(!a) < b` and Rust's `!a < b`. Users
+//   write `not (a < b)` to negate a comparison.
+//
+//   Lua:     `not a < b` → `not (a < b)`  (not binds looser)
+//   C/Rust:  `!a < b`   → `(!a) < b`      (not binds tighter)
+//   This grammar follows C/Rust.
+UnaryExpr: Box<Expression> = {
+    Primary,
+    <lo:@L> "-" <e:UnaryExpr> <hi:@R> => {
+        Box::new(Expression::UnaryExpression(
+            UnaryExpression::new(UnaryOperator::Minus, *e, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    <lo:@L> "+" <e:UnaryExpr> <hi:@R> => {
+        Box::new(Expression::UnaryExpression(
+            UnaryExpression::new(UnaryOperator::Plus, *e, make_loc(lo, hi, source, filename)),
+        ))
+    },
+    <lo:@L> "not" <e:UnaryExpr> <hi:@R> => {
+        Box::new(Expression::UnaryExpression(
+            UnaryExpression::new(UnaryOperator::Not, *e, make_loc(lo, hi, source, filename)),
+        ))
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Primary expressions (level 0)
+//
+// Atomic forms: literals, variable references, function calls,
+// if-expressions, anonymous functions, parenthesized groups.
+//
+// After an identifier, the lookahead uniquely determines the form:
+//   (  → function call
+//   [  → indexed variable (requires at least one index)
+//   other → simple variable
+//
+// LR(1) justification: these three alternatives start with "ident"
+// but are disambiguated by the FOLLOWING token, which LR(1) sees.
+// ---------------------------------------------------------------------------
+Primary: Box<Expression> = {
+    // Function call: ident ( args )
+    <l:@L> <name:"ident"> <args:ArgList> <r:@R> => {
+        Box::new(Expression::FunctionCall(FunctionCall::new(
+            mk_id(name, make_loc(l, r, source, filename)),
+            args,
+            make_loc(l, r, source, filename),
+        )))
+    },
+
+    // Indexed variable: ident[expr][expr]...
+    <l:@L> <name:"ident"> <idxs:IndexSeq> <r:@R> => {
+        let mut var = Variable::Identifier(mk_id(name, make_loc(l, r, source, filename)));
+        for e in idxs {
+            var = Variable::IndexExpression(IndexExpression::new(
+                var, *e, make_loc(l, r, source, filename),
+            ));
+        }
+        Box::new(Expression::Variable(var))
+    },
+
+    // Simple variable: ident
+    <l:@L> <name:"ident"> <r:@R> => {
+        Box::new(Expression::Variable(Variable::Identifier(
+            mk_id(name, make_loc(l, r, source, filename)),
+        )))
+    },
+
+    // If-expression (requires else — unlike if-statement)
+    <l:@L> "if" <cond:Expr> "then" <body:Block>
+        <elifs:ElifList>
+        "else" <else_block:Block>
+        "end" <r:@R> => {
+        Box::new(Expression::IfExpression(IfExpression::new(
+            IfBase::new(*cond, body, make_loc(l, r, source, filename)),
+            elifs,
+            else_block,
+            make_loc(l, r, source, filename),
+        )))
+    },
+
+    // Anonymous function: fn (params) body end
+    <l:@L> "fn" <params:ParamList> <body:Block> "end" <r:@R> => {
+        Box::new(Expression::AnonymousFunction(AnonymousFunction::new(
+            FunctionBody::new(params, body, make_loc(l, r, source, filename)),
+            make_loc(l, r, source, filename),
+        )))
+    },
+
+    // Parenthesized expression
+    "(" <e:Expr> ")" => e,
+
+    // Literals
+    Literal,
+};
+
+// ---------------------------------------------------------------------------
+// Literals
+//
+// DESIGN DECISION (float notation):
+//   42    → integer literal
+//   42.   → float literal (42.0)  — matches C/Python/Lua
+//   42.5  → float literal
+//
+//   The lexer splits `42.5` into tokens Number(42), Dot, Number(5).
+//   The grammar reassembles them into a float. This avoids needing a
+//   separate float token type.
+//
+// DESIGN DECISION (array literal):
+//   [expr, expr, ...] with optional trailing comma.
+//   Uses bracket syntax like JS; Lua uses `{...}` for tables.
+// ---------------------------------------------------------------------------
+Literal: Box<Expression> = {
+    <l:@L> "nil" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Nil(Nil::new(make_loc(l, r, source, filename)))))
+    },
+    <l:@L> "true" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Boolean(Boolean::new(true, make_loc(l, r, source, filename)))))
+    },
+    <l:@L> "false" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Boolean(Boolean::new(false, make_loc(l, r, source, filename)))))
+    },
+    <l:@L> <n:"num"> <r:@R> => {
+        Box::new(Expression::Literal(Literal::Number(Number::new(n, make_loc(l, r, source, filename)))))
+    },
+    // 42.  → float with integer value
+    <l:@L> <n:"num"> "." <r:@R> => {
+        Box::new(Expression::Literal(Literal::Float(Float::new(n as f64, make_loc(l, r, source, filename)))))
+    },
+    // 42.5 → float
+    <l:@L> <n:"num"> "." <f:"num"> <r:@R> => {
+        let val = format!("{}.{}", n, f).parse::<f64>().unwrap();
+        Box::new(Expression::Literal(Literal::Float(Float::new(val, make_loc(l, r, source, filename)))))
+    },
+    // String literal (raw content from lexer, then unescape)
+    <l:@L> <s:"str"> <r:@R> => {
+        Box::new(Expression::Literal(Literal::String(StringLiteral::new(
+            unescape_string(s), make_loc(l, r, source, filename),
+        ))))
+    },
+    // Array literal: [elements] with optional trailing comma
+    <l:@L> "[" "]" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Array(Array::new(
+            vec![], make_loc(l, r, source, filename),
+        ))))
+    },
+    // Array literal: non-empty (with optional trailing comma)
+    <l:@L> "[" <elements:NonEmptyExprs> "]" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Array(Array::new(
+            elements, make_loc(l, r, source, filename),
+        ))))
+    },
+    <l:@L> "[" <elements:NonEmptyExprs> "," "]" <r:@R> => {
+        Box::new(Expression::Literal(Literal::Array(Array::new(
+            elements, make_loc(l, r, source, filename),
+        ))))
+    },
+};
