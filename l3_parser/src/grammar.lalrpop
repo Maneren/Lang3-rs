@@ -14,7 +14,6 @@
 // ---------------------------------------------------------------------------
 
 use l3_ast::*;
-use l3_location::Location;
 use crate::token::Token;
 use crate::loc_util::*;
 
@@ -100,10 +99,6 @@ extern {
         ".." => Token::DotDot,
         "..=" => Token::DotDotEqual,
 
-        // String concatenation (defined in lexer but MISSING from the
-        // current Rust recursive-descent parser — this grammar adds it)
-        "~" => Token::Concat,
-
         // Comparison operators
         "==" => Token::EqualEqual,
         "!=" => Token::NotEqual,
@@ -123,6 +118,7 @@ extern {
 
         // Literal tokens with data
         "num" => Token::Number(<i64>),
+        "float" => Token::Float(<f64>),
         "str" => Token::Str(<&'input str>),
         "ident" => Token::Ident(<&'input str>),
     }
@@ -140,7 +136,7 @@ extern {
 //   7   | left          | or                 | or
 //   6   | left          | and                | and
 //   5   | right         | == != < <= > >=    | == != < <= > >=
-//   4   | left          | + - ~              | + - ~ (concat)
+//   4   | left          | + -                | + - ~ (concat)
 //   3   | left          | * / %              | * / %
 //   2   | right         | ^                  | ^
 //   1   | (prefix)      | + - not (unary)    | unary
@@ -276,9 +272,9 @@ Mutability: Mutability = {
 // Left-recursive to naturally produce Vec<Identifier> without needing
 // LALRPOP's * or ? operators inside named bindings.
 NameList: Vec<Identifier> = {
-    <first:"ident"> => vec![Identifier::new(first.to_string(), Location::default())],
-    <mut v:NameList> "," <next:"ident"> => {
-        v.push(Identifier::new(next.to_string(), Location::default()));
+    <l:@L> <first:"ident"> <r:@R> => vec![mk_id(first, make_loc(l, r, source, filename))],
+    <mut v:NameList> "," <l:@L> <next:"ident"> <r:@R> => {
+        v.push(mk_id(next, make_loc(l, r, source, filename)));
         v
     },
 };
@@ -414,8 +410,8 @@ IfStatement: Statement = {
 
 ElifList: Vec<IfBase> = {
     => vec![],
-    <mut v:ElifList> "elif" <c:Expr> "then" <b:Block> => {
-        v.push(IfBase::new(*c, b, Location::default()));
+    <mut v:ElifList> <l:@L> "elif" <c:Expr> "then" <b:Block> <r:@R> => {
+        v.push(IfBase::new(*c, b, make_loc(l, r, source, filename)));
         v
     },
 };
@@ -523,14 +519,6 @@ ExprSeq: Vec<Expression> = {
     },
 };
 
-NonEmptyExprs: Vec<Expression> = {
-    <first:Expr> => vec![*first],
-    <mut v:NonEmptyExprs> "," <next:Expr> => {
-        v.push(*next);
-        v
-    },
-};
-
 // ===========================================================================
 // EXPRESSIONS
 //
@@ -599,12 +587,12 @@ CmpBase: Box<Expression> = {
         let mut left = l;
         match *left {
             Expression::Comparison(ref mut cmp) => {
-                cmp.add_comparison(op, *r.clone());
+                cmp.add_comparison(op, *r);
                 left
             }
             _ => {
                 Box::new(Expression::Comparison(
-                    Comparison::new(*left, op, *r.clone(), make_loc(lo, hi, source, filename)),
+                    Comparison::new(*left, op, *r, make_loc(lo, hi, source, filename)),
                 ))
             }
         }
@@ -621,11 +609,7 @@ CmpOp: ComparisonOperator = {
     ">=" => ComparisonOperator::GreaterEqual,
 };
 
-// Additive: +, -, ~ (concat)
-// DESIGN DECISION (concat operator ~):
-//   This was defined in the lexer but never wired into the Rust parser.
-//   The Bison grammar and C++ original support it at the same level as
-//   + and -. We add it here.
+// Additive: +, -
 AddExpr: Box<Expression> = {
     <lo:@L> <l:AddExpr> "+" <r:MulExpr> <hi:@R> => {
         Box::new(Expression::BinaryExpression(
@@ -773,13 +757,13 @@ Primary: Box<Expression> = {
 // Literals
 //
 // DESIGN DECISION (float notation):
-//   42    → integer literal
-//   42.   → float literal (42.0)  — matches C/Python/Lua
-//   42.5  → float literal
+//   42    → integer literal (Token::Number)
+//   42.5  → float literal (Token::Float from logos regex [0-9]+.[0-9]+)
+//   42.   → float literal (grammar reassembles Number + Dot)
 //
-//   The lexer splits `42.5` into tokens Number(42), Dot, Number(5).
-//   The grammar reassembles them into a float. This avoids needing a
-//   separate float token type.
+//   The lexer handles full floats (42.5) directly via logos. The trailing-
+//   dot form (42.) still uses the grammar-level Number + Dot reassembly
+//   to avoid ambiguity with the range operator (..).
 //
 // DESIGN DECISION (array literal):
 //   [expr, expr, ...] with optional trailing comma.
@@ -798,14 +782,12 @@ Literal: Box<Expression> = {
     <l:@L> <n:"num"> <r:@R> => {
         Box::new(Expression::Literal(Literal::Number(Number::new(n, make_loc(l, r, source, filename)))))
     },
-    // 42.  → float with integer value
+    <l:@L> <n:"float"> <r:@R> => {
+        Box::new(Expression::Literal(Literal::Float(Float::new(n, make_loc(l, r, source, filename)))))
+    },
+    // 42.  → float via Number + Dot (for trailing-dot syntax)
     <l:@L> <n:"num"> "." <r:@R> => {
         Box::new(Expression::Literal(Literal::Float(Float::new(n as f64, make_loc(l, r, source, filename)))))
-    },
-    // 42.5 → float
-    <l:@L> <n:"num"> "." <f:"num"> <r:@R> => {
-        let val = format!("{}.{}", n, f).parse::<f64>().unwrap();
-        Box::new(Expression::Literal(Literal::Float(Float::new(val, make_loc(l, r, source, filename)))))
     },
     // String literal (raw content from lexer, then unescape)
     <l:@L> <s:"str"> <r:@R> => {
@@ -820,12 +802,12 @@ Literal: Box<Expression> = {
         ))))
     },
     // Array literal: non-empty (with optional trailing comma)
-    <l:@L> "[" <elements:NonEmptyExprs> "]" <r:@R> => {
+    <l:@L> "[" <elements:ExprSeq> "]" <r:@R> => {
         Box::new(Expression::Literal(Literal::Array(Array::new(
             elements, make_loc(l, r, source, filename),
         ))))
     },
-    <l:@L> "[" <elements:NonEmptyExprs> "," "]" <r:@R> => {
+    <l:@L> "[" <elements:ExprSeq> "," "]" <r:@R> => {
         Box::new(Expression::Literal(Literal::Array(Array::new(
             elements, make_loc(l, r, source, filename),
         ))))

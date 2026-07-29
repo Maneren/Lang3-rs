@@ -10,6 +10,7 @@ workspace = true
 l3_ast = { path = "../l3_ast" }
 l3_location = { path = "../l3_location" }
 lalrpop-util.workspace = true
+logos = "0.15"
 
 [build-dependencies]
 lalrpop.workspace = true

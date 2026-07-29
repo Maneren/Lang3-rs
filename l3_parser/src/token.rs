@@ -1,75 +1,143 @@
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+use logos::Logos;
+
+fn extract_string<'input>(lex: &mut logos::Lexer<'input, Token<'input>>) -> &'input str {
+    let slice = lex.slice();
+    &slice[1..slice.len() - 1]
+}
+
+#[derive(Logos, Debug, Clone, Copy, PartialEq)]
 pub enum Token<'input> {
-    // Keywords
+    // Keywords (exact match has priority over ident regex)
+    #[token("if")]
     If,
+    #[token("else")]
     Else,
+    #[token("elif")]
     Elif,
+    #[token("then")]
     Then,
+    #[token("end")]
     End,
+    #[token("while")]
     While,
+    #[token("do")]
     Do,
+    #[token("for")]
     For,
+    #[token("in")]
     In,
+    #[token("step")]
     Step,
+    #[token("return")]
     Return,
+    #[token("break")]
     Break,
+    #[token("continue")]
     Continue,
+    #[token("fn")]
     Fn,
+    #[token("let")]
     Let,
+    #[token("mut")]
     Mut,
+    #[token("true")]
     True,
+    #[token("false")]
     False,
+    #[token("nil")]
     Nil,
+    #[token("not")]
     Not,
+    #[token("and")]
     And,
+    #[token("or")]
     Or,
 
     // Punctuation
+    #[token("(")]
     LParen,
+    #[token(")")]
     RParen,
+    #[token("{")]
     LBrace,
+    #[token("}")]
     RBrace,
+    #[token("[")]
     LBracket,
+    #[token("]")]
     RBracket,
+    #[token(",")]
     Comma,
+    #[token(";")]
     Semi,
+    #[token(".")]
     Dot,
 
-    // Operators
+    // Arithmetic operators
+    #[token("+")]
     Plus,
+    #[token("-")]
     Minus,
+    #[token("*")]
     Star,
+    #[token("/")]
     Slash,
+    #[token("%")]
     Percent,
+    #[token("^")]
     Caret,
-    DotDot,
+
+    // Range operators (must precede ".." for longest-match)
+    #[token("..=")]
     DotDotEqual,
-    Concat,
+    #[token("..")]
+    DotDot,
 
     // Comparison
+    #[token("==")]
     EqualEqual,
+    #[token("!=")]
     NotEqual,
-    Less,
+    #[token("<=")]
     LessEqual,
-    Greater,
+    #[token(">=")]
     GreaterEqual,
+    #[token("<")]
+    Less,
+    #[token(">")]
+    Greater,
 
-    // Assignment
+    // Assignment (single "=" must come after "==" and "<=" and ">=" for longest-match)
+    #[token("=")]
     Equal,
+    #[token("+=")]
     PlusEqual,
+    #[token("-=")]
     MinusEqual,
+    #[token("*=")]
     StarEqual,
+    #[token("/=")]
     SlashEqual,
+    #[token("%=")]
     PercentEqual,
+    #[token("^=")]
     CaretEqual,
 
     // Literals
+    #[regex("[0-9]+", |lex| lex.slice().parse::<i64>().unwrap())]
     Number(i64),
+    #[regex("[0-9]+\\.[0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
+    Float(f64),
+    #[regex(r#""[^"\\]*(\\.[^"\\]*)*""#, extract_string)]
     Str(&'input str),
+    #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
     Ident(&'input str),
 
+    // Whitespace and comments (skipped)
+    #[regex(r"[ \t\n\r\f]+", logos::skip)]
+    #[regex("#[^\n]*", logos::skip)]
     Error,
 }
 
@@ -115,7 +183,6 @@ impl fmt::Display for Token<'_> {
             Token::Caret => write!(f, "^"),
             Token::DotDot => write!(f, ".."),
             Token::DotDotEqual => write!(f, "..="),
-            Token::Concat => write!(f, "~"),
             Token::EqualEqual => write!(f, "=="),
             Token::NotEqual => write!(f, "!="),
             Token::Less => write!(f, "<"),
@@ -130,6 +197,7 @@ impl fmt::Display for Token<'_> {
             Token::PercentEqual => write!(f, "%="),
             Token::CaretEqual => write!(f, "^="),
             Token::Number(n) => write!(f, "{n}"),
+            Token::Float(n) => write!(f, "{n}"),
             Token::Str(s) => write!(f, "\"{s}\""),
             Token::Ident(s) => write!(f, "{s}"),
             Token::Error => write!(f, "<error>"),
