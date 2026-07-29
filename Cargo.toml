@@ -12,6 +12,10 @@ members = [
   "l3",
 ]
 
+[profile.release-debug]
+inherits = "release"
+debug = true
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
