@@ -4,6 +4,7 @@ use crate::stack_value::StackValue;
 use slotmap::{DefaultKey, SlotMap};
 use std::cell::Cell;
 use std::collections::VecDeque;
+use std::io::Write;
 
 /// A GC-managed cell on the heap. The `marked` flag uses `Cell<bool>` so
 /// the mark phase can traverse the object graph without exclusive `&mut` access
@@ -100,6 +101,7 @@ pub struct Heap {
     pub sweep_count: usize,
     pub output_lines: Vec<String>,
     pub current_line: String,
+    pub stream_output: bool,
     pub input_queue: VecDeque<String>,
     pub rng_state: u64,
 }
@@ -115,6 +117,7 @@ impl Heap {
             sweep_count: 0,
             output_lines: Vec::new(),
             current_line: String::new(),
+            stream_output: false,
             input_queue: VecDeque::new(),
             rng_state: 42,
         }
@@ -162,8 +165,13 @@ impl Heap {
 
     pub fn flush_print(&mut self) {
         if !self.current_line.is_empty() {
-            self.output_lines
-                .push(std::mem::take(&mut self.current_line));
+            let line = std::mem::take(&mut self.current_line);
+            if self.stream_output {
+                println!("{line}");
+            }
+            self.output_lines.push(line);
+        } else if self.stream_output {
+            std::io::stdout().flush().ok();
         }
     }
 

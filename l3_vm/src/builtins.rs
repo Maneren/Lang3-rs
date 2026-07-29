@@ -1,4 +1,5 @@
 use l3_runtime::*;
+use std::io::Write;
 use std::rc::Rc;
 
 type Builtin = Rc<dyn Fn(Vec<StackValue>, &mut Heap) -> Result<StackValue, RuntimeError>>;
@@ -10,11 +11,21 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
             "print",
             Rc::new(
                 |args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-                    for (i, arg) in args.iter().enumerate() {
-                        if i > 0 {
-                            heap.current_line.push(' ');
+                    if heap.stream_output {
+                        for (i, arg) in args.iter().enumerate() {
+                            if i > 0 {
+                                print!(" ");
+                            }
+                            print!("{}", format_stack_value(arg, heap));
                         }
-                        heap.current_line.push_str(&format_stack_value(arg, heap));
+                        std::io::stdout().flush().ok();
+                    } else {
+                        for (i, arg) in args.iter().enumerate() {
+                            if i > 0 {
+                                heap.current_line.push(' ');
+                            }
+                            heap.current_line.push_str(&format_stack_value(arg, heap));
+                        }
                     }
                     Ok(StackValue::Nil)
                 },
@@ -24,14 +35,24 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
             "println",
             Rc::new(
                 |args: Vec<StackValue>, heap: &mut Heap| -> Result<StackValue, RuntimeError> {
-                    for (i, arg) in args.iter().enumerate() {
-                        if i > 0 {
-                            heap.current_line.push(' ');
+                    if heap.stream_output {
+                        for (i, arg) in args.iter().enumerate() {
+                            if i > 0 {
+                                print!(" ");
+                            }
+                            print!("{}", format_stack_value(arg, heap));
                         }
-                        heap.current_line.push_str(&format_stack_value(arg, heap));
+                        println!();
+                    } else {
+                        for (i, arg) in args.iter().enumerate() {
+                            if i > 0 {
+                                heap.current_line.push(' ');
+                            }
+                            heap.current_line.push_str(&format_stack_value(arg, heap));
+                        }
+                        heap.output_lines
+                            .push(std::mem::take(&mut heap.current_line));
                     }
-                    heap.output_lines
-                        .push(std::mem::take(&mut heap.current_line));
                     Ok(StackValue::Nil)
                 },
             ),
@@ -51,7 +72,11 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                         } else {
                             "assertion failed".to_string()
                         };
-                        heap.output_lines.push(format!("AssertionError: {msg}"));
+                        let err_msg = format!("AssertionError: {msg}");
+                        if heap.stream_output {
+                            println!("{err_msg}");
+                        }
+                        heap.output_lines.push(err_msg);
                         return Err(RuntimeError::value(format!("assertion failed: {msg}")));
                     }
                     Ok(StackValue::Nil)
@@ -67,7 +92,11 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
                     } else {
                         format_stack_value(&args[0], heap)
                     };
-                    heap.output_lines.push(format!("Error: {msg}"));
+                    let err_msg = format!("Error: {msg}");
+                    if heap.stream_output {
+                        println!("{err_msg}");
+                    }
+                    heap.output_lines.push(err_msg);
                     Err(RuntimeError::value(format!("error: {msg}")))
                 },
             ),

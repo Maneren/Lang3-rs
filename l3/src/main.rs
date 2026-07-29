@@ -66,16 +66,11 @@ fn main() {
 
     // Execute
     let mut vm = BytecodeVM::new(cli.debug_vm);
+    vm.heap.stream_output = true;
     let result = vm.execute(bytecode);
     vm.heap.flush_print();
     if let Err(e) = result {
-        for line in &vm.heap.output_lines {
-            println!("{line}");
-        }
         eprintln!("Runtime error: {e}");
         process::exit(1);
-    }
-    for line in &vm.heap.output_lines {
-        println!("{line}");
     }
 }
