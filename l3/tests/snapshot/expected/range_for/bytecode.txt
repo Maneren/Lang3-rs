@@ -1,12 +1,12 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (0)
 0001 | CONSTANT      1 (nil)
-0002 | CONSTANT      2 (0)
-0003 | CONSTANT      3 (2)
+0002 | CONSTANT      0 (0)
+0003 | CONSTANT      2 (2)
 0004 | SUBTRACT
 0005 | SET_LOCAL     1
-0006 | CONSTANT      4 (6)
-0007 | CONSTANT      5 (2)
+0006 | CONSTANT      3 (6)
+0007 | CONSTANT      2 (2)
 0008 | FOR_LOOP   ctrl=   1 lim=   2 body=  10 LE step=   3
 0009 | JUMP         15
 0010 | GET_LOCAL     0
@@ -14,18 +14,18 @@
 0012 | ADD
 0013 | SET_LOCAL     0
 0014 | JUMP          8
-0015 | GET_GLOBAL    6 '"println"'
+0015 | GET_GLOBAL    4 '"println"'
 0016 | GET_LOCAL     0
 0017 | CALL          1 true
 0018 | POP           1
-0019 | CONSTANT      7 (0)
-0020 | CONSTANT      8 (nil)
-0021 | CONSTANT      9 (1)
-0022 | CONSTANT     10 (1)
+0019 | CONSTANT      0 (0)
+0020 | CONSTANT      1 (nil)
+0021 | CONSTANT      5 (1)
+0022 | CONSTANT      5 (1)
 0023 | SUBTRACT
 0024 | SET_LOCAL     5
-0025 | CONSTANT     11 (6)
-0026 | CONSTANT     12 (1)
+0025 | CONSTANT      3 (6)
+0026 | CONSTANT      5 (1)
 0027 | FOR_LOOP   ctrl=   5 lim=   6 body=  29 LT step=   7
 0028 | JUMP         34
 0029 | GET_LOCAL     4
@@ -33,7 +33,7 @@
 0031 | ADD
 0032 | SET_LOCAL     4
 0033 | JUMP         27
-0034 | GET_GLOBAL   13 '"println"'
+0034 | GET_GLOBAL    4 '"println"'
 0035 | GET_LOCAL     4
 0036 | CALL          1 true
 0037 | POP           1

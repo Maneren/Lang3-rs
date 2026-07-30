@@ -4,36 +4,36 @@
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
 0004 | SET_GLOBAL    2 '"add"'
-0005 | CONSTANT      3 (nil)
-0006 | CLOSURE       5 (function <curry_add>)
+0005 | CONSTANT      0 (nil)
+0006 | CLOSURE       4 (function <curry_add>)
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
-0009 | SET_GLOBAL    6 '"curry_add"'
+0009 | SET_GLOBAL    5 '"curry_add"'
 0010 | GET_LOCAL     1
-0011 | CONSTANT      7 (5)
+0011 | CONSTANT      6 (5)
 0012 | CALL          1 true
-0013 | GET_GLOBAL    8 '"println"'
+0013 | GET_GLOBAL    7 '"println"'
 0014 | GET_LOCAL     0
-0015 | CONSTANT      9 (2)
-0016 | CONSTANT     10 (3)
+0015 | CONSTANT      8 (2)
+0016 | CONSTANT      9 (3)
 0017 | CALL          2 true
 0018 | CALL          1 true
 0019 | POP           1
-0020 | GET_GLOBAL   11 '"println"'
+0020 | GET_GLOBAL    7 '"println"'
 0021 | GET_LOCAL     2
-0022 | CONSTANT     12 (7)
+0022 | CONSTANT     10 (7)
 0023 | CALL          1 true
 0024 | CALL          1 true
 0025 | POP           1
-0026 | CONSTANT     13 (0)
-0027 | CONSTANT     14 (nil)
-0028 | CONSTANT     15 (1)
-0029 | CONSTANT     16 (2)
-0030 | CONSTANT     17 (3)
-0031 | CONSTANT     18 (4)
+0026 | CONSTANT     11 (0)
+0027 | CONSTANT      0 (nil)
+0028 | CONSTANT     12 (1)
+0029 | CONSTANT      8 (2)
+0030 | CONSTANT      9 (3)
+0031 | CONSTANT     13 (4)
 0032 | MAKE_ARRAY    4
-0033 | CONSTANT     19 (0)
-0034 | GET_GLOBAL   20 '"len"'
+0033 | CONSTANT     11 (0)
+0034 | GET_GLOBAL   14 '"len"'
 0035 | GET_LOCAL     5
 0036 | CALL          1 true
 0037 | GET_LOCAL     6
@@ -49,11 +49,11 @@
 0047 | ADD
 0048 | SET_LOCAL     3
 0049 | GET_LOCAL     6
-0050 | CONSTANT     21 (1)
+0050 | CONSTANT     12 (1)
 0051 | ADD
 0052 | SET_LOCAL     6
 0053 | JUMP         37
-0054 | GET_GLOBAL   22 '"println"'
+0054 | GET_GLOBAL    7 '"println"'
 0055 | GET_LOCAL     3
 0056 | CALL          1 true
 0057 | POP           1
@@ -66,7 +66,7 @@
 0003 | RETURN
 0004 | RETURN
 == Chunk 2 ==
-0000 | CLOSURE       4 (function <<anon_0>>)
+0000 | CLOSURE       3 (function <<anon_0>>)
 0000 |            local 0
 0001 | RETURN
 0002 | RETURN

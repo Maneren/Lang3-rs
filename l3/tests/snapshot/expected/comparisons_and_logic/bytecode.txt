@@ -1,9 +1,9 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (5)
 0001 | CONSTANT      1 (8)
-0002 | CONSTANT      2 (8)
-0003 | GET_GLOBAL    3 '"println"'
-0004 | CONSTANT      4 (0)
+0002 | CONSTANT      1 (8)
+0003 | GET_GLOBAL    2 '"println"'
+0004 | CONSTANT      3 (0)
 0005 | GET_LOCAL     0
 0006 | LESS
 0007 | JUMP_IF      11 false keep after jump
@@ -12,19 +12,19 @@
 0010 | LESS
 0011 | CALL          1 true
 0012 | POP           1
-0013 | GET_GLOBAL    5 '"println"'
+0013 | GET_GLOBAL    2 '"println"'
 0014 | GET_LOCAL     0
 0015 | GET_LOCAL     1
 0016 | EQUAL
 0017 | CALL          1 true
 0018 | POP           1
-0019 | GET_GLOBAL    6 '"println"'
+0019 | GET_GLOBAL    2 '"println"'
 0020 | GET_LOCAL     1
 0021 | GET_LOCAL     2
 0022 | EQUAL
 0023 | CALL          1 true
 0024 | POP           1
-0025 | GET_GLOBAL    7 '"println"'
+0025 | GET_GLOBAL    2 '"println"'
 0026 | GET_LOCAL     0
 0027 | GET_LOCAL     1
 0028 | EQUAL
@@ -44,12 +44,12 @@
 0042 | LESS
 0043 | JUMP_IF      47 false keep after stay
 0044 | POP           1
-0045 | CONSTANT      8 ("ok")
+0045 | CONSTANT      4 ("ok")
 0046 | JUMP         48
-0047 | CONSTANT      9 ("bad")
-0048 | GET_GLOBAL   10 '"println"'
+0047 | CONSTANT      5 ("bad")
+0048 | GET_GLOBAL    2 '"println"'
 0049 | GET_LOCAL     3
 0050 | CALL          1 true
 0051 | POP           1
-0052 | POP           4
+0052 | POP           1
 0053 | RETURN

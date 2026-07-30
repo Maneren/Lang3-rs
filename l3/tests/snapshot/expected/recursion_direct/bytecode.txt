@@ -1,25 +1,25 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CLOSURE       4 (function <factorial>)
+0001 | CLOSURE       3 (function <factorial>)
 0001 |            local 0
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
-0004 | SET_GLOBAL    5 '"factorial"'
-0005 | CONSTANT      6 (nil)
-0006 | CLOSURE      10 (function <fib>)
+0004 | SET_GLOBAL    4 '"factorial"'
+0005 | CONSTANT      0 (nil)
+0006 | CLOSURE       6 (function <fib>)
 0006 |            local 1
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
-0009 | SET_GLOBAL   11 '"fib"'
-0010 | GET_GLOBAL   12 '"println"'
+0009 | SET_GLOBAL    7 '"fib"'
+0010 | GET_GLOBAL    8 '"println"'
 0011 | GET_LOCAL     0
-0012 | CONSTANT     13 (6)
+0012 | CONSTANT      9 (6)
 0013 | CALL          1 true
 0014 | CALL          1 true
 0015 | POP           1
-0016 | GET_GLOBAL   14 '"println"'
+0016 | GET_GLOBAL    8 '"println"'
 0017 | GET_LOCAL     1
-0018 | CONSTANT     15 (10)
+0018 | CONSTANT     10 (10)
 0019 | CALL          1 true
 0020 | CALL          1 true
 0021 | POP           1
@@ -37,7 +37,7 @@
 0008 | GET_LOCAL     0
 0009 | GET_UPVALUE    0
 0010 | GET_LOCAL     0
-0011 | CONSTANT      3 (1)
+0011 | CONSTANT      2 (1)
 0012 | SUBTRACT
 0013 | CALL          1 true
 0014 | MULTIPLY
@@ -45,7 +45,7 @@
 0016 | RETURN
 == Chunk 2 ==
 0000 | GET_LOCAL     0
-0001 | CONSTANT      7 (2)
+0001 | CONSTANT      5 (2)
 0002 | LESS
 0003 | JUMP_IF       8 false keep after stay
 0004 | POP           1
@@ -54,12 +54,12 @@
 0007 | JUMP          8
 0008 | GET_UPVALUE    0
 0009 | GET_LOCAL     0
-0010 | CONSTANT      8 (1)
+0010 | CONSTANT      2 (1)
 0011 | SUBTRACT
 0012 | CALL          1 true
 0013 | GET_UPVALUE    0
 0014 | GET_LOCAL     0
-0015 | CONSTANT      9 (2)
+0015 | CONSTANT      5 (2)
 0016 | SUBTRACT
 0017 | CALL          1 true
 0018 | ADD

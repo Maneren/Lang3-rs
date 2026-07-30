@@ -7,23 +7,23 @@
 0005 | GET_LOCAL     0
 0006 | CONSTANT      3 (10)
 0007 | ADD
-0008 | CONSTANT      4 (2)
+0008 | CONSTANT      1 (2)
 0009 | DIVIDE
-0010 | CONSTANT      5 (42)
-0011 | CONSTANT      6 (3.14)
-0012 | GET_GLOBAL    7 '"println"'
+0010 | CONSTANT      4 (42)
+0011 | CONSTANT      5 (3.14)
+0012 | GET_GLOBAL    6 '"println"'
 0013 | GET_LOCAL     0
 0014 | CALL          1 true
 0015 | POP           1
-0016 | GET_GLOBAL    8 '"println"'
+0016 | GET_GLOBAL    6 '"println"'
 0017 | GET_LOCAL     1
 0018 | CALL          1 true
 0019 | POP           1
-0020 | GET_GLOBAL    9 '"println"'
+0020 | GET_GLOBAL    6 '"println"'
 0021 | GET_LOCAL     2
 0022 | CALL          1 true
 0023 | POP           1
-0024 | GET_GLOBAL   10 '"println"'
+0024 | GET_GLOBAL    6 '"println"'
 0025 | GET_LOCAL     3
 0026 | CALL          1 true
 0027 | POP           1

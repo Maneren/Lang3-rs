@@ -11,40 +11,40 @@
 0009 | CALL          1 true
 0010 | POP           1
 0011 | JUMP         16
-0012 | GET_GLOBAL    4 '"println"'
-0013 | CONSTANT      5 ("gt")
+0012 | GET_GLOBAL    2 '"println"'
+0013 | CONSTANT      4 ("gt")
 0014 | CALL          1 true
 0015 | POP           1
-0016 | CONSTANT      6 (0)
+0016 | CONSTANT      5 (0)
 0017 | GET_LOCAL     2
-0018 | CONSTANT      7 (4)
+0018 | CONSTANT      6 (4)
 0019 | LESS
 0020 | JUMP_IF      49 false keep after stay
 0021 | POP           1
 0022 | GET_LOCAL     2
-0023 | CONSTANT      8 (1)
+0023 | CONSTANT      7 (1)
 0024 | EQUAL
 0025 | JUMP_IF      33 false keep after stay
 0026 | POP           1
 0027 | GET_LOCAL     2
-0028 | CONSTANT      9 (1)
+0028 | CONSTANT      7 (1)
 0029 | ADD
 0030 | SET_LOCAL     2
 0031 | JUMP         17
 0032 | JUMP         33
 0033 | GET_LOCAL     2
-0034 | CONSTANT     10 (3)
+0034 | CONSTANT      8 (3)
 0035 | EQUAL
 0036 | JUMP_IF      40 false keep after stay
 0037 | POP           1
 0038 | JUMP         49
 0039 | JUMP         40
-0040 | GET_GLOBAL   11 '"println"'
+0040 | GET_GLOBAL    2 '"println"'
 0041 | GET_LOCAL     2
 0042 | CALL          1 true
 0043 | POP           1
 0044 | GET_LOCAL     2
-0045 | CONSTANT     12 (1)
+0045 | CONSTANT      7 (1)
 0046 | ADD
 0047 | SET_LOCAL     2
 0048 | JUMP         17

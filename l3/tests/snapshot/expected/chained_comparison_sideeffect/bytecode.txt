@@ -4,15 +4,15 @@
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
 0004 | SET_GLOBAL    5 '"mid"'
-0005 | GET_GLOBAL    6 '"println"'
-0006 | CONSTANT      7 (0)
+0005 | GET_GLOBAL    1 '"println"'
+0006 | CONSTANT      6 (0)
 0007 | GET_LOCAL     0
 0008 | CALL          0 true
 0009 | LESS
 0010 | JUMP_IF      15 false keep after jump
 0011 | GET_LOCAL     0
 0012 | CALL          0 true
-0013 | CONSTANT      8 (2)
+0013 | CONSTANT      7 (2)
 0014 | LESS
 0015 | CALL          1 true
 0016 | POP           1

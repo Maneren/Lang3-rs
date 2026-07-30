@@ -1,58 +1,57 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CLOSURE       8 (function <make_power>)
+0001 | CLOSURE       5 (function <make_power>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
-0004 | SET_GLOBAL    9 '"make_power"'
+0004 | SET_GLOBAL    3 '"make_power"'
 0005 | GET_LOCAL     0
-0006 | CONSTANT     10 (2)
+0006 | CONSTANT      6 (2)
 0007 | CALL          1 true
 0008 | GET_LOCAL     0
-0009 | CONSTANT     11 (3)
+0009 | CONSTANT      7 (3)
 0010 | CALL          1 true
-0011 | GET_GLOBAL   12 '"println"'
+0011 | GET_GLOBAL    8 '"println"'
 0012 | GET_LOCAL     1
-0013 | CONSTANT     13 (5)
+0013 | CONSTANT      9 (5)
 0014 | CALL          1 true
 0015 | CALL          1 true
 0016 | POP           1
-0017 | GET_GLOBAL   14 '"println"'
+0017 | GET_GLOBAL    8 '"println"'
 0018 | GET_LOCAL     2
-0019 | CONSTANT     15 (4)
+0019 | CONSTANT     10 (4)
 0020 | CALL          1 true
 0021 | CALL          1 true
 0022 | POP           1
 0023 | POP           3
 0024 | RETURN
 == Chunk 1 ==
-0000 | CONSTANT      1 (nil)
-0001 | CLOSURE       7 (function <power>)
+0000 | CONSTANT      0 (nil)
+0001 | CLOSURE       4 (function <power>)
 0001 |            local 0
 0002 | SET_LOCAL     1
 0003 | GET_LOCAL     1
 0004 | RETURN
-0005 | POP           1
-0006 | RETURN
+0005 | RETURN
 == Chunk 2 ==
 0000 | GET_UPVALUE    0
-0001 | CONSTANT      2 (0)
+0001 | CONSTANT      1 (0)
 0002 | EQUAL
 0003 | JUMP_IF       8 false keep after stay
 0004 | POP           1
-0005 | CONSTANT      3 (1)
+0005 | CONSTANT      2 (1)
 0006 | RETURN
 0007 | JUMP          8
 0008 | GET_UPVALUE    0
-0009 | CONSTANT      4 (1)
+0009 | CONSTANT      2 (1)
 0010 | EQUAL
 0011 | JUMP_IF      16 false keep after stay
 0012 | POP           1
 0013 | GET_LOCAL     0
 0014 | RETURN
 0015 | JUMP         16
-0016 | GET_GLOBAL    5 '"make_power"'
+0016 | GET_GLOBAL    3 '"make_power"'
 0017 | GET_UPVALUE    0
-0018 | CONSTANT      6 (1)
+0018 | CONSTANT      2 (1)
 0019 | SUBTRACT
 0020 | CALL          1 true
 0021 | GET_LOCAL     0
@@ -61,5 +60,4 @@
 0024 | CALL          1 true
 0025 | MULTIPLY
 0026 | RETURN
-0027 | POP           1
-0028 | RETURN
+0027 | RETURN

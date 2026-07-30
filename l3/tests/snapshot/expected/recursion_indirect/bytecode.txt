@@ -4,33 +4,33 @@
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
 0004 | SET_GLOBAL    6 '"is_even"'
-0005 | CONSTANT      7 (nil)
-0006 | CLOSURE      11 (function <is_odd>)
+0005 | CONSTANT      0 (nil)
+0006 | CLOSURE       8 (function <is_odd>)
 0006 |            local 0
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
-0009 | SET_GLOBAL   12 '"is_odd"'
-0010 | GET_GLOBAL   13 '"println"'
+0009 | SET_GLOBAL    3 '"is_odd"'
+0010 | GET_GLOBAL    9 '"println"'
 0011 | GET_LOCAL     0
-0012 | CONSTANT     14 (10)
+0012 | CONSTANT     10 (10)
 0013 | CALL          1 true
 0014 | CALL          1 true
 0015 | POP           1
-0016 | GET_GLOBAL   15 '"println"'
+0016 | GET_GLOBAL    9 '"println"'
 0017 | GET_LOCAL     0
-0018 | CONSTANT     16 (7)
+0018 | CONSTANT     11 (7)
 0019 | CALL          1 true
 0020 | CALL          1 true
 0021 | POP           1
-0022 | GET_GLOBAL   17 '"println"'
+0022 | GET_GLOBAL    9 '"println"'
 0023 | GET_LOCAL     1
-0024 | CONSTANT     18 (10)
+0024 | CONSTANT     10 (10)
 0025 | CALL          1 true
 0026 | CALL          1 true
 0027 | POP           1
-0028 | GET_GLOBAL   19 '"println"'
+0028 | GET_GLOBAL    9 '"println"'
 0029 | GET_LOCAL     1
-0030 | CONSTANT     20 (7)
+0030 | CONSTANT     11 (7)
 0031 | CALL          1 true
 0032 | CALL          1 true
 0033 | POP           1
@@ -54,16 +54,16 @@
 0014 | RETURN
 == Chunk 2 ==
 0000 | GET_LOCAL     0
-0001 | CONSTANT      8 (0)
+0001 | CONSTANT      1 (0)
 0002 | EQUAL
 0003 | JUMP_IF       8 false keep after stay
 0004 | POP           1
-0005 | CONSTANT      9 (false)
+0005 | CONSTANT      7 (false)
 0006 | RETURN
 0007 | JUMP          8
 0008 | GET_UPVALUE    0
 0009 | GET_LOCAL     0
-0010 | CONSTANT     10 (1)
+0010 | CONSTANT      4 (1)
 0011 | SUBTRACT
 0012 | CALL          1 true
 0013 | RETURN

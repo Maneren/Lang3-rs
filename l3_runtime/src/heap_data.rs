@@ -4,6 +4,7 @@ use crate::primitive::{Primitive, compare_primitives};
 use crate::stack_value::StackValue;
 use std::cmp::Ordering;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 impl fmt::Display for HeapData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -36,6 +37,41 @@ pub enum HeapData {
     Function(Function),
     Vector(Vec<StackValue>),
     String(String),
+}
+
+impl PartialEq for HeapData {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (HeapData::Nil, HeapData::Nil) => true,
+            (HeapData::Primitive(a), HeapData::Primitive(b)) => a == b,
+            (HeapData::String(a), HeapData::String(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Hash for HeapData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            HeapData::Nil => 0u8.hash(state),
+            HeapData::Primitive(p) => {
+                1u8.hash(state);
+                p.hash(state);
+            }
+            HeapData::String(s) => {
+                2u8.hash(state);
+                s.hash(state);
+            }
+            HeapData::Function(_) => {
+                3u8.hash(state);
+                // Functions are unique — use a random-ish constant
+            }
+            HeapData::Vector(v) => {
+                v.len().hash(state);
+                4u8.hash(state);
+            }
+        }
+    }
 }
 
 impl HeapData {

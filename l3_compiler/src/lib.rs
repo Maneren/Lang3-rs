@@ -175,6 +175,11 @@ impl Compiler {
     }
 
     fn make_constant(&mut self, value: HeapData) -> usize {
+        for (i, existing) in self.program.constants.iter().enumerate() {
+            if existing.value == value {
+                return i;
+            }
+        }
         let idx = self.program.constants.len();
         self.program.constants.push(HeapCell::new(value));
         idx
@@ -193,10 +198,13 @@ impl Compiler {
         for stmt in &block.statements {
             self.compile_statement(stmt)?;
         }
+        let is_return = matches!(&block.last_statement, Some(LastStatement::Return(_)));
         if let Some(ref last) = block.last_statement {
             self.compile_last_statement(last)?;
         }
-        self.end_scope();
+        if !is_return {
+            self.end_scope();
+        }
         Ok(())
     }
 

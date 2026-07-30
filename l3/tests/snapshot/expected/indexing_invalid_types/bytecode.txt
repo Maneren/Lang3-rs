@@ -10,14 +10,14 @@
 0008 | GET_INDEX
 0009 | CALL          1 true
 0010 | POP           1
-0011 | GET_GLOBAL    6 '"println"'
+0011 | GET_GLOBAL    4 '"println"'
 0012 | GET_LOCAL     0
 0013 | GET_LOCAL     1
 0014 | GET_INDEX
 0015 | CALL          1 true
 0016 | POP           1
-0017 | GET_GLOBAL    7 '"println"'
-0018 | CONSTANT      8 ("unreachable")
+0017 | GET_GLOBAL    4 '"println"'
+0018 | CONSTANT      6 ("unreachable")
 0019 | CALL          1 true
 0020 | POP           1
 0021 | POP           2
