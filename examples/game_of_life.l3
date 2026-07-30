@@ -4,7 +4,7 @@
 
 let WIDTH = 40
 let HEIGHT = 40
-let GENERATIONS = 10
+let GENERATIONS = 100
 
 fn create_board()
   let mut board = []

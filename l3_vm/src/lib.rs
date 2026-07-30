@@ -13,6 +13,7 @@ pub struct BytecodeVM {
     pub stack: Vec<StackValue>,
     pub global_symbols: HashMap<String, StackValue>,
     program: Option<ProgramBytecode>,
+    constant_keys: Vec<slotmap::DefaultKey>,
     frames: Vec<CallFrame>,
     debug: bool,
 }
@@ -42,6 +43,7 @@ impl BytecodeVM {
             stack: Vec::new(),
             global_symbols: HashMap::new(),
             program: None,
+            constant_keys: Vec::new(),
             frames: Vec::new(),
             debug,
         };
@@ -61,13 +63,16 @@ impl BytecodeVM {
     }
 
     pub fn execute(&mut self, program: &ProgramBytecode) -> Result<(), RuntimeError> {
-        let saved = program.clone();
-        self.program = Some(saved);
-        let chunks = self
-            .program
-            .as_ref()
-            .map(|p| p.chunks.clone())
-            .unwrap_or_default();
+        self.program = Some(program.clone());
+        let chunks = &program.chunks;
+
+        // Pre-insert all program constants into the heap so the Constant
+        // dispatch can use a cached slotmap key instead of a linear scan.
+        self.constant_keys = program
+            .constants
+            .iter()
+            .map(|hc| self.heap.cells.insert(hc.clone()))
+            .collect();
 
         let frame = CallFrame {
             chunk_id: 0,
@@ -80,8 +85,7 @@ impl BytecodeVM {
         self.frames.push(frame);
 
         loop {
-            self.gc_mark_roots();
-            self.heap.maybe_gc();
+            self.maybe_gc();
 
             let chunk_id = self.frames.last().unwrap().chunk_id;
             let ip = self.frames.last().unwrap().ip;
@@ -90,20 +94,32 @@ impl BytecodeVM {
                 break;
             }
 
-            let instruction = chunks[chunk_id].code[ip].clone();
+            let instruction = &chunks[chunk_id].code[ip];
             self.frames.last_mut().unwrap().ip += 1;
 
             debug_println!(self, "  IP={} {:?}", ip, instruction);
 
-            self.dispatch(&instruction)?;
+            self.dispatch(instruction)?;
 
             if self.frames.is_empty() {
                 break;
             }
         }
 
+        self.constant_keys.clear();
         self.program = None;
         Ok(())
+    }
+
+    fn run_gc(&mut self) {
+        self.gc_mark_roots();
+        self.heap.sweep();
+    }
+
+    fn maybe_gc(&mut self) {
+        if self.heap.added_since_last_sweep >= self.heap.next_gc_threshold {
+            self.run_gc();
+        }
     }
 
     fn gc_mark_roots(&mut self) {
@@ -128,9 +144,9 @@ impl BytecodeVM {
         for sv in self.global_symbols.values() {
             mark_stack_value(sv, &self.heap.cells);
         }
-        if let Some(prog) = &self.program {
-            for hc in &prog.constants {
-                hc.mark(&self.heap.cells);
+        for key in &self.constant_keys {
+            if let Some(cell) = self.heap.cells.get(*key) {
+                cell.mark(&self.heap.cells);
             }
         }
     }
@@ -138,9 +154,8 @@ impl BytecodeVM {
     fn dispatch(&mut self, inst: &Instruction) -> Result<(), RuntimeError> {
         match inst {
             Instruction::Return => {
-                let return_value = self.stack.last().cloned().unwrap_or(StackValue::Nil);
-                debug_println!(self, "    RETURN value={:?}", return_value);
                 let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
+                debug_println!(self, "    RETURN value={:?}", return_value);
                 let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
                 self.frames.pop();
                 if !self.frames.is_empty() {
@@ -154,15 +169,7 @@ impl BytecodeVM {
                     match &val.value {
                         HeapData::Nil => StackValue::Nil,
                         HeapData::Primitive(p) => StackValue::Primitive(*p),
-                        _ => StackValue::Heap(
-                            if let Some(k) = self.heap.cells.iter().find(|(_, c)| {
-                                std::ptr::eq(&raw const c.value, &raw const val.value)
-                            }) {
-                                k.0
-                            } else {
-                                self.heap.cells.insert(val.clone())
-                            },
-                        ),
+                        _ => StackValue::Heap(self.constant_keys[*index]),
                     };
                 debug_println!(self, "    CONSTANT({}) -> {:?}", index, sv);
                 self.stack.push(sv);
@@ -277,14 +284,9 @@ impl BytecodeVM {
                 let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
                 let val = self
                     .stack
-                    .last()
-                    .cloned()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_GLOBAL {} = {:?}", name_str, val);
-                let val = self
-                    .stack
                     .pop()
                     .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                debug_println!(self, "    SET_GLOBAL {} = {:?}", name_str, val);
                 self.global_symbols.insert(name_str, val);
             }
             Instruction::GetLocal { index } => {
@@ -298,18 +300,13 @@ impl BytecodeVM {
                 let fp = self.frames.last().unwrap().frame_pointer;
                 let val = self
                     .stack
-                    .last()
-                    .cloned()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
-                let val = self
-                    .stack
                     .pop()
                     .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                self.stack[fp + index] = val.clone();
+                debug_println!(self, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
+                let _old = std::mem::replace(&mut self.stack[fp + index], val);
 
                 if let Some(cell) = self.frames.last_mut().unwrap().captured_locals.get(index) {
-                    cell.borrow_mut().value = val;
+                    cell.borrow_mut().value = self.stack[fp + index].clone();
                 }
             }
             Instruction::ForLoop {
@@ -502,14 +499,9 @@ impl BytecodeVM {
             Instruction::SetUpvalue { index } => {
                 let val = self
                     .stack
-                    .last()
-                    .cloned()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_UPVALUE {} val={:?}", index, val);
-                let val = self
-                    .stack
                     .pop()
                     .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                debug_println!(self, "    SET_UPVALUE {} val={:?}", index, val);
                 if let Ok(mut cell) = self.frames.last().unwrap().upvalues[*index].try_borrow_mut()
                 {
                     cell.value = val;
@@ -619,9 +611,7 @@ impl BytecodeVM {
     {
         let b = self.stack.pop().unwrap_or(StackValue::Nil);
         if keep_rhs {
-            // Swap: put b back, then result
-            let a = self.stack.last().cloned().unwrap_or(StackValue::Nil);
-            self.stack.pop();
+            let a = self.stack.pop().unwrap_or(StackValue::Nil);
             let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
             self.stack.push(b);
             self.stack.push(result);
