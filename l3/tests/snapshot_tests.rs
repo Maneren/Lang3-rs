@@ -6,11 +6,17 @@ fn snapshot_dir() -> PathBuf {
 }
 
 fn input_path(name: &str) -> PathBuf {
-    snapshot_dir().join("inputs").join(name).with_extension("l3")
+    snapshot_dir()
+        .join("inputs")
+        .join(name)
+        .with_extension("l3")
 }
 
 fn expected_path(name: &str, kind: &str) -> PathBuf {
-    snapshot_dir().join("expected").join(name).join(format!("{kind}.txt"))
+    snapshot_dir()
+        .join("expected")
+        .join(name)
+        .join(format!("{kind}.txt"))
 }
 
 fn expected_text(name: &str, kind: &str) -> String {

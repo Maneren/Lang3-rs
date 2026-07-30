@@ -1,6 +1,6 @@
 use crate::function::Function;
 use crate::heap::Heap;
-use crate::primitive::{compare_primitives, Primitive};
+use crate::primitive::{Primitive, compare_primitives};
 use crate::stack_value::StackValue;
 use std::cmp::Ordering;
 use std::fmt;

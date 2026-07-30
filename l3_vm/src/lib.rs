@@ -165,12 +165,11 @@ impl BytecodeVM {
             }
             Instruction::Constant { index } => {
                 let val = &self.program.as_ref().unwrap().constants[*index];
-                let sv =
-                    match &val.value {
-                        HeapData::Nil => StackValue::Nil,
-                        HeapData::Primitive(p) => StackValue::Primitive(*p),
-                        _ => StackValue::Heap(self.constant_keys[*index]),
-                    };
+                let sv = match &val.value {
+                    HeapData::Nil => StackValue::Nil,
+                    HeapData::Primitive(p) => StackValue::Primitive(*p),
+                    _ => StackValue::Heap(self.constant_keys[*index]),
+                };
                 debug_println!(self, "    CONSTANT({}) -> {:?}", index, sv);
                 self.stack.push(sv);
             }

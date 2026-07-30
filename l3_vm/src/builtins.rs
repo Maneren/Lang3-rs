@@ -155,12 +155,12 @@ fn builtin_len(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
         StackValue::Heap(key) => {
             if let Some(cell) = heap.cells.get(*key) {
                 match &cell.value {
-                    HeapData::String(s) => Ok(StackValue::Primitive(Primitive::Integer(
-                        s.len() as i64,
-                    ))),
-                    HeapData::Vector(v) => Ok(StackValue::Primitive(Primitive::Integer(
-                        v.len() as i64,
-                    ))),
+                    HeapData::String(s) => {
+                        Ok(StackValue::Primitive(Primitive::Integer(s.len() as i64)))
+                    }
+                    HeapData::Vector(v) => {
+                        Ok(StackValue::Primitive(Primitive::Integer(v.len() as i64)))
+                    }
                     _ => Ok(StackValue::Primitive(Primitive::Integer(0))),
                 }
             } else {
@@ -271,7 +271,11 @@ fn builtin_range(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, R
     let step = if args.len() > 2 {
         match int_val(&args[2]) {
             Some(i) if i != 0 => i,
-            _ => return Err(RuntimeError::type_error("range requires non-zero integer step")),
+            _ => {
+                return Err(RuntimeError::type_error(
+                    "range requires non-zero integer step",
+                ));
+            }
         }
     } else {
         1
@@ -423,10 +427,7 @@ fn builtin_sum(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     })
 }
 
-fn builtin_trigger_gc(
-    _args: Vec<StackValue>,
-    heap: &mut Heap,
-) -> Result<StackValue, RuntimeError> {
+fn builtin_trigger_gc(_args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     let erased = heap.sweep();
     Ok(heap.alloc_string(format!("GC swept {erased} cells")))
 }
