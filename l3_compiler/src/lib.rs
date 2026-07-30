@@ -875,6 +875,11 @@ impl Compiler {
     }
 
     fn compile_binary(&mut self, be: &BinaryExpression) -> Result<(), CompileError> {
+        if let Some(folded) = self.try_fold_binary(be) {
+            let idx = self.make_constant(folded);
+            self.emit(Instruction::Constant { index: idx }, Location::default());
+            return Ok(());
+        }
         self.compile_expression(&be.lhs)?;
         self.compile_expression(&be.rhs)?;
         let inst = match be.op {
@@ -889,18 +894,82 @@ impl Compiler {
         Ok(())
     }
 
+    fn try_fold_expression(&mut self, expr: &Expression) -> Option<HeapData> {
+        match expr {
+            Expression::Literal(lit) => match lit {
+                Literal::Nil(_) => Some(HeapData::Nil),
+                Literal::Boolean(b) => Some(HeapData::Primitive(Primitive::Bool(b.value))),
+                Literal::Number(n) => Some(HeapData::Primitive(Primitive::Integer(n.value))),
+                Literal::Float(f) => Some(HeapData::Primitive(Primitive::Double(f.value))),
+                _ => None,
+            },
+            Expression::UnaryExpression(ue) => self.try_fold_unary(ue),
+            Expression::BinaryExpression(be) => self.try_fold_binary(be),
+            _ => None,
+        }
+    }
+
+    fn try_fold_unary(&mut self, ue: &UnaryExpression) -> Option<HeapData> {
+        match ue.op {
+            UnaryOperator::Minus => {
+                let inner = self.try_fold_expression(&ue.expression)?;
+                match inner {
+                    HeapData::Primitive(p) => Some(HeapData::Primitive(-p)),
+                    _ => None,
+                }
+            }
+            UnaryOperator::Plus => self.try_fold_expression(&ue.expression),
+            UnaryOperator::Not => {
+                let inner = self.try_fold_expression(&ue.expression)?;
+                match inner {
+                    HeapData::Primitive(p) => {
+                        Some(HeapData::Primitive(Primitive::Bool(!p.is_truthy())))
+                    }
+                    HeapData::Nil => Some(HeapData::Primitive(Primitive::Bool(true))),
+                    _ => None,
+                }
+            }
+        }
+    }
+
+    fn try_fold_binary(&mut self, be: &BinaryExpression) -> Option<HeapData> {
+        let lhs = self.try_fold_expression(&be.lhs)?;
+        let rhs = self.try_fold_expression(&be.rhs)?;
+        match (lhs, rhs) {
+            (HeapData::Primitive(a), HeapData::Primitive(b)) => {
+                let result = match be.op {
+                    BinaryOperator::Plus => a + b,
+                    BinaryOperator::Minus => a - b,
+                    BinaryOperator::Multiply => a * b,
+                    BinaryOperator::Divide => a / b,
+                    BinaryOperator::Modulo => a % b,
+                    BinaryOperator::Power => match (a, b) {
+                        (Primitive::Integer(a), Primitive::Integer(b)) => {
+                            Ok(Primitive::Integer(a.wrapping_pow(b as u32)))
+                        }
+                        (Primitive::Double(a), Primitive::Double(b)) => {
+                            Ok(Primitive::Double(a.powf(b)))
+                        }
+                        (Primitive::Integer(a), Primitive::Double(b)) => {
+                            Ok(Primitive::Double((a as f64).powf(b)))
+                        }
+                        (Primitive::Double(a), Primitive::Integer(b)) => {
+                            Ok(Primitive::Double(a.powi(b as i32)))
+                        }
+                        _ => Err("unsupported operand types for ^"),
+                    },
+                };
+                result.ok().map(HeapData::Primitive)
+            }
+            _ => None,
+        }
+    }
+
     fn compile_unary(&mut self, ue: &UnaryExpression) -> Result<(), CompileError> {
-        if ue.op == UnaryOperator::Minus {
-            if let Expression::Literal(Literal::Number(n)) = &*ue.expression {
-                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(-n.value)));
-                self.emit(Instruction::Constant { index: idx }, Location::default());
-                return Ok(());
-            }
-            if let Expression::Literal(Literal::Float(f)) = &*ue.expression {
-                let idx = self.make_constant(HeapData::Primitive(Primitive::Double(-f.value)));
-                self.emit(Instruction::Constant { index: idx }, Location::default());
-                return Ok(());
-            }
+        if let Some(folded) = self.try_fold_unary(ue) {
+            let idx = self.make_constant(folded);
+            self.emit(Instruction::Constant { index: idx }, Location::default());
+            return Ok(());
         }
         self.compile_expression(&ue.expression)?;
         let inst = match ue.op {
