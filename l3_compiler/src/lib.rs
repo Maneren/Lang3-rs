@@ -997,7 +997,9 @@ impl Compiler {
                 *offset = cleanup;
             }
         }
-        self.emit(Instruction::Pop { count: 1 }, Location::default());
+        self.emit(Instruction::Pop { count: 2 }, Location::default());
+        let false_idx = self.make_constant(HeapData::Primitive(Primitive::Bool(false)));
+        self.emit(Instruction::Constant { index: false_idx }, Location::default());
 
         let end = self.current_chunk().code.len();
         if let Instruction::Jump { ref mut offset } = self.current_chunk().code[end_jump] {

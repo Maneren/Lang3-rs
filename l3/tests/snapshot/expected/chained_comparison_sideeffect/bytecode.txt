@@ -12,11 +12,12 @@
 0010 | JUMP_IF      14 false keep after jump
 0011 | CONSTANT      7 (2)
 0012 | LESS
-0013 | JUMP         15
-0014 | POP           1
-0015 | CALL          1 false
-0016 | POP           1
-0017 | RETURN
+0013 | JUMP         16
+0014 | POP           2
+0015 | CONSTANT      8 (false)
+0016 | CALL          1 false
+0017 | POP           1
+0018 | RETURN
 == Chunk 1 ==
 0000 | GET_GLOBAL    1 '"println"'
 0001 | CONSTANT      2 ("mid called")

@@ -1,15 +1,15 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CONSTANT      5 (function <is_even>)
+0001 | CONSTANT      6 (function <is_even>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
-0004 | SET_GLOBAL    6 '"is_even"'
+0004 | SET_GLOBAL    7 '"is_even"'
 0005 | CONSTANT      0 (nil)
 0006 | CLOSURE       8 (function <is_odd>)
 0006 |            local 0
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
-0009 | SET_GLOBAL    3 '"is_odd"'
+0009 | SET_GLOBAL    4 '"is_odd"'
 0010 | GET_GLOBAL    9 '"println"'
 0011 | GET_LOCAL     0
 0012 | CONSTANT     10 (10)
@@ -36,35 +36,37 @@
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)
 0002 | EQUAL
-0003 | JUMP          5
-0004 | POP           1
-0005 | JUMP_IF      10 false keep after stay
-0006 | POP           1
-0007 | CONSTANT      2 (true)
-0008 | RETURN
-0009 | JUMP         10
-0010 | GET_GLOBAL    3 '"is_odd"'
-0011 | GET_LOCAL     0
-0012 | CONSTANT      4 (1)
-0013 | SUBTRACT
-0014 | CALL          1 true
-0015 | RETURN
+0003 | JUMP          6
+0004 | POP           2
+0005 | CONSTANT      2 (false)
+0006 | JUMP_IF      11 false keep after stay
+0007 | POP           1
+0008 | CONSTANT      3 (true)
+0009 | RETURN
+0010 | JUMP         11
+0011 | GET_GLOBAL    4 '"is_odd"'
+0012 | GET_LOCAL     0
+0013 | CONSTANT      5 (1)
+0014 | SUBTRACT
+0015 | CALL          1 true
 0016 | RETURN
+0017 | RETURN
 == Chunk 2 ==
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)
 0002 | EQUAL
-0003 | JUMP          5
-0004 | POP           1
-0005 | JUMP_IF      10 false keep after stay
-0006 | POP           1
-0007 | CONSTANT      7 (false)
-0008 | RETURN
-0009 | JUMP         10
-0010 | GET_UPVALUE    0
-0011 | GET_LOCAL     0
-0012 | CONSTANT      4 (1)
-0013 | SUBTRACT
-0014 | CALL          1 true
-0015 | RETURN
+0003 | JUMP          6
+0004 | POP           2
+0005 | CONSTANT      2 (false)
+0006 | JUMP_IF      11 false keep after stay
+0007 | POP           1
+0008 | CONSTANT      2 (false)
+0009 | RETURN
+0010 | JUMP         11
+0011 | GET_UPVALUE    0
+0012 | GET_LOCAL     0
+0013 | CONSTANT      5 (1)
+0014 | SUBTRACT
+0015 | CALL          1 true
 0016 | RETURN
+0017 | RETURN
