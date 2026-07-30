@@ -4,46 +4,54 @@
 0002 | GET_LOCAL     0
 0003 | GET_LOCAL     1
 0004 | LESS
-0005 | JUMP_IF      11 false keep after stay
+0005 | JUMP          7
 0006 | POP           1
-0007 | GET_GLOBAL    2 '"println"'
-0008 | CONSTANT      3 ("lt")
-0009 | CALL          1 false
-0010 | JUMP         14
-0011 | GET_GLOBAL    2 '"println"'
-0012 | CONSTANT      4 ("gt")
-0013 | CALL          1 false
-0014 | CONSTANT      5 (0)
-0015 | GET_LOCAL     2
-0016 | CONSTANT      6 (4)
-0017 | LESS
-0018 | JUMP_IF      46 false keep after stay
-0019 | POP           1
-0020 | GET_LOCAL     2
-0021 | CONSTANT      7 (1)
-0022 | EQUAL
-0023 | JUMP_IF      31 false keep after stay
-0024 | POP           1
-0025 | GET_LOCAL     2
-0026 | CONSTANT      7 (1)
-0027 | ADD
-0028 | SET_LOCAL     2
-0029 | JUMP         15
-0030 | JUMP         31
+0007 | JUMP_IF      13 false keep after stay
+0008 | POP           1
+0009 | GET_GLOBAL    2 '"println"'
+0010 | CONSTANT      3 ("lt")
+0011 | CALL          1 false
+0012 | JUMP         16
+0013 | GET_GLOBAL    2 '"println"'
+0014 | CONSTANT      4 ("gt")
+0015 | CALL          1 false
+0016 | CONSTANT      5 (0)
+0017 | GET_LOCAL     2
+0018 | CONSTANT      6 (4)
+0019 | LESS
+0020 | JUMP         22
+0021 | POP           1
+0022 | JUMP_IF      54 false keep after stay
+0023 | POP           1
+0024 | GET_LOCAL     2
+0025 | CONSTANT      7 (1)
+0026 | EQUAL
+0027 | JUMP         29
+0028 | POP           1
+0029 | JUMP_IF      37 false keep after stay
+0030 | POP           1
 0031 | GET_LOCAL     2
-0032 | CONSTANT      8 (3)
-0033 | EQUAL
-0034 | JUMP_IF      38 false keep after stay
-0035 | POP           1
-0036 | JUMP         46
-0037 | JUMP         38
-0038 | GET_GLOBAL    2 '"println"'
-0039 | GET_LOCAL     2
-0040 | CALL          1 false
-0041 | GET_LOCAL     2
-0042 | CONSTANT      7 (1)
-0043 | ADD
-0044 | SET_LOCAL     2
-0045 | JUMP         15
-0046 | POP           3
-0047 | RETURN
+0032 | CONSTANT      7 (1)
+0033 | ADD
+0034 | SET_LOCAL     2
+0035 | JUMP         17
+0036 | JUMP         37
+0037 | GET_LOCAL     2
+0038 | CONSTANT      8 (3)
+0039 | EQUAL
+0040 | JUMP         42
+0041 | POP           1
+0042 | JUMP_IF      46 false keep after stay
+0043 | POP           1
+0044 | JUMP         54
+0045 | JUMP         46
+0046 | GET_GLOBAL    2 '"println"'
+0047 | GET_LOCAL     2
+0048 | CALL          1 false
+0049 | GET_LOCAL     2
+0050 | CONSTANT      7 (1)
+0051 | ADD
+0052 | SET_LOCAL     2
+0053 | JUMP         17
+0054 | POP           3
+0055 | RETURN

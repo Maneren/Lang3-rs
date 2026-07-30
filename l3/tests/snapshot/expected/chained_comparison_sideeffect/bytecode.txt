@@ -8,12 +8,12 @@
 0006 | CONSTANT      6 (0)
 0007 | GET_LOCAL     0
 0008 | CALL          0 true
-0009 | LESS
-0010 | JUMP_IF      15 false keep after jump
-0011 | GET_LOCAL     0
-0012 | CALL          0 true
-0013 | CONSTANT      7 (2)
-0014 | LESS
+0009 | LESS keep rhs
+0010 | JUMP_IF      14 false keep after jump
+0011 | CONSTANT      7 (2)
+0012 | LESS
+0013 | JUMP         15
+0014 | POP           1
 0015 | CALL          1 false
 0016 | POP           1
 0017 | RETURN

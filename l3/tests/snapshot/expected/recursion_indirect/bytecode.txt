@@ -36,31 +36,35 @@
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)
 0002 | EQUAL
-0003 | JUMP_IF       8 false keep after stay
+0003 | JUMP          5
 0004 | POP           1
-0005 | CONSTANT      2 (true)
-0006 | RETURN
-0007 | JUMP          8
-0008 | GET_GLOBAL    3 '"is_odd"'
-0009 | GET_LOCAL     0
-0010 | CONSTANT      4 (1)
-0011 | SUBTRACT
-0012 | CALL          1 true
-0013 | RETURN
-0014 | RETURN
+0005 | JUMP_IF      10 false keep after stay
+0006 | POP           1
+0007 | CONSTANT      2 (true)
+0008 | RETURN
+0009 | JUMP         10
+0010 | GET_GLOBAL    3 '"is_odd"'
+0011 | GET_LOCAL     0
+0012 | CONSTANT      4 (1)
+0013 | SUBTRACT
+0014 | CALL          1 true
+0015 | RETURN
+0016 | RETURN
 == Chunk 2 ==
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)
 0002 | EQUAL
-0003 | JUMP_IF       8 false keep after stay
+0003 | JUMP          5
 0004 | POP           1
-0005 | CONSTANT      7 (false)
-0006 | RETURN
-0007 | JUMP          8
-0008 | GET_UPVALUE    0
-0009 | GET_LOCAL     0
-0010 | CONSTANT      4 (1)
-0011 | SUBTRACT
-0012 | CALL          1 true
-0013 | RETURN
-0014 | RETURN
+0005 | JUMP_IF      10 false keep after stay
+0006 | POP           1
+0007 | CONSTANT      7 (false)
+0008 | RETURN
+0009 | JUMP         10
+0010 | GET_UPVALUE    0
+0011 | GET_LOCAL     0
+0012 | CONSTANT      4 (1)
+0013 | SUBTRACT
+0014 | CALL          1 true
+0015 | RETURN
+0016 | RETURN

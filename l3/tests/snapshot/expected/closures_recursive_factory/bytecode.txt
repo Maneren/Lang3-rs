@@ -34,28 +34,32 @@
 0000 | GET_UPVALUE    0
 0001 | CONSTANT      1 (0)
 0002 | EQUAL
-0003 | JUMP_IF       8 false keep after stay
+0003 | JUMP          5
 0004 | POP           1
-0005 | CONSTANT      2 (1)
-0006 | RETURN
-0007 | JUMP          8
-0008 | GET_UPVALUE    0
-0009 | CONSTANT      2 (1)
-0010 | EQUAL
-0011 | JUMP_IF      16 false keep after stay
-0012 | POP           1
-0013 | GET_LOCAL     0
-0014 | RETURN
-0015 | JUMP         16
-0016 | GET_GLOBAL    3 '"make_power"'
-0017 | GET_UPVALUE    0
-0018 | CONSTANT      2 (1)
-0019 | SUBTRACT
-0020 | CALL          1 true
-0021 | GET_LOCAL     0
-0022 | GET_LOCAL     1
-0023 | GET_LOCAL     0
+0005 | JUMP_IF      10 false keep after stay
+0006 | POP           1
+0007 | CONSTANT      2 (1)
+0008 | RETURN
+0009 | JUMP         10
+0010 | GET_UPVALUE    0
+0011 | CONSTANT      2 (1)
+0012 | EQUAL
+0013 | JUMP         15
+0014 | POP           1
+0015 | JUMP_IF      20 false keep after stay
+0016 | POP           1
+0017 | GET_LOCAL     0
+0018 | RETURN
+0019 | JUMP         20
+0020 | GET_GLOBAL    3 '"make_power"'
+0021 | GET_UPVALUE    0
+0022 | CONSTANT      2 (1)
+0023 | SUBTRACT
 0024 | CALL          1 true
-0025 | MULTIPLY
-0026 | RETURN
-0027 | RETURN
+0025 | GET_LOCAL     0
+0026 | GET_LOCAL     1
+0027 | GET_LOCAL     0
+0028 | CALL          1 true
+0029 | MULTIPLY
+0030 | RETURN
+0031 | RETURN

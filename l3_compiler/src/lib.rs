@@ -963,35 +963,45 @@ impl Compiler {
     fn compile_comparison(&mut self, cmp: &Comparison) -> Result<(), CompileError> {
         let comparisons = &cmp.comparisons;
         let len = comparisons.len();
+        let mut false_jumps = Vec::new();
 
         self.compile_expression(&cmp.start)?;
-        let (op, expr) = &comparisons[0];
-        self.compile_expression(expr)?;
-        self.emit(match_comparison_op(*op, false), Location::default());
 
-        for i in 1..len {
-            let (_, prev_rhs) = &comparisons[i - 1];
-            let (op, expr) = &comparisons[i];
+        for (i, (op, rhs)) in comparisons.iter().enumerate() {
+            let is_last = i == len - 1;
 
-            let jump = self.current_chunk().code.len();
-            self.emit(
-                Instruction::JumpIf {
-                    offset: 0,
-                    expected: false,
-                    keep_stay: false,
-                    keep_jump: true,
-                },
-                Location::default(),
-            );
+            self.compile_expression(rhs)?;
+            self.emit(match_comparison_op(*op, !is_last), Location::default());
 
-            self.compile_expression(prev_rhs)?;
-            self.compile_expression(expr)?;
-            self.emit(match_comparison_op(*op, false), Location::default());
-
-            let patch = self.current_chunk().code.len();
-            if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[jump] {
-                *offset = patch;
+            if !is_last {
+                let jump = self.current_chunk().code.len();
+                self.emit(
+                    Instruction::JumpIf {
+                        offset: 0,
+                        expected: false,
+                        keep_stay: false,
+                        keep_jump: true,
+                    },
+                    Location::default(),
+                );
+                false_jumps.push(jump);
             }
+        }
+
+        let end_jump = self.current_chunk().code.len();
+        self.emit(Instruction::Jump { offset: 0 }, Location::default());
+
+        let cleanup = self.current_chunk().code.len();
+        for jump in &false_jumps {
+            if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[*jump] {
+                *offset = cleanup;
+            }
+        }
+        self.emit(Instruction::Pop { count: 1 }, Location::default());
+
+        let end = self.current_chunk().code.len();
+        if let Instruction::Jump { ref mut offset } = self.current_chunk().code[end_jump] {
+            *offset = end;
         }
 
         Ok(())
