@@ -875,12 +875,23 @@ impl Compiler {
     }
 
     fn compile_unary(&mut self, ue: &UnaryExpression) -> Result<(), CompileError> {
+        if ue.op == UnaryOperator::Minus {
+            if let Expression::Literal(Literal::Number(n)) = &*ue.expression {
+                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(-n.value)));
+                self.emit(Instruction::Constant { index: idx }, Location::default());
+                return Ok(());
+            }
+            if let Expression::Literal(Literal::Float(f)) = &*ue.expression {
+                let idx = self.make_constant(HeapData::Primitive(Primitive::Double(-f.value)));
+                self.emit(Instruction::Constant { index: idx }, Location::default());
+                return Ok(());
+            }
+        }
         self.compile_expression(&ue.expression)?;
         let inst = match ue.op {
             UnaryOperator::Minus => Instruction::Negate,
             UnaryOperator::Not => Instruction::Not,
             UnaryOperator::Plus => {
-                // No-op, just leave value on stack
                 return Ok(());
             }
         };
