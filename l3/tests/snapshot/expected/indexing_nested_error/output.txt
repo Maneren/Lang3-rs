@@ -1,3 +1,2 @@
 4
 RuntimeError: TypeError: cannot index a int value
-  at indexing_nested_error.l3:5.9-24

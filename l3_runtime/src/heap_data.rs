@@ -3,6 +3,31 @@ use crate::heap::Heap;
 use crate::primitive::{compare_primitives, Primitive};
 use crate::stack_value::StackValue;
 use std::cmp::Ordering;
+use std::fmt;
+
+impl fmt::Display for HeapData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HeapData::Nil => write!(f, "nil"),
+            HeapData::Primitive(p) => write!(f, "{p}"),
+            HeapData::Function(fun) => match fun {
+                Function::Builtin(b) => write!(f, "function <{}>", b.name),
+                Function::Bytecode(bc) => write!(f, "function <{}>", bc.name),
+            },
+            HeapData::Vector(v) => {
+                write!(f, "[")?;
+                for (i, sv) in v.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{sv}")?;
+                }
+                write!(f, "]")
+            }
+            HeapData::String(s) => write!(f, "\"{s}\""),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum HeapData {

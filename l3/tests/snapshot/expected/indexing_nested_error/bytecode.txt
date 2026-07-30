@@ -8,22 +8,25 @@
 0006 | MAKE_ARRAY    2
 0007 | GET_GLOBAL    4 '"println"'
 0008 | GET_LOCAL     0
-0009 | CONSTANT      0 (1)
+0009 | CONSTANT      5 (1)
 0010 | GET_INDEX
-0011 | CONSTANT      0 (1)
+0011 | CONSTANT      6 (1)
 0012 | GET_INDEX
-0013 | CALL          1 false
-0014 | GET_GLOBAL    4 '"println"'
-0015 | GET_LOCAL     0
-0016 | CONSTANT      0 (1)
-0017 | GET_INDEX
-0018 | CONSTANT      0 (1)
-0019 | GET_INDEX
-0020 | CONSTANT      5 (0)
-0021 | GET_INDEX
-0022 | CALL          1 false
-0023 | GET_GLOBAL    4 '"println"'
-0024 | CONSTANT      6 ("unreachable")
-0025 | CALL          1 false
-0026 | CONSTANT      7 (nil)
-0027 | RETURN
+0013 | CALL          1 true
+0014 | POP           1
+0015 | GET_GLOBAL    7 '"println"'
+0016 | GET_LOCAL     0
+0017 | CONSTANT      8 (1)
+0018 | GET_INDEX
+0019 | CONSTANT      9 (1)
+0020 | GET_INDEX
+0021 | CONSTANT     10 (0)
+0022 | GET_INDEX
+0023 | CALL          1 true
+0024 | POP           1
+0025 | GET_GLOBAL   11 '"println"'
+0026 | CONSTANT     12 ("unreachable")
+0027 | CALL          1 true
+0028 | POP           1
+0029 | POP           1
+0030 | RETURN

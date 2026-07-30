@@ -12,3 +12,5 @@ l3_cli = { path = "../l3_cli" }
 l3_parser = { path = "../l3_parser" }
 l3_compiler = { path = "../l3_compiler" }
 l3_vm = { path = "../l3_vm" }
+l3_ast = { path = "../l3_ast" }
+l3_bytecode = { path = "../l3_bytecode" }

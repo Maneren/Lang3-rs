@@ -1,3 +1,5 @@
+pub mod format;
+
 use l3_location::Location;
 use l3_runtime::HeapCell;
 

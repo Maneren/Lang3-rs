@@ -1,45 +1,54 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CONSTANT      2 (function <make_counter>)
+0001 | CLOSURE       2 (function <make_counter>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
-0004 | CONSTANT      3 (0)
-0005 | CALL          1 true
-0006 | GET_LOCAL     0
-0007 | CONSTANT      4 (10)
-0008 | CALL          1 true
-0009 | GET_GLOBAL    5 '"println"'
-0010 | GET_LOCAL     1
-0011 | CONSTANT      6 (1)
-0012 | CALL          1 true
-0013 | CALL          1 false
-0014 | GET_GLOBAL    5 '"println"'
-0015 | GET_LOCAL     1
-0016 | CONSTANT      7 (5)
-0017 | CALL          1 true
-0018 | CALL          1 false
-0019 | GET_GLOBAL    5 '"println"'
-0020 | GET_LOCAL     2
-0021 | CONSTANT      8 (2)
-0022 | CALL          1 true
-0023 | CALL          1 false
-0024 | GET_GLOBAL    5 '"println"'
-0025 | GET_LOCAL     1
-0026 | CONSTANT      9 (3)
+0004 | SET_GLOBAL    3 '"make_counter"'
+0005 | GET_LOCAL     0
+0006 | CONSTANT      4 (0)
+0007 | CALL          1 true
+0008 | GET_LOCAL     0
+0009 | CONSTANT      5 (10)
+0010 | CALL          1 true
+0011 | GET_GLOBAL    6 '"println"'
+0012 | GET_LOCAL     1
+0013 | CONSTANT      7 (1)
+0014 | CALL          1 true
+0015 | CALL          1 true
+0016 | POP           1
+0017 | GET_GLOBAL    8 '"println"'
+0018 | GET_LOCAL     1
+0019 | CONSTANT      9 (5)
+0020 | CALL          1 true
+0021 | CALL          1 true
+0022 | POP           1
+0023 | GET_GLOBAL   10 '"println"'
+0024 | GET_LOCAL     2
+0025 | CONSTANT     11 (2)
+0026 | CALL          1 true
 0027 | CALL          1 true
-0028 | CALL          1 false
-0029 | GET_GLOBAL    5 '"println"'
-0030 | GET_LOCAL     2
-0031 | CONSTANT      6 (1)
+0028 | POP           1
+0029 | GET_GLOBAL   12 '"println"'
+0030 | GET_LOCAL     1
+0031 | CONSTANT     13 (3)
 0032 | CALL          1 true
-0033 | CALL          1 false
-0034 | CONSTANT      0 (nil)
-0035 | RETURN
+0033 | CALL          1 true
+0034 | POP           1
+0035 | GET_GLOBAL   14 '"println"'
+0036 | GET_LOCAL     2
+0037 | CONSTANT     15 (1)
+0038 | CALL          1 true
+0039 | CALL          1 true
+0040 | POP           1
+0041 | POP           3
+0042 | RETURN
 == Chunk 1 ==
 0000 | GET_LOCAL     0
-0001 | CLOSURE       1 'function <<anonymous>>'
-0001 |                     local 1
+0001 | CLOSURE       1 (function <<anon_0>>)
+0001 |            local 1
 0002 | RETURN
+0003 | POP           1
+0004 | RETURN
 == Chunk 2 ==
 0000 | GET_UPVALUE    0
 0001 | GET_LOCAL     0
@@ -47,3 +56,4 @@
 0003 | SET_UPVALUE    0
 0004 | GET_UPVALUE    0
 0005 | RETURN
+0006 | RETURN
