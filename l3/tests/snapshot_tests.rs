@@ -2,32 +2,68 @@ use std::fs;
 use std::path::PathBuf;
 
 fn snapshot_dir() -> PathBuf {
-    println!("cwd: {}", std::env::current_dir().unwrap().display());
     PathBuf::from("tests").join("snapshot")
 }
 
-fn input_files() -> Vec<PathBuf> {
-    let inputs_dir = snapshot_dir().join("inputs");
-    let mut files: Vec<_> = fs::read_dir(&inputs_dir)
-        .expect("snapshot inputs directory not found")
-        .filter_map(Result::ok)
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "l3"))
-        .map(|e| e.path())
-        .collect();
-    files.sort();
-    files
+fn input_path(name: &str) -> PathBuf {
+    snapshot_dir().join("inputs").join(name).with_extension("l3")
+}
+
+fn expected_path(name: &str, kind: &str) -> PathBuf {
+    snapshot_dir().join("expected").join(name).join(format!("{kind}.txt"))
 }
 
 fn expected_text(name: &str, kind: &str) -> String {
-    let path = snapshot_dir()
-        .join("expected")
-        .join(name)
-        .join(format!("{kind}.txt"));
-    fs::read_to_string(&path).unwrap_or_default()
+    fs::read_to_string(expected_path(name, kind)).unwrap_or_default()
 }
 
 fn should_update() -> bool {
     std::env::var("L3_UPDATE_SNAPSHOTS").as_deref() == Ok("1")
+}
+
+fn write_expected(name: &str, kind: &str, content: &str) {
+    let path = expected_path(name, kind);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, content).unwrap();
+}
+
+fn run_update_or_check_output(name: &str) {
+    let input = input_path(name);
+    let source = fs::read_to_string(&input).unwrap();
+    let result = l3::run_pipeline(&source, input.to_str().unwrap()).unwrap();
+    let lines: String = result.join("\n");
+    if should_update() {
+        write_expected(name, "output", &lines);
+    } else {
+        let expected = expected_text(name, "output");
+        let actual: Vec<&str> = lines.lines().collect();
+        let expected_lines: Vec<&str> = expected.lines().collect();
+        compare_output(name, &actual, &expected_lines);
+    }
+}
+
+fn run_update_or_check_ast(name: &str) {
+    let input = input_path(name);
+    let source = fs::read_to_string(&input).unwrap();
+    let text = l3::format_ast(&source, input.to_str().unwrap()).unwrap();
+    if should_update() {
+        write_expected(name, "ast", &text);
+    } else {
+        let expected = expected_text(name, "ast");
+        compare_text(name, "ast", &text, &expected);
+    }
+}
+
+fn run_update_or_check_bytecode(name: &str) {
+    let input = input_path(name);
+    let source = fs::read_to_string(&input).unwrap();
+    let text = l3::format_bytecode(&source, input.to_str().unwrap()).unwrap();
+    if should_update() {
+        write_expected(name, "bytecode", &text);
+    } else {
+        let expected = expected_text(name, "bytecode");
+        compare_text(name, "bytecode", &text, &expected);
+    }
 }
 
 fn normalize(v: &[String]) -> Vec<String> {
@@ -41,9 +77,11 @@ fn normalize(v: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn compare_output(name: &str, actual: &[String], expected: &[String]) {
-    let actual = normalize(actual);
-    let expected = normalize(expected);
+fn compare_output(name: &str, actual: &[&str], expected: &[&str]) {
+    let actual: Vec<String> = actual.iter().map(|s| s.to_string()).collect();
+    let expected: Vec<String> = expected.iter().map(|s| s.to_string()).collect();
+    let actual = normalize(&actual);
+    let expected = normalize(&expected);
 
     let mut i = 0;
     let mut failures = Vec::new();
@@ -99,158 +137,33 @@ fn compare_text(name: &str, kind: &str, actual: &str, expected: &str) {
     );
 }
 
-#[test]
-fn all_snapshots() {
-    let files = input_files();
-    assert!(!files.is_empty(), "No snapshot input files found");
-    let update = should_update();
-
-    let failures: Vec<String> = files
-        .into_iter()
-        .filter_map(|input| {
-            let name = input.file_stem().unwrap().to_str().unwrap().to_string();
-            let source = fs::read_to_string(&input).unwrap();
-            println!("--- {name} ---");
-
-            let result = l3::run_pipeline(&source, input.to_str().unwrap());
-            match result {
-                Ok(actual) => {
-                    let expected = expected_text(&name, "output");
-                    if update {
-                        let path = snapshot_dir()
-                            .join("expected")
-                            .join(&name)
-                            .join("output.txt");
-                        fs::create_dir_all(path.parent().unwrap()).unwrap();
-                        fs::write(&path, actual.join("\n")).unwrap();
-                        return None;
-                    }
-                    let expected_lines: Vec<String> =
-                        expected.lines().map(ToString::to_string).collect();
-                    if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        compare_output(&name, &actual, &expected_lines);
-                    })) {
-                        let msg = if let Some(s) = e.downcast_ref::<String>() {
-                            s.clone()
-                        } else if let Some(s) = e.downcast_ref::<&str>() {
-                            s.to_string()
-                        } else {
-                            "unknown error".to_string()
-                        };
-                        return Some(format!("{name}:\n{msg}"));
-                    }
-                    None
-                }
-                Err(e) => Some(format!("{name}: {e}")),
-            }
-        })
-        .collect();
-
-    assert!(
-        failures.is_empty(),
-        "\n\nSnapshot output failures:\n{}\n",
-        failures.join("\n---\n")
-    );
+macro_rules! snapshot_tests {
+    ($($name:ident),* $(,)?) => {
+        $(paste::item! {
+            #[test] fn [<snapshot_output_ $name>]() { run_update_or_check_output(stringify!($name)); }
+            #[test] fn [<snapshot_ast_ $name>]() { run_update_or_check_ast(stringify!($name)); }
+            #[test] fn [<snapshot_bytecode_ $name>]() { run_update_or_check_bytecode(stringify!($name)); }
+        })*
+    };
 }
 
-#[test]
-fn all_ast_snapshots() {
-    let files = input_files();
-    assert!(!files.is_empty(), "No snapshot input files found");
-    let update = should_update();
-
-    let failures: Vec<String> = files
-        .into_iter()
-        .filter_map(|input| {
-            let name = input.file_stem().unwrap().to_str().unwrap().to_string();
-            let source = fs::read_to_string(&input).unwrap();
-            println!("--- {name} ast ---");
-
-            match l3::format_ast(&source, input.to_str().unwrap()) {
-                Ok(actual) => {
-                    if update {
-                        let path = snapshot_dir()
-                            .join("expected")
-                            .join(&name)
-                            .join("ast.txt");
-                        fs::create_dir_all(path.parent().unwrap()).unwrap();
-                        fs::write(&path, &actual).unwrap();
-                        return None;
-                    }
-                    let expected = expected_text(&name, "ast");
-                    if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        compare_text(&name, "ast", &actual, &expected);
-                    })) {
-                        let msg = if let Some(s) = e.downcast_ref::<String>() {
-                            s.clone()
-                        } else if let Some(s) = e.downcast_ref::<&str>() {
-                            s.to_string()
-                        } else {
-                            "unknown error".to_string()
-                        };
-                        return Some(format!("{name}:\n{msg}"));
-                    }
-                    None
-                }
-                Err(e) => Some(format!("{name}: {e}")),
-            }
-        })
-        .collect();
-
-    assert!(
-        failures.is_empty(),
-        "\n\nSnapshot ast failures:\n{}\n",
-        failures.join("\n---\n")
-    );
-}
-
-#[test]
-fn all_bytecode_snapshots() {
-    let files = input_files();
-    assert!(!files.is_empty(), "No snapshot input files found");
-    let update = should_update();
-
-    let failures: Vec<String> = files
-        .into_iter()
-        .filter_map(|input| {
-            let name = input.file_stem().unwrap().to_str().unwrap().to_string();
-            let source = fs::read_to_string(&input).unwrap();
-            println!("--- {name} bytecode ---");
-
-            match l3::format_bytecode(&source, input.to_str().unwrap()) {
-                Ok(actual) => {
-                    if update {
-                        let path = snapshot_dir()
-                            .join("expected")
-                            .join(&name)
-                            .join("bytecode.txt");
-                        fs::create_dir_all(path.parent().unwrap()).unwrap();
-                        fs::write(&path, &actual).unwrap();
-                        return None;
-                    }
-                    let expected = expected_text(&name, "bytecode");
-                    if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        compare_text(&name, "bytecode", &actual, &expected);
-                    })) {
-                        let msg = if let Some(s) = e.downcast_ref::<String>() {
-                            s.clone()
-                        } else if let Some(s) = e.downcast_ref::<&str>() {
-                            s.to_string()
-                        } else {
-                            "unknown error".to_string()
-                        };
-                        return Some(format!("{name}:\n{msg}"));
-                    }
-                    None
-                }
-                Err(e) => Some(format!("{name}: {e}")),
-            }
-        })
-        .collect();
-
-    assert!(
-        failures.is_empty(),
-        "\n\nSnapshot bytecode failures:\n{}\n",
-        failures.join("\n---\n")
-    );
+snapshot_tests! {
+    chained_comparison_sideeffect,
+    closures_recursive_factory,
+    closures_stateful,
+    comparisons_and_logic,
+    control_flow,
+    currying_partial_application,
+    expressions,
+    functions_closures,
+    indexing,
+    indexing_assignments,
+    indexing_bounds,
+    indexing_invalid_types,
+    indexing_negative,
+    indexing_nested_error,
+    mutable_references,
+    range_for,
+    recursion_direct,
+    recursion_indirect,
 }
