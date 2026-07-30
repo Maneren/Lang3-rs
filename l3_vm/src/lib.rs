@@ -25,6 +25,7 @@ struct CallFrame {
     closure_info: Option<(BytecodeFunction, StackValue)>,
     upvalues: Vec<std::rc::Rc<std::cell::RefCell<UpvalueCell>>>,
     captured_locals: HashMap<usize, std::rc::Rc<std::cell::RefCell<UpvalueCell>>>,
+    discard_return: bool,
 }
 
 macro_rules! debug_println {
@@ -81,6 +82,7 @@ impl BytecodeVM {
             closure_info: None,
             upvalues: Vec::new(),
             captured_locals: HashMap::new(),
+            discard_return: false,
         };
         self.frames.push(frame);
 
@@ -157,11 +159,14 @@ impl BytecodeVM {
                 let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
                 debug_println!(self, "    RETURN value={:?}", return_value);
                 let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
+                let discard = self.frames.last().map_or(false, |f| f.discard_return);
                 self.frames.pop();
                 if !self.frames.is_empty() {
                     self.stack.truncate(fp);
                 }
-                self.stack.push(return_value);
+                if !discard {
+                    self.stack.push(return_value);
+                }
             }
             Instruction::Constant { index } => {
                 let val = &self.program.as_ref().unwrap().constants[*index];
@@ -410,7 +415,7 @@ impl BytecodeVM {
                 );
                 self.stack.truncate(base);
                 let frame_count = self.frames.len();
-                let result = self.call_function(func_sv, args)?;
+                let result = self.call_function(func_sv, args, *keep_return_value)?;
                 if *keep_return_value {
                     let pushed_frame = self.frames.len() > frame_count;
                     if !pushed_frame {
@@ -514,6 +519,7 @@ impl BytecodeVM {
         &mut self,
         func: StackValue,
         args: Vec<StackValue>,
+        keep_return_value: bool,
     ) -> Result<StackValue, RuntimeError> {
         // Extract function from stack value
         let func_data = match &func {
@@ -560,6 +566,7 @@ impl BytecodeVM {
                         closure_info: Some((bc.clone(), func)),
                         upvalues: bc.captured_upvalues.clone(),
                         captured_locals: HashMap::new(),
+                        discard_return: !keep_return_value,
                     };
                     self.frames.push(new_frame);
 

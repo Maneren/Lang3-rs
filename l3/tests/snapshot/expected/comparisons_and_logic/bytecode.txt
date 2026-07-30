@@ -10,46 +10,41 @@
 0008 | GET_LOCAL     0
 0009 | GET_LOCAL     1
 0010 | LESS
-0011 | CALL          1 true
-0012 | POP           1
-0013 | GET_GLOBAL    2 '"println"'
-0014 | GET_LOCAL     0
-0015 | GET_LOCAL     1
-0016 | EQUAL
-0017 | CALL          1 true
-0018 | POP           1
-0019 | GET_GLOBAL    2 '"println"'
-0020 | GET_LOCAL     1
-0021 | GET_LOCAL     2
-0022 | EQUAL
-0023 | CALL          1 true
-0024 | POP           1
-0025 | GET_GLOBAL    2 '"println"'
-0026 | GET_LOCAL     0
-0027 | GET_LOCAL     1
-0028 | EQUAL
-0029 | NOT
-0030 | JUMP_IF      38 false keep after jump
-0031 | GET_LOCAL     1
-0032 | GET_LOCAL     2
-0033 | EQUAL
-0034 | JUMP_IF      38 true keep after jump
-0035 | GET_LOCAL     0
-0036 | GET_LOCAL     1
-0037 | GREATER
-0038 | CALL          1 true
-0039 | POP           1
-0040 | GET_LOCAL     0
-0041 | GET_LOCAL     1
-0042 | LESS
-0043 | JUMP_IF      47 false keep after stay
-0044 | POP           1
-0045 | CONSTANT      4 ("ok")
-0046 | JUMP         48
-0047 | CONSTANT      5 ("bad")
-0048 | GET_GLOBAL    2 '"println"'
-0049 | GET_LOCAL     3
-0050 | CALL          1 true
-0051 | POP           1
-0052 | POP           1
-0053 | RETURN
+0011 | CALL          1 false
+0012 | GET_GLOBAL    2 '"println"'
+0013 | GET_LOCAL     0
+0014 | GET_LOCAL     1
+0015 | EQUAL
+0016 | CALL          1 false
+0017 | GET_GLOBAL    2 '"println"'
+0018 | GET_LOCAL     1
+0019 | GET_LOCAL     2
+0020 | EQUAL
+0021 | CALL          1 false
+0022 | GET_GLOBAL    2 '"println"'
+0023 | GET_LOCAL     0
+0024 | GET_LOCAL     1
+0025 | EQUAL
+0026 | NOT
+0027 | JUMP_IF      35 false keep after jump
+0028 | GET_LOCAL     1
+0029 | GET_LOCAL     2
+0030 | EQUAL
+0031 | JUMP_IF      35 true keep after jump
+0032 | GET_LOCAL     0
+0033 | GET_LOCAL     1
+0034 | GREATER
+0035 | CALL          1 false
+0036 | GET_LOCAL     0
+0037 | GET_LOCAL     1
+0038 | LESS
+0039 | JUMP_IF      43 false keep after stay
+0040 | POP           1
+0041 | CONSTANT      4 ("ok")
+0042 | JUMP         44
+0043 | CONSTANT      5 ("bad")
+0044 | GET_GLOBAL    2 '"println"'
+0045 | GET_LOCAL     3
+0046 | CALL          1 false
+0047 | POP           1
+0048 | RETURN

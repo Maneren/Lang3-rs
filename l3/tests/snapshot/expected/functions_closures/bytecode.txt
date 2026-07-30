@@ -1,11 +1,11 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CLOSURE       1 (function <add>)
+0001 | CONSTANT      1 (function <add>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
 0004 | SET_GLOBAL    2 '"add"'
 0005 | CONSTANT      0 (nil)
-0006 | CLOSURE       4 (function <curry_add>)
+0006 | CONSTANT      4 (function <curry_add>)
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
 0009 | SET_GLOBAL    5 '"curry_add"'
@@ -17,48 +17,45 @@
 0015 | CONSTANT      8 (2)
 0016 | CONSTANT      9 (3)
 0017 | CALL          2 true
-0018 | CALL          1 true
-0019 | POP           1
-0020 | GET_GLOBAL    7 '"println"'
-0021 | GET_LOCAL     2
-0022 | CONSTANT     10 (7)
-0023 | CALL          1 true
-0024 | CALL          1 true
-0025 | POP           1
-0026 | CONSTANT     11 (0)
-0027 | CONSTANT      0 (nil)
-0028 | CONSTANT     12 (1)
-0029 | CONSTANT      8 (2)
-0030 | CONSTANT      9 (3)
-0031 | CONSTANT     13 (4)
-0032 | MAKE_ARRAY    4
-0033 | CONSTANT     11 (0)
-0034 | GET_GLOBAL   14 '"len"'
-0035 | GET_LOCAL     5
-0036 | CALL          1 true
-0037 | GET_LOCAL     6
-0038 | GET_LOCAL     7
-0039 | LESS
-0040 | JUMP_IF      54 false
-0041 | GET_LOCAL     5
-0042 | GET_LOCAL     6
-0043 | GET_INDEX
-0044 | SET_LOCAL     4
-0045 | GET_LOCAL     3
-0046 | GET_LOCAL     4
-0047 | ADD
-0048 | SET_LOCAL     3
-0049 | GET_LOCAL     6
-0050 | CONSTANT     12 (1)
-0051 | ADD
-0052 | SET_LOCAL     6
-0053 | JUMP         37
-0054 | GET_GLOBAL    7 '"println"'
-0055 | GET_LOCAL     3
-0056 | CALL          1 true
-0057 | POP           1
-0058 | POP           8
-0059 | RETURN
+0018 | CALL          1 false
+0019 | GET_GLOBAL    7 '"println"'
+0020 | GET_LOCAL     2
+0021 | CONSTANT     10 (7)
+0022 | CALL          1 true
+0023 | CALL          1 false
+0024 | CONSTANT     11 (0)
+0025 | CONSTANT      0 (nil)
+0026 | CONSTANT     12 (1)
+0027 | CONSTANT      8 (2)
+0028 | CONSTANT      9 (3)
+0029 | CONSTANT     13 (4)
+0030 | MAKE_ARRAY    4
+0031 | CONSTANT     11 (0)
+0032 | GET_GLOBAL   14 '"len"'
+0033 | GET_LOCAL     5
+0034 | CALL          1 true
+0035 | GET_LOCAL     6
+0036 | GET_LOCAL     7
+0037 | LESS
+0038 | JUMP_IF      52 false
+0039 | GET_LOCAL     5
+0040 | GET_LOCAL     6
+0041 | GET_INDEX
+0042 | SET_LOCAL     4
+0043 | GET_LOCAL     3
+0044 | GET_LOCAL     4
+0045 | ADD
+0046 | SET_LOCAL     3
+0047 | GET_LOCAL     6
+0048 | CONSTANT     12 (1)
+0049 | ADD
+0050 | SET_LOCAL     6
+0051 | JUMP         35
+0052 | GET_GLOBAL    7 '"println"'
+0053 | GET_LOCAL     3
+0054 | CALL          1 false
+0055 | POP           8
+0056 | RETURN
 == Chunk 1 ==
 0000 | GET_LOCAL     0
 0001 | GET_LOCAL     1

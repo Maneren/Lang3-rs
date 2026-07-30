@@ -16,26 +16,24 @@
 0014 | JUMP          8
 0015 | GET_GLOBAL    4 '"println"'
 0016 | GET_LOCAL     0
-0017 | CALL          1 true
-0018 | POP           1
-0019 | CONSTANT      0 (0)
-0020 | CONSTANT      1 (nil)
+0017 | CALL          1 false
+0018 | CONSTANT      0 (0)
+0019 | CONSTANT      1 (nil)
+0020 | CONSTANT      5 (1)
 0021 | CONSTANT      5 (1)
-0022 | CONSTANT      5 (1)
-0023 | SUBTRACT
-0024 | SET_LOCAL     5
-0025 | CONSTANT      3 (6)
-0026 | CONSTANT      5 (1)
-0027 | FOR_LOOP   ctrl=   5 lim=   6 body=  29 LT step=   7
-0028 | JUMP         34
-0029 | GET_LOCAL     4
-0030 | GET_LOCAL     5
-0031 | ADD
-0032 | SET_LOCAL     4
-0033 | JUMP         27
-0034 | GET_GLOBAL    4 '"println"'
-0035 | GET_LOCAL     4
-0036 | CALL          1 true
-0037 | POP           1
-0038 | POP           8
-0039 | RETURN
+0022 | SUBTRACT
+0023 | SET_LOCAL     5
+0024 | CONSTANT      3 (6)
+0025 | CONSTANT      5 (1)
+0026 | FOR_LOOP   ctrl=   5 lim=   6 body=  28 LT step=   7
+0027 | JUMP         33
+0028 | GET_LOCAL     4
+0029 | GET_LOCAL     5
+0030 | ADD
+0031 | SET_LOCAL     4
+0032 | JUMP         26
+0033 | GET_GLOBAL    4 '"println"'
+0034 | GET_LOCAL     4
+0035 | CALL          1 false
+0036 | POP           8
+0037 | RETURN

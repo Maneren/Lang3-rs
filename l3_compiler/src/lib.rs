@@ -248,11 +248,7 @@ impl Compiler {
         fcall: &FunctionCall,
         pop_result: bool,
     ) -> Result<(), CompileError> {
-        self.compile_expression(&Expression::FunctionCall(fcall.clone()))?;
-        if pop_result {
-            self.emit(Instruction::Pop { count: 1 }, Location::default());
-        }
-        Ok(())
+        self.compile_fcall_expr(fcall, !pop_result)
     }
 
     fn compile_named_function(&mut self, nf: &NamedFunction) -> Result<(), CompileError> {
@@ -287,13 +283,20 @@ impl Compiler {
         }));
         let func_idx = self.make_constant(func_data);
 
-        self.emit(
-            Instruction::Closure {
-                function_index: func_idx,
-                upvalues,
-            },
-            Location::default(),
-        );
+        if upvalues.is_empty() {
+            self.emit(
+                Instruction::Constant { index: func_idx },
+                Location::default(),
+            );
+        } else {
+            self.emit(
+                Instruction::Closure {
+                    function_index: func_idx,
+                    upvalues,
+                },
+                Location::default(),
+            );
+        }
 
         let local_idx = self.contexts.last().unwrap().locals.len() - 1;
         self.emit(
@@ -767,7 +770,7 @@ impl Compiler {
         match expr {
             Expression::Literal(lit) => self.compile_literal(lit),
             Expression::Variable(var) => self.compile_variable(var),
-            Expression::FunctionCall(fc) => self.compile_fcall_expr(fc),
+            Expression::FunctionCall(fc) => self.compile_fcall_expr(fc, true),
             Expression::BinaryExpression(be) => self.compile_binary(be),
             Expression::UnaryExpression(ue) => self.compile_unary(ue),
             Expression::LogicalExpression(le) => self.compile_logical(le),
@@ -831,7 +834,11 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_fcall_expr(&mut self, fc: &FunctionCall) -> Result<(), CompileError> {
+    fn compile_fcall_expr(
+        &mut self,
+        fc: &FunctionCall,
+        keep_return_value: bool,
+    ) -> Result<(), CompileError> {
         match self.resolve_variable(&fc.name.name) {
             VarType::Local(idx) => {
                 self.emit(Instruction::GetLocal { index: idx }, Location::default());
@@ -860,7 +867,7 @@ impl Compiler {
         self.emit(
             Instruction::Call {
                 arg_count: fc.arguments.len(),
-                keep_return_value: true,
+                keep_return_value,
             },
             Location::default(),
         );
@@ -1048,13 +1055,20 @@ impl Compiler {
         }));
         let func_idx = self.make_constant(func_data);
 
-        self.emit(
-            Instruction::Closure {
-                function_index: func_idx,
-                upvalues,
-            },
-            Location::default(),
-        );
+        if upvalues.is_empty() {
+            self.emit(
+                Instruction::Constant { index: func_idx },
+                Location::default(),
+            );
+        } else {
+            self.emit(
+                Instruction::Closure {
+                    function_index: func_idx,
+                    upvalues,
+                },
+                Location::default(),
+            );
+        }
 
         Ok(())
     }

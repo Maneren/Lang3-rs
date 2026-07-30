@@ -1,6 +1,6 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CLOSURE       5 (function <make_power>)
+0001 | CONSTANT      5 (function <make_power>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
 0004 | SET_GLOBAL    3 '"make_power"'
@@ -14,16 +14,14 @@
 0012 | GET_LOCAL     1
 0013 | CONSTANT      9 (5)
 0014 | CALL          1 true
-0015 | CALL          1 true
-0016 | POP           1
-0017 | GET_GLOBAL    8 '"println"'
-0018 | GET_LOCAL     2
-0019 | CONSTANT     10 (4)
-0020 | CALL          1 true
-0021 | CALL          1 true
-0022 | POP           1
-0023 | POP           3
-0024 | RETURN
+0015 | CALL          1 false
+0016 | GET_GLOBAL    8 '"println"'
+0017 | GET_LOCAL     2
+0018 | CONSTANT     10 (4)
+0019 | CALL          1 true
+0020 | CALL          1 false
+0021 | POP           3
+0022 | RETURN
 == Chunk 1 ==
 0000 | CONSTANT      0 (nil)
 0001 | CLOSURE       4 (function <power>)

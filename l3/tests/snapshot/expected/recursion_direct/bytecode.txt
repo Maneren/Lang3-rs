@@ -15,16 +15,14 @@
 0011 | GET_LOCAL     0
 0012 | CONSTANT      9 (6)
 0013 | CALL          1 true
-0014 | CALL          1 true
-0015 | POP           1
-0016 | GET_GLOBAL    8 '"println"'
-0017 | GET_LOCAL     1
-0018 | CONSTANT     10 (10)
-0019 | CALL          1 true
-0020 | CALL          1 true
-0021 | POP           1
-0022 | POP           2
-0023 | RETURN
+0014 | CALL          1 false
+0015 | GET_GLOBAL    8 '"println"'
+0016 | GET_LOCAL     1
+0017 | CONSTANT     10 (10)
+0018 | CALL          1 true
+0019 | CALL          1 false
+0020 | POP           2
+0021 | RETURN
 == Chunk 1 ==
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)
