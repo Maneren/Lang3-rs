@@ -1,4 +1,5 @@
 pub mod ast_printer;
+pub mod dot_printer;
 
 use l3_location::Location;
 use std::fmt;

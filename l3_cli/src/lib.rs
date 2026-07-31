@@ -1,28 +1,44 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "l3", about = "L3 programming language interpreter")]
+#[command(name = "l3", about = "A Lang3 programming language interpreter.")]
 pub struct Cli {
-    /// Input file to execute
-    pub file: Option<String>,
+    /// Input file to execute ('-' for stdin)
+    pub files: Vec<String>,
 
-    /// Print debug information about AST
+    /// Enable all debug options
+    #[arg(short = 'd', long)]
+    pub debug: bool,
+
+    /// Enable optimizations
+    #[arg(short = 'O', long)]
+    pub optimize: bool,
+
+    /// Debug the lexer
+    #[arg(long)]
+    pub debug_lexer: bool,
+
+    /// Debug the parser
+    #[arg(long)]
+    pub debug_parser: bool,
+
+    /// Debug the AST
     #[arg(long)]
     pub debug_ast: bool,
 
-    /// Print debug information about bytecode
+    /// Output AST graph to a DOT file
     #[arg(long)]
-    pub debug_bytecode: bool,
+    pub debug_ast_graph: Option<String>,
 
-    /// Print debug information about VM execution
+    /// Debug the VM
     #[arg(long)]
     pub debug_vm: bool,
 
-    /// Print execution timing
+    /// Debug the bytecode
     #[arg(long)]
-    pub time: bool,
+    pub debug_bytecode: bool,
 
-    /// Output AST as Graphviz DOT
+    /// Show execution timings
     #[arg(long)]
-    pub dot: Option<String>,
+    pub timings: bool,
 }

@@ -1,4 +1,4 @@
-use l3_ast::ast_printer;
+use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::format as bytecode_fmt;
 use l3_compiler::Compiler;
 use l3_parser::parse_program;
@@ -33,5 +33,10 @@ pub fn format_bytecode(source: &str, filename: &str) -> Result<String, String> {
     let bytecode = compiler
         .compile(&program)
         .map_err(|e| format!("Compile error: {e}"))?;
-    Ok(bytecode_fmt::format_bytecode(&bytecode))
+    Ok(bytecode_fmt::format_bytecode(bytecode))
+}
+
+pub fn format_ast_graph(source: &str, filename: &str) -> Result<String, String> {
+    let program = parse_program(source, filename).map_err(|e| format!("Parse error: {e}"))?;
+    Ok(dot_printer::format_ast_graph(&program))
 }
