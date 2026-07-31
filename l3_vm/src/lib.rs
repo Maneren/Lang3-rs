@@ -88,26 +88,16 @@ impl BytecodeVM {
         };
         self.frames.push(frame);
 
-        loop {
-            self.maybe_gc();
-
-            let chunk_id = self.frames.last().unwrap().chunk_id;
-            let ip = self.frames.last().unwrap().ip;
-
-            if chunk_id >= chunks.len() || ip >= chunks[chunk_id].code.len() {
-                break;
-            }
-
-            let instruction = &chunks[chunk_id].code[ip];
-            self.frames.last_mut().unwrap().ip += 1;
-
+        while let Some(CallFrame { ip, chunk_id, .. }) = self.frames.last_mut()
+            && let Some(chunk) = chunks.get(*chunk_id)
+            && let Some(instruction) = chunk.code.get(*ip)
+        {
             debug_println!(self, "  IP={} {:?}", ip, instruction);
+            *ip += 1;
 
             self.dispatch(instruction)?;
 
-            if self.frames.is_empty() {
-                break;
-            }
+            self.maybe_gc();
         }
 
         self.constant_keys.clear();
