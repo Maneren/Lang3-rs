@@ -11,7 +11,7 @@ use std::collections::HashMap;
 pub struct BytecodeVM {
     pub heap: Heap,
     pub stack: Vec<StackValue>,
-    pub global_symbols: HashMap<String, StackValue>,
+    pub global_symbols: std::collections::HashMap<String, StackValue, foldhash::fast::FixedState>,
     program: Option<ProgramBytecode>,
     constant_keys: Vec<slotmap::DefaultKey>,
     frames: Vec<CallFrame>,
@@ -42,7 +42,9 @@ impl BytecodeVM {
         let mut vm = Self {
             heap: Heap::new(),
             stack: Vec::new(),
-            global_symbols: HashMap::new(),
+            global_symbols: std::collections::HashMap::with_hasher(
+                foldhash::fast::FixedState::default(),
+            ),
             program: None,
             constant_keys: Vec::new(),
             frames: Vec::new(),
@@ -159,10 +161,10 @@ impl BytecodeVM {
                 let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
                 debug_println!(self, "    RETURN value={:?}", return_value);
                 let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
-                let discard = self.frames.last().map_or(false, |f| f.discard_return);
+                let discard = self.frames.last().is_some_and(|f| f.discard_return);
                 self.frames.pop();
                 if !self.frames.is_empty() {
-                    self.stack.truncate(fp);
+                    self.stack.truncate(fp - 1);
                 }
                 if !discard {
                     self.stack.push(return_value);
@@ -401,11 +403,6 @@ impl BytecodeVM {
             } => {
                 let base = self.stack.len() - 1 - arg_count;
                 let func_sv = self.stack[base].clone();
-                let args: Vec<StackValue> = if *arg_count > 0 {
-                    self.stack[(base + 1)..].to_vec()
-                } else {
-                    Vec::new()
-                };
                 debug_println!(
                     self,
                     "    CALL argc={} keep_ret={} func={:?}",
@@ -413,14 +410,10 @@ impl BytecodeVM {
                     keep_return_value,
                     func_sv
                 );
-                self.stack.truncate(base);
                 let frame_count = self.frames.len();
-                let result = self.call_function(func_sv, args, *keep_return_value)?;
-                if *keep_return_value {
-                    let pushed_frame = self.frames.len() > frame_count;
-                    if !pushed_frame {
-                        self.stack.push(result);
-                    }
+                let result = self.call_function(func_sv, base, *arg_count, *keep_return_value)?;
+                if *keep_return_value && self.frames.len() <= frame_count {
+                    self.stack.push(result);
                 }
             }
             Instruction::MakeArray { count } => {
@@ -469,30 +462,43 @@ impl BytecodeVM {
                     function_index,
                     upvalues.len()
                 );
-                let func_data = self.program.as_ref().unwrap().constants[*function_index].clone();
-                if let HeapData::Function(Function::Bytecode(mut bc)) = func_data.value {
-                    for uv_desc in upvalues {
-                        if uv_desc.is_local {
-                            let fp = self.frames.last().unwrap().frame_pointer;
-                            let idx = uv_desc.index;
-                            let cell = std::rc::Rc::new(std::cell::RefCell::new(UpvalueCell::new(
-                                self.stack[fp + idx].clone(),
-                            )));
-                            self.frames
-                                .last_mut()
-                                .unwrap()
-                                .captured_locals
-                                .insert(idx, cell.clone());
-                            bc.captured_upvalues.push(cell);
-                        } else {
-                            let uv = self.frames.last().unwrap().upvalues[uv_desc.index].clone();
-                            bc.captured_upvalues.push(uv);
+                let constant_key = self.constant_keys[*function_index];
+                let mut bc = match self.heap.cells.get(constant_key) {
+                    Some(cell) => match &cell.value {
+                        HeapData::Function(Function::Bytecode(bc)) => bc.clone(),
+                        _ => {
+                            return Err(RuntimeError::type_error(
+                                "closure constant is not a function",
+                            ));
                         }
+                    },
+                    None => {
+                        return Err(RuntimeError::type_error(
+                            "invalid closure function constant",
+                        ));
                     }
-                    let sv = self.heap.alloc_function(Function::Bytecode(bc));
-                    debug_println!(self, "      -> allocated function {:?}", sv);
-                    self.stack.push(sv);
+                };
+                for uv_desc in upvalues {
+                    if uv_desc.is_local {
+                        let fp = self.frames.last().unwrap().frame_pointer;
+                        let idx = uv_desc.index;
+                        let cell = std::rc::Rc::new(std::cell::RefCell::new(UpvalueCell::new(
+                            self.stack[fp + idx].clone(),
+                        )));
+                        self.frames
+                            .last_mut()
+                            .unwrap()
+                            .captured_locals
+                            .insert(idx, cell.clone());
+                        bc.captured_upvalues.push(cell);
+                    } else {
+                        let uv = self.frames.last().unwrap().upvalues[uv_desc.index].clone();
+                        bc.captured_upvalues.push(uv);
+                    }
                 }
+                let sv = self.heap.alloc_function(Function::Bytecode(bc));
+                debug_println!(self, "      -> allocated function {:?}", sv);
+                self.stack.push(sv);
             }
             Instruction::GetUpvalue { index } => {
                 debug_println!(self, "    GET_UPVALUE {}", index);
@@ -518,63 +524,94 @@ impl BytecodeVM {
     fn call_function(
         &mut self,
         func: StackValue,
-        args: Vec<StackValue>,
+        base: usize,
+        arg_count: usize,
         keep_return_value: bool,
     ) -> Result<StackValue, RuntimeError> {
-        // Extract function from stack value
-        let func_data = match &func {
-            StackValue::Heap(key) => {
-                if let Some(cell) = self.heap.cells.get(*key) {
-                    cell.value.clone()
-                } else {
-                    return Err(RuntimeError::type_error("invalid function reference"));
-                }
-            }
+        let func_key = match &func {
+            StackValue::Heap(key) => *key,
             _ => return Err(RuntimeError::type_error("cannot call non-function")),
         };
 
-        match func_data {
-            HeapData::Function(f) => match f {
-                Function::Builtin(b) => b
-                    .invoke(args, &mut self.heap)
-                    .map_err(|e| RuntimeError::type_error(format!("builtin error: {e}"))),
-                Function::Bytecode(bc) => {
-                    let total_args = bc.curried_args.len() + args.len();
-                    if total_args > bc.arity {
-                        return Err(RuntimeError::type_error("too many arguments"));
-                    }
-                    if total_args < bc.arity {
-                        let mut new_bc = bc;
-                        new_bc.curried_args.extend(args);
-                        return Ok(self.heap.alloc_function(Function::Bytecode(new_bc)));
-                    }
+        let is_builtin = self
+            .heap
+            .cells
+            .get(func_key)
+            .is_some_and(|c| matches!(&c.value, HeapData::Function(Function::Builtin(_))));
 
-                    // Set up call frame
-                    let frame_pointer = self.stack.len();
-                    let mut all_args = bc.curried_args.clone();
-                    all_args.extend(args);
-
-                    // Push args onto stack as locals
-                    for a in all_args {
-                        self.stack.push(a);
-                    }
-
-                    let new_frame = CallFrame {
-                        chunk_id: bc.id,
-                        ip: 0,
-                        frame_pointer,
-                        closure_info: Some((bc.clone(), func)),
-                        upvalues: bc.captured_upvalues.clone(),
-                        captured_locals: HashMap::new(),
-                        discard_return: !keep_return_value,
-                    };
-                    self.frames.push(new_frame);
-
-                    Ok(StackValue::Nil) // placeholder, real return value comes from the stack
-                }
-            },
-            _ => Err(RuntimeError::type_error("cannot call non-function")),
+        if is_builtin {
+            let body = self
+                .heap
+                .cells
+                .get(func_key)
+                .and_then(|c| match &c.value {
+                    HeapData::Function(Function::Builtin(b)) => Some(b.body.clone()),
+                    _ => None,
+                })
+                .ok_or_else(|| RuntimeError::type_error("invalid builtin function"))?;
+            let result = {
+                let arg_slice: &[StackValue] = if arg_count > 0 {
+                    &self.stack[(base + 1)..(base + 1 + arg_count)]
+                } else {
+                    &[]
+                };
+                body(arg_slice, &mut self.heap)
+            };
+            self.stack.truncate(base);
+            return result.map_err(|e| RuntimeError::type_error(format!("builtin error: {e}")));
         }
+
+        let cell = self
+            .heap
+            .cells
+            .get(func_key)
+            .ok_or_else(|| RuntimeError::type_error("invalid function reference"))?;
+        let bc = match &cell.value {
+            HeapData::Function(Function::Bytecode(bc)) => bc,
+            _ => return Err(RuntimeError::type_error("cannot call non-function")),
+        };
+
+        let total_args = bc.curried_args.len() + arg_count;
+        if total_args > bc.arity {
+            return Err(RuntimeError::type_error("too many arguments"));
+        }
+        if total_args < bc.arity {
+            let mut new_bc = bc.clone();
+            new_bc.curried_args.reserve(arg_count);
+            for i in 0..arg_count {
+                new_bc.curried_args.push(self.stack[base + 1 + i].clone());
+            }
+            self.stack.truncate(base);
+            return Ok(self.heap.alloc_function(Function::Bytecode(new_bc)));
+        }
+
+        let frame_pointer = base + 1;
+
+        if !bc.curried_args.is_empty() {
+            let curried_count = bc.curried_args.len();
+            let old_end = self.stack.len();
+            self.stack.resize(old_end + curried_count, StackValue::Nil);
+            for i in (0..arg_count).rev() {
+                self.stack[frame_pointer + curried_count + i] =
+                    std::mem::replace(&mut self.stack[frame_pointer + i], StackValue::Nil);
+            }
+            for (i, arg) in bc.curried_args.iter().enumerate() {
+                self.stack[frame_pointer + i] = arg.clone();
+            }
+        }
+
+        let new_frame = CallFrame {
+            chunk_id: bc.id,
+            ip: 0,
+            frame_pointer,
+            closure_info: Some((bc.clone(), func)),
+            upvalues: bc.captured_upvalues.clone(),
+            captured_locals: HashMap::new(),
+            discard_return: !keep_return_value,
+        };
+        self.frames.push(new_frame);
+
+        Ok(StackValue::Nil)
     }
 
     fn binary_op<F>(&mut self, f: F) -> Result<(), RuntimeError>

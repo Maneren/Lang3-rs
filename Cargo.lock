@@ -365,6 +365,7 @@ dependencies = [
 name = "l3_vm"
 version = "0.1.0"
 dependencies = [
+ "foldhash",
  "l3_ast",
  "l3_bytecode",
  "l3_location",

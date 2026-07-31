@@ -2,9 +2,9 @@ use l3_runtime::*;
 use std::io::Write;
 use std::rc::Rc;
 
-type Builtin = Rc<dyn Fn(Vec<StackValue>, &mut Heap) -> Result<StackValue, RuntimeError>>;
+type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>>;
 
-fn wrap(f: fn(Vec<StackValue>, &mut Heap) -> Result<StackValue, RuntimeError>) -> Builtin {
+fn wrap(f: fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>) -> Builtin {
     Rc::new(f)
 }
 
@@ -66,17 +66,17 @@ fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) {
     }
 }
 
-fn builtin_print(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_print(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     write_output(&args, heap, false);
     Ok(StackValue::Nil)
 }
 
-fn builtin_println(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_println(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     write_output(&args, heap, true);
     Ok(StackValue::Nil)
 }
 
-fn builtin_assert(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Err(RuntimeError::type_error(
             "assert requires at least 1 argument",
@@ -98,7 +98,7 @@ fn builtin_assert(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, 
     Ok(StackValue::Nil)
 }
 
-fn builtin_error(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_error(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     let msg = if args.is_empty() {
         "error".to_string()
     } else {
@@ -112,7 +112,7 @@ fn builtin_error(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, R
     Err(RuntimeError::value(format!("error: {msg}")))
 }
 
-fn builtin_int(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_int(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Ok(StackValue::Primitive(Primitive::Integer(0)));
     }
@@ -139,7 +139,7 @@ fn builtin_int(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     }
 }
 
-fn builtin_str(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_str(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     Ok(if args.is_empty() {
         heap.alloc_string(String::new())
     } else {
@@ -147,7 +147,7 @@ fn builtin_str(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     })
 }
 
-fn builtin_len(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_len(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Ok(StackValue::Primitive(Primitive::Integer(0)));
     }
@@ -171,7 +171,7 @@ fn builtin_len(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     }
 }
 
-fn builtin_head(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Err(RuntimeError::type_error("head requires an argument"));
     }
@@ -192,7 +192,7 @@ fn builtin_head(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Ru
     }
 }
 
-fn builtin_tail(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Err(RuntimeError::type_error("tail requires an argument"));
     }
@@ -213,7 +213,7 @@ fn builtin_tail(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Ru
     }
 }
 
-fn builtin_drop(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.len() < 2 {
         return Err(RuntimeError::type_error("drop requires 2 arguments"));
     }
@@ -233,7 +233,7 @@ fn builtin_drop(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Ru
     }
 }
 
-fn builtin_take(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.len() < 2 {
         return Err(RuntimeError::type_error("take requires 2 arguments"));
     }
@@ -251,7 +251,7 @@ fn builtin_take(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Ru
     }
 }
 
-fn builtin_range(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     let start = if args.is_empty() {
         0
     } else {
@@ -297,11 +297,11 @@ fn builtin_range(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, R
     Ok(heap.alloc_vector(vec))
 }
 
-fn builtin_id(args: Vec<StackValue>, _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    Ok(args.into_iter().next().unwrap_or(StackValue::Nil))
+fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+    Ok(args.first().cloned().unwrap_or(StackValue::Nil))
 }
 
-fn builtin_map(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.len() < 2 {
         return Err(RuntimeError::type_error(
             "map requires a function and a vector",
@@ -313,7 +313,7 @@ fn builtin_map(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
         HeapData::Function(Function::Builtin(b)) => {
             let mut result = Vec::new();
             for elem in &vec {
-                result.push(b.invoke(vec![elem.clone()], heap)?);
+                result.push(b.invoke(std::slice::from_ref(elem), heap)?);
             }
             Ok(heap.alloc_vector(result))
         }
@@ -323,7 +323,7 @@ fn builtin_map(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     }
 }
 
-fn builtin_count(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.len() < 2 {
         return Err(RuntimeError::type_error(
             "count requires a predicate and a vector",
@@ -335,7 +335,7 @@ fn builtin_count(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, R
         HeapData::Function(Function::Builtin(b)) => {
             let mut total = 0i64;
             for elem in &vec {
-                if b.invoke(vec![elem.clone()], heap)?.is_truthy(heap) {
+                if b.invoke(std::slice::from_ref(elem), heap)?.is_truthy(heap) {
                     total += 1;
                 }
             }
@@ -347,7 +347,7 @@ fn builtin_count(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, R
     }
 }
 
-fn builtin_random(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     heap.rng_state = heap
         .rng_state
         .wrapping_mul(6_364_136_223_846_793_005)
@@ -370,7 +370,7 @@ fn builtin_random(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, 
     )))
 }
 
-fn builtin_input(_args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if let Some(line) = heap.input_queue.pop_front() {
         return Ok(heap.alloc_string(line));
     }
@@ -385,7 +385,7 @@ fn builtin_input(_args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, 
     Ok(heap.alloc_string(line))
 }
 
-fn builtin_sleep(args: Vec<StackValue>, _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     let ms = if args.is_empty() {
         0
     } else {
@@ -402,7 +402,7 @@ fn builtin_sleep(args: Vec<StackValue>, _heap: &mut Heap) -> Result<StackValue, 
     Ok(StackValue::Nil)
 }
 
-fn builtin_sum(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     if args.is_empty() {
         return Ok(StackValue::Primitive(Primitive::Integer(0)));
     }
@@ -427,7 +427,7 @@ fn builtin_sum(args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, Run
     })
 }
 
-fn builtin_trigger_gc(_args: Vec<StackValue>, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_trigger_gc(_args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     let erased = heap.sweep();
     Ok(heap.alloc_string(format!("GC swept {erased} cells")))
 }

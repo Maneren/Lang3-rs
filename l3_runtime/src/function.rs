@@ -7,8 +7,9 @@ use std::rc::Rc;
 
 pub type L3Args = Vec<StackValue>;
 
-pub type BuiltinBody =
-    Rc<dyn Fn(L3Args, &mut crate::heap::Heap) -> Result<StackValue, crate::error::RuntimeError>>;
+pub type BuiltinBody = Rc<
+    dyn Fn(&[StackValue], &mut crate::heap::Heap) -> Result<StackValue, crate::error::RuntimeError>,
+>;
 
 #[derive(Clone)]
 pub struct BuiltinFunction {
@@ -23,7 +24,7 @@ impl BuiltinFunction {
 
     pub fn invoke(
         &self,
-        args: L3Args,
+        args: &[StackValue],
         heap: &mut crate::heap::Heap,
     ) -> Result<StackValue, crate::error::RuntimeError> {
         (self.body)(args, heap)

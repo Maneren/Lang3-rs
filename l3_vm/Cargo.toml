@@ -12,3 +12,4 @@ l3_runtime = { path = "../l3_runtime" }
 l3_ast = { path = "../l3_ast" }
 l3_location = { path = "../l3_location" }
 slotmap.workspace = true
+foldhash = "0.1.5"
