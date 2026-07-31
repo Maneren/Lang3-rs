@@ -255,7 +255,7 @@ pub fn add(
 pub fn sub(
     a: &StackValue,
     b: &StackValue,
-    heap: &Heap,
+    heap: &mut Heap,
 ) -> Result<StackValue, crate::error::RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa - pb),
@@ -308,7 +308,7 @@ pub fn mul(
 pub fn div(
     a: &StackValue,
     b: &StackValue,
-    heap: &Heap,
+    heap: &mut Heap,
 ) -> Result<StackValue, crate::error::RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa / pb),
@@ -321,7 +321,7 @@ pub fn div(
 pub fn modulo(
     a: &StackValue,
     b: &StackValue,
-    heap: &Heap,
+    heap: &mut Heap,
 ) -> Result<StackValue, crate::error::RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa % pb),
@@ -334,7 +334,7 @@ pub fn modulo(
 pub fn pow(
     a: &StackValue,
     b: &StackValue,
-    heap: &Heap,
+    heap: &mut Heap,
 ) -> Result<StackValue, crate::error::RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => {

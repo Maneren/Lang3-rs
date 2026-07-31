@@ -199,7 +199,7 @@ impl BytecodeVM {
             }
             Instruction::Subtract => {
                 debug_println!(self, "    SUB");
-                self.binary_op_simple(sub)?;
+                self.binary_op(sub)?;
             }
             Instruction::Multiply => {
                 debug_println!(self, "    MUL");
@@ -207,15 +207,15 @@ impl BytecodeVM {
             }
             Instruction::Divide => {
                 debug_println!(self, "    DIV");
-                self.binary_op_simple(div)?;
+                self.binary_op(div)?;
             }
             Instruction::Modulo => {
                 debug_println!(self, "    MOD");
-                self.binary_op_simple(modulo)?;
+                self.binary_op(modulo)?;
             }
             Instruction::Power => {
                 debug_println!(self, "    POW");
-                self.binary_op_simple(pow)?;
+                self.binary_op(pow)?;
             }
             Instruction::Negate => {
                 debug_println!(self, "    NEGATE");
@@ -431,10 +431,9 @@ impl BytecodeVM {
                     .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                 let container = self
                     .stack
-                    .pop()
+                    .last_mut()
                     .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let result = index(&container, &idx, &mut self.heap)?;
-                self.stack.push(result);
+                *container = index(container, &idx, &mut self.heap)?;
             }
             Instruction::SetIndex => {
                 debug_println!(self, "    SET_INDEX");
@@ -630,23 +629,6 @@ impl BytecodeVM {
         Ok(())
     }
 
-    fn binary_op_simple<F>(&mut self, f: F) -> Result<(), RuntimeError>
-    where
-        F: Fn(&StackValue, &StackValue, &Heap) -> Result<StackValue, RuntimeError>,
-    {
-        let b = self
-            .stack
-            .pop()
-            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-        let a = self
-            .stack
-            .pop()
-            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-        let result = f(&a, &b, &self.heap)?;
-        self.stack.push(result);
-        Ok(())
-    }
-
     fn compare_op<F>(&mut self, pred: F, keep_rhs: bool)
     where
         F: Fn(Option<std::cmp::Ordering>) -> bool,
@@ -658,9 +640,19 @@ impl BytecodeVM {
             self.stack.push(b);
             self.stack.push(result);
         } else {
-            let a = self.stack.pop().unwrap_or(StackValue::Nil);
-            let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
-            self.stack.push(result);
+            let result = match self.stack.last() {
+                Some(a) => StackValue::Primitive(Primitive::Bool(pred(compare(a, &b, &self.heap)))),
+                None => StackValue::Primitive(Primitive::Bool(pred(compare(
+                    &StackValue::Nil,
+                    &b,
+                    &self.heap,
+                )))),
+            };
+            if let Some(top) = self.stack.last_mut() {
+                *top = result;
+            } else {
+                self.stack.push(result);
+            }
         }
     }
 }
