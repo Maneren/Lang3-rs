@@ -8,6 +8,10 @@ fn wrap(f: fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>) -> 
     Rc::new(f)
 }
 
+fn wrap_infallible(f: fn(&[StackValue], &mut Heap) -> StackValue) -> Builtin {
+    Rc::new(move |args, heap| Ok(f(args, heap)))
+}
+
 fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> Result<&'a HeapData, RuntimeError> {
     match sv {
         StackValue::Heap(key) => heap
@@ -66,14 +70,14 @@ fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) {
     }
 }
 
-fn builtin_print(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    write_output(&args, heap, false);
-    Ok(StackValue::Nil)
+fn builtin_print(args: &[StackValue], heap: &mut Heap) -> StackValue {
+    write_output(args, heap, false);
+    StackValue::Nil
 }
 
-fn builtin_println(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    write_output(&args, heap, true);
-    Ok(StackValue::Nil)
+fn builtin_println(args: &[StackValue], heap: &mut Heap) -> StackValue {
+    write_output(args, heap, true);
+    StackValue::Nil
 }
 
 fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
@@ -112,62 +116,62 @@ fn builtin_error(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
     Err(RuntimeError::value(format!("error: {msg}")))
 }
 
-fn builtin_int(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_int(args: &[StackValue], heap: &mut Heap) -> StackValue {
     if args.is_empty() {
-        return Ok(StackValue::Primitive(Primitive::Integer(0)));
+        return StackValue::Primitive(Primitive::Integer(0));
     }
     match &args[0] {
         StackValue::Primitive(Primitive::Integer(i)) => {
-            Ok(StackValue::Primitive(Primitive::Integer(*i)))
+            StackValue::Primitive(Primitive::Integer(*i))
         }
         StackValue::Primitive(Primitive::Double(f)) => {
-            Ok(StackValue::Primitive(Primitive::Integer(*f as i64)))
+            StackValue::Primitive(Primitive::Integer(*f as i64))
         }
         StackValue::Primitive(Primitive::Bool(b)) => {
-            Ok(StackValue::Primitive(Primitive::Integer(i64::from(*b))))
+            StackValue::Primitive(Primitive::Integer(i64::from(*b)))
         }
         StackValue::Heap(key) => {
             if let Some(cell) = heap.cells.get(*key)
                 && let Some(s) = cell.value.as_string()
                 && let Ok(n) = s.parse::<i64>()
             {
-                return Ok(StackValue::Primitive(Primitive::Integer(n)));
+                return StackValue::Primitive(Primitive::Integer(n));
             }
-            Ok(StackValue::Primitive(Primitive::Integer(0)))
+            StackValue::Primitive(Primitive::Integer(0))
         }
-        StackValue::Nil => Ok(StackValue::Primitive(Primitive::Integer(0))),
+        StackValue::Nil => StackValue::Primitive(Primitive::Integer(0)),
     }
 }
 
-fn builtin_str(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    Ok(if args.is_empty() {
+fn builtin_str(args: &[StackValue], heap: &mut Heap) -> StackValue {
+    if args.is_empty() {
         heap.alloc_string(String::new())
     } else {
         heap.alloc_string(format_stack_value(&args[0], heap))
-    })
+    }
 }
 
-fn builtin_len(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
     if args.is_empty() {
-        return Ok(StackValue::Primitive(Primitive::Integer(0)));
+        return StackValue::Primitive(Primitive::Integer(0));
     }
     match &args[0] {
         StackValue::Heap(key) => {
             if let Some(cell) = heap.cells.get(*key) {
                 match &cell.value {
                     HeapData::String(s) => {
-                        Ok(StackValue::Primitive(Primitive::Integer(s.len() as i64)))
+                        StackValue::Primitive(Primitive::Integer(s.len() as i64))
                     }
                     HeapData::Vector(v) => {
-                        Ok(StackValue::Primitive(Primitive::Integer(v.len() as i64)))
+                        StackValue::Primitive(Primitive::Integer(v.len() as i64))
                     }
-                    _ => Ok(StackValue::Primitive(Primitive::Integer(0))),
+                    _ => StackValue::Primitive(Primitive::Integer(0)),
                 }
             } else {
-                Ok(StackValue::Primitive(Primitive::Integer(0)))
+                StackValue::Primitive(Primitive::Integer(0))
             }
         }
-        _ => Ok(StackValue::Primitive(Primitive::Integer(0))),
+        _ => StackValue::Primitive(Primitive::Integer(0)),
     }
 }
 
@@ -297,8 +301,8 @@ fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
     Ok(heap.alloc_vector(vec))
 }
 
-fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    Ok(args.first().cloned().unwrap_or(StackValue::Nil))
+fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> StackValue {
+    args.first().cloned().unwrap_or(StackValue::Nil)
 }
 
 fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
@@ -370,9 +374,9 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
     )))
 }
 
-fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
     if let Some(line) = heap.input_queue.pop_front() {
-        return Ok(heap.alloc_string(line));
+        return heap.alloc_string(line);
     }
     let mut line = String::new();
     std::io::stdin().read_line(&mut line).ok();
@@ -382,7 +386,7 @@ fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
             line.pop();
         }
     }
-    Ok(heap.alloc_string(line))
+    heap.alloc_string(line)
 }
 
 fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
@@ -402,14 +406,14 @@ fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, Ru
     Ok(StackValue::Nil)
 }
 
-fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> StackValue {
     if args.is_empty() {
-        return Ok(StackValue::Primitive(Primitive::Integer(0)));
+        return StackValue::Primitive(Primitive::Integer(0));
     }
     let mut total: f64 = 0.0;
     let mut is_int = true;
     if let Ok(HeapData::Vector(v)) = heap_data(heap, &args[0]) {
-        for sv in &*v {
+        for sv in v {
             match sv.as_primitive() {
                 Some(Primitive::Integer(i)) => total += i as f64,
                 Some(Primitive::Double(f)) => {
@@ -420,41 +424,41 @@ fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runti
             }
         }
     }
-    Ok(if is_int && total.fract() == 0.0 {
+    if is_int && total.fract() == 0.0 {
         StackValue::Primitive(Primitive::Integer(total as i64))
     } else {
         StackValue::Primitive(Primitive::Double(total))
-    })
+    }
 }
 
-fn builtin_trigger_gc(_args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_trigger_gc(_args: &[StackValue], heap: &mut Heap) -> StackValue {
     let erased = heap.sweep();
-    Ok(heap.alloc_string(format!("GC swept {erased} cells")))
+    heap.alloc_string(format!("GC swept {erased} cells"))
 }
 
 #[must_use]
 pub fn builtins() -> Vec<(&'static str, Builtin)> {
     vec![
-        ("print", wrap(builtin_print)),
-        ("println", wrap(builtin_println)),
+        ("print", wrap_infallible(builtin_print)),
+        ("println", wrap_infallible(builtin_println)),
         ("assert", wrap(builtin_assert)),
         ("error", wrap(builtin_error)),
-        ("int", wrap(builtin_int)),
-        ("str", wrap(builtin_str)),
-        ("len", wrap(builtin_len)),
+        ("int", wrap_infallible(builtin_int)),
+        ("str", wrap_infallible(builtin_str)),
+        ("len", wrap_infallible(builtin_len)),
         ("head", wrap(builtin_head)),
         ("tail", wrap(builtin_tail)),
         ("drop", wrap(builtin_drop)),
         ("take", wrap(builtin_take)),
         ("range", wrap(builtin_range)),
-        ("id", wrap(builtin_id)),
+        ("id", wrap_infallible(builtin_id)),
         ("map", wrap(builtin_map)),
         ("count", wrap(builtin_count)),
         ("random", wrap(builtin_random)),
-        ("input", wrap(builtin_input)),
+        ("input", wrap_infallible(builtin_input)),
         ("sleep", wrap(builtin_sleep)),
-        ("sum", wrap(builtin_sum)),
-        ("__trigger_gc", wrap(builtin_trigger_gc)),
+        ("sum", wrap_infallible(builtin_sum)),
+        ("__trigger_gc", wrap_infallible(builtin_trigger_gc)),
     ]
 }
 

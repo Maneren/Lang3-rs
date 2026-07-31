@@ -5,6 +5,7 @@ const OP_WIDTH: usize = 10;
 const OPERAND_WIDTH: usize = 4;
 const HEADER_WIDTH: usize = 7; // "XXXX | " = 7 chars
 
+#[must_use]
 pub fn format_bytecode(program: &ProgramBytecode) -> String {
     let mut out = String::new();
     for (chunk_id, chunk) in program.chunks.iter().enumerate() {

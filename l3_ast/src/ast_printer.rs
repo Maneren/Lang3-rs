@@ -1,6 +1,7 @@
 use crate::*;
 use std::fmt::Write;
 
+#[must_use]
 pub fn format_ast(program: &Program) -> String {
     let mut out = String::new();
     AstPrinter::new().print_block(program, &mut out);
@@ -154,7 +155,7 @@ impl AstPrinter {
                 ComparisonOperator::Greater => "Greater",
                 ComparisonOperator::GreaterEqual => "GreaterEqual",
             };
-            self.line(out, format!("{op_str}"));
+            self.line(out, op_str.to_string());
             self.depth += 1;
             self.print_expression(rhs, out);
             self.depth -= 1;

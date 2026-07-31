@@ -1,5 +1,6 @@
 use l3_location::*;
 
+#[must_use]
 pub fn byte_to_position(source: &str, byte: usize, filename: &str) -> Position {
     let mut line: usize = 1;
     let mut col: usize = 1;
@@ -17,6 +18,7 @@ pub fn byte_to_position(source: &str, byte: usize, filename: &str) -> Position {
     Position::new(Some(filename.to_string()), line, col)
 }
 
+#[must_use]
 pub fn make_loc(begin: usize, end: usize, source: &str, filename: &str) -> Location {
     Location::new(
         byte_to_position(source, begin, filename),
@@ -24,10 +26,12 @@ pub fn make_loc(begin: usize, end: usize, source: &str, filename: &str) -> Locat
     )
 }
 
+#[must_use]
 pub fn mk_id(name: &str, loc: Location) -> l3_ast::Identifier {
     l3_ast::Identifier::new(name.to_string(), loc)
 }
 
+#[must_use]
 pub fn unescape_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut chars = s.chars();

@@ -84,8 +84,8 @@ fn normalize(v: &[String]) -> Vec<String> {
 }
 
 fn compare_output(name: &str, actual: &[&str], expected: &[&str]) {
-    let actual: Vec<String> = actual.iter().map(|s| s.to_string()).collect();
-    let expected: Vec<String> = expected.iter().map(|s| s.to_string()).collect();
+    let actual: Vec<String> = actual.iter().map(ToString::to_string).collect();
+    let expected: Vec<String> = expected.iter().map(ToString::to_string).collect();
     let actual = normalize(&actual);
     let expected = normalize(&expected);
 

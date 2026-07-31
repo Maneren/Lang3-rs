@@ -566,9 +566,8 @@ impl BytecodeVM {
             .cells
             .get(func_key)
             .ok_or_else(|| RuntimeError::type_error("invalid function reference"))?;
-        let bc = match &cell.value {
-            HeapData::Function(Function::Bytecode(bc)) => bc,
-            _ => return Err(RuntimeError::type_error("cannot call non-function")),
+        let HeapData::Function(Function::Bytecode(bc)) = &cell.value else {
+            return Err(RuntimeError::type_error("cannot call non-function"));
         };
 
         let total_args = bc.curried_args.len() + arg_count;
