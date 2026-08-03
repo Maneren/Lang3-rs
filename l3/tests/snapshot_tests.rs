@@ -36,13 +36,14 @@ fn write_expected(name: &str, kind: &str, content: &str) {
 fn run_update_or_check_output(name: &str) {
     let input = input_path(name);
     let source = fs::read_to_string(&input).unwrap();
-    let result = l3::run_pipeline(&source, input.to_str().unwrap()).unwrap();
-    let lines: String = result.join("\n");
+    let mut output = String::new();
+    let mut writer = std::io::BufWriter::new(&mut output);
+    l3::run_pipeline(&source, input.to_str().unwrap(), &mut writer).unwrap();
     if should_update() {
-        write_expected(name, "output", &lines);
+        write_expected(name, "output", &output);
     } else {
         let expected = expected_text(name, "output");
-        let actual: Vec<&str> = lines.lines().collect();
+        let actual: Vec<&str> = output.lines().collect();
         let expected_lines: Vec<&str> = expected.lines().collect();
         compare_output(name, &actual, &expected_lines);
     }
@@ -172,4 +173,30 @@ snapshot_tests! {
     range_for,
     recursion_direct,
     recursion_indirect,
+}
+
+#[test]
+fn snapshot_optimized_output_matches_expected() {
+    let mut inputs: Vec<_> = fs::read_dir(snapshot_dir().join("inputs"))
+        .unwrap()
+        .map(Result::unwrap)
+        .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("l3"))
+        .collect();
+    inputs.sort_by_key(std::fs::DirEntry::file_name);
+    for entry in inputs {
+        let name = entry
+            .path()
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        let source = fs::read_to_string(entry.path()).unwrap();
+        let actual = l3::run_pipeline_optimized(&source, entry.path().to_str().unwrap()).unwrap();
+        let actual_text = actual.join("\n");
+        let expected = expected_text(&name, "output");
+        let actual_lines: Vec<&str> = actual_text.lines().collect();
+        let expected_lines: Vec<&str> = expected.lines().collect();
+        compare_output(&name, &actual_lines, &expected_lines);
+    }
 }

@@ -1,10 +1,11 @@
 use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::format as bytecode_fmt;
+use l3_bytecode::optimizer::Optimizer;
 use l3_compiler::Compiler;
 use l3_parser::parse_program;
 use l3_vm::BytecodeVM;
 
-pub fn run_pipeline(source: &str, filename: &str) -> Result<Vec<String>, String> {
+fn run(source: &str, filename: &str, optimize: bool) -> Result<Vec<String>, String> {
     let program = parse_program(source, filename).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut compiler = Compiler::new();
@@ -13,13 +14,26 @@ pub fn run_pipeline(source: &str, filename: &str) -> Result<Vec<String>, String>
         .map_err(|e| format!("Compile error: {e}"))?;
 
     let mut vm = BytecodeVM::new(false);
-    if let Err(e) = vm.execute(bytecode) {
+    let result = if optimize {
+        vm.execute(&Optimizer::new().optimize(bytecode.clone()))
+    } else {
+        vm.execute(bytecode)
+    };
+    if let Err(e) = result {
         let mut lines = std::mem::take(&mut vm.heap.output_lines);
         lines.push(format!("RuntimeError: {e}"));
         return Ok(lines);
     }
 
     Ok(std::mem::take(&mut vm.heap.output_lines))
+}
+
+pub fn run_pipeline(source: &str, filename: &str) -> Result<Vec<String>, String> {
+    run(source, filename, false)
+}
+
+pub fn run_pipeline_optimized(source: &str, filename: &str) -> Result<Vec<String>, String> {
+    run(source, filename, true)
 }
 
 pub fn format_ast(source: &str, filename: &str) -> Result<String, String> {
@@ -34,6 +48,17 @@ pub fn format_bytecode(source: &str, filename: &str) -> Result<String, String> {
         .compile(&program)
         .map_err(|e| format!("Compile error: {e}"))?;
     Ok(bytecode_fmt::format_bytecode(bytecode))
+}
+
+pub fn format_bytecode_optimized(source: &str, filename: &str) -> Result<String, String> {
+    let program = parse_program(source, filename).map_err(|e| format!("Parse error: {e}"))?;
+    let mut compiler = Compiler::new();
+    let bytecode = compiler
+        .compile(&program)
+        .map_err(|e| format!("Compile error: {e}"))?;
+    Ok(bytecode_fmt::format_bytecode(
+        &Optimizer::new().optimize(bytecode.clone()),
+    ))
 }
 
 pub fn format_ast_graph(source: &str, filename: &str) -> Result<String, String> {

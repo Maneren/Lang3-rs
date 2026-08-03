@@ -1,4 +1,5 @@
 pub mod format;
+pub mod optimizer;
 
 use l3_location::Location;
 use l3_runtime::HeapCell;

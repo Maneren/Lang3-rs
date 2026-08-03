@@ -1,6 +1,7 @@
 use clap::Parser;
 use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::format as bytecode_fmt;
+use l3_bytecode::optimizer::Optimizer;
 use l3_cli::Cli;
 use l3_compiler::Compiler;
 use l3_parser::parse_program;
@@ -113,6 +114,12 @@ fn main() {
         }
     };
 
+    let bytecode = if cli.optimize {
+        Optimizer::new().optimize(bytecode.clone())
+    } else {
+        bytecode.clone()
+    };
+
     if debug.timings {
         eprintln!(
             "Compiled to bytecode in {}μs",
@@ -121,7 +128,7 @@ fn main() {
     }
 
     if debug.bytecode {
-        eprint!("{}", bytecode_fmt::format_bytecode(bytecode));
+        eprint!("{}", bytecode_fmt::format_bytecode(&bytecode));
 
         if !debug.vm {
             process::exit(0);
@@ -131,7 +138,7 @@ fn main() {
     let exec_start = Instant::now();
     let mut vm = BytecodeVM::new(debug.vm);
     vm.heap.stream_output = true;
-    let result = vm.execute(bytecode);
+    let result = vm.execute(&bytecode);
     vm.heap.flush_print();
     if let Err(e) = result {
         eprintln!("{e}");
