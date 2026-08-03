@@ -5,7 +5,13 @@ use l3_compiler::Compiler;
 use l3_parser::parse_program;
 use l3_vm::BytecodeVM;
 
-fn run(source: &str, filename: &str, optimize: bool) -> Result<Vec<String>, String> {
+fn run(
+    source: &str,
+    filename: &str,
+    writer: &mut impl std::io::Write,
+    reader: &mut impl std::io::Read,
+    optimize: bool,
+) -> Result<(), String> {
     let program = parse_program(source, filename).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut compiler = Compiler::new();
@@ -13,27 +19,34 @@ fn run(source: &str, filename: &str, optimize: bool) -> Result<Vec<String>, Stri
         .compile(&program)
         .map_err(|e| format!("Compile error: {e}"))?;
 
-    let mut vm = BytecodeVM::new(false);
+    let mut vm = BytecodeVM::new(writer, reader, false);
     let result = if optimize {
         vm.execute(&Optimizer::new().optimize(bytecode.clone()))
     } else {
         vm.execute(bytecode)
     };
     if let Err(e) = result {
-        let mut lines = std::mem::take(&mut vm.heap.output_lines);
-        lines.push(format!("RuntimeError: {e}"));
-        return Ok(lines);
+        let _ = writeln!(vm.heap.output, "{e}");
     }
-
-    Ok(std::mem::take(&mut vm.heap.output_lines))
+    Ok(())
 }
 
-pub fn run_pipeline(source: &str, filename: &str) -> Result<Vec<String>, String> {
-    run(source, filename, false)
+pub fn run_pipeline(
+    source: &str,
+    filename: &str,
+    writer: &mut impl std::io::Write,
+    reader: &mut impl std::io::Read,
+) -> Result<(), String> {
+    run(source, filename, writer, reader, false)
 }
 
-pub fn run_pipeline_optimized(source: &str, filename: &str) -> Result<Vec<String>, String> {
-    run(source, filename, true)
+pub fn run_pipeline_optimized(
+    source: &str,
+    filename: &str,
+    writer: &mut impl std::io::Write,
+    reader: &mut impl std::io::Read,
+) -> Result<(), String> {
+    run(source, filename, writer, reader, true)
 }
 
 pub fn format_ast(source: &str, filename: &str) -> Result<String, String> {

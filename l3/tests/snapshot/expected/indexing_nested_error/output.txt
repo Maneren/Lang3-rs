@@ -1,2 +1,2 @@
 4
-RuntimeError: TypeError: cannot index a int value
+TypeError: cannot index a int value

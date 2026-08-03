@@ -136,8 +136,9 @@ fn main() {
     }
 
     let exec_start = Instant::now();
-    let mut vm = BytecodeVM::new(debug.vm);
-    vm.heap.stream_output = true;
+    let mut stdout = std::io::stdout();
+    let mut stdin = std::io::stdin();
+    let mut vm = BytecodeVM::new(&mut stdout, &mut stdin, debug.vm);
     let result = vm.execute(&bytecode);
     vm.heap.flush_print();
     if let Err(e) = result {

@@ -2,4 +2,4 @@
 9
 x
 z
-RuntimeError: ValueError: index out of bounds
+ValueError: index out of bounds

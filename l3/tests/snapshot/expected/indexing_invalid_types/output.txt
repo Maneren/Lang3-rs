@@ -1,2 +1,2 @@
 10
-RuntimeError: TypeError: index to a container must be an integer
+TypeError: index to a container must be an integer

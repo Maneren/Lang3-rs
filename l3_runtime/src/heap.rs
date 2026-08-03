@@ -3,8 +3,7 @@ use crate::heap_data::HeapData;
 use crate::stack_value::StackValue;
 use slotmap::{DefaultKey, SlotMap};
 use std::cell::Cell;
-use std::collections::VecDeque;
-use std::io::Write;
+use std::io::{BufRead, BufReader, LineWriter, Read, Write};
 
 /// A GC-managed cell on the heap. The `marked` flag uses `Cell<bool>` so
 /// the mark phase can traverse the object graph without exclusive `&mut` access
@@ -91,33 +90,28 @@ impl UpvalueCell {
 
 /// Garbage-collected heap using slotmap-based storage.
 /// Mark-and-sweep with configurable threshold.
-#[derive(Debug, Clone)]
-pub struct Heap {
+pub struct Heap<'a> {
     pub cells: SlotMap<DefaultKey, HeapCell>,
     pub size: usize,
     pub added_since_last_sweep: usize,
     pub next_gc_threshold: usize,
     pub sweep_count: usize,
-    pub output_lines: Vec<String>,
-    pub current_line: String,
-    pub stream_output: bool,
-    pub input_queue: VecDeque<String>,
+    pub input: Box<dyn BufRead + 'a>,
+    pub output: Box<dyn Write + 'a>,
     pub rng_state: u64,
 }
 
-impl Heap {
+impl<'a> Heap<'a> {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(writer: &'a mut impl Write, reader: &'a mut impl Read) -> Self {
         Self {
             cells: SlotMap::with_capacity(1024),
             size: 0,
             added_since_last_sweep: 0,
             next_gc_threshold: 1024,
             sweep_count: 0,
-            output_lines: Vec::new(),
-            current_line: String::new(),
-            stream_output: false,
-            input_queue: VecDeque::new(),
+            input: Box::new(BufReader::new(reader)),
+            output: Box::new(LineWriter::new(writer)),
             rng_state: 42,
         }
     }
@@ -163,26 +157,12 @@ impl Heap {
     }
 
     pub fn flush_print(&mut self) {
-        if !self.current_line.is_empty() {
-            let line = std::mem::take(&mut self.current_line);
-            if self.stream_output {
-                println!("{line}");
-            }
-            self.output_lines.push(line);
-        } else if self.stream_output {
-            std::io::stdout().flush().ok();
-        }
+        self.output.flush().ok();
     }
 
     pub fn maybe_gc(&mut self) {
         if self.added_since_last_sweep >= self.next_gc_threshold {
             self.sweep();
         }
-    }
-}
-
-impl Default for Heap {
-    fn default() -> Self {
-        Self::new()
     }
 }

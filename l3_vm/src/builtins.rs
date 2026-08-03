@@ -1,5 +1,5 @@
 use l3_runtime::*;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::rc::Rc;
 
 type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>>;
@@ -44,40 +44,27 @@ fn extract_fn(heap: &Heap, sv: &StackValue) -> Result<HeapData, RuntimeError> {
     }
 }
 
-fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) {
-    if heap.stream_output {
-        for (i, arg) in args.iter().enumerate() {
-            if i > 0 {
-                print!(" ");
-            }
-            print!("{}", format_stack_value(arg, heap));
+fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> Result<(), RuntimeError> {
+    for (i, arg) in args.iter().enumerate() {
+        if i > 0 {
+            write!(heap.output, " ")?;
         }
-        if newline {
-            println!();
-        }
-        std::io::stdout().flush().ok();
-    } else {
-        for (i, arg) in args.iter().enumerate() {
-            if i > 0 {
-                heap.current_line.push(' ');
-            }
-            heap.current_line.push_str(&format_stack_value(arg, heap));
-        }
-        if newline {
-            heap.output_lines
-                .push(std::mem::take(&mut heap.current_line));
-        }
+        write!(heap.output, "{}", format_stack_value(arg, heap))?;
     }
+    if newline {
+        writeln!(heap.output)?;
+    }
+    Ok(())
 }
 
-fn builtin_print(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    write_output(args, heap, false);
-    StackValue::Nil
+fn builtin_print(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+    write_output(args, heap, false)?;
+    Ok(StackValue::Nil)
 }
 
-fn builtin_println(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    write_output(args, heap, true);
-    StackValue::Nil
+fn builtin_println(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+    write_output(args, heap, true)?;
+    Ok(StackValue::Nil)
 }
 
 fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
@@ -93,10 +80,7 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
             "assertion failed".to_string()
         };
         let err_msg = format!("AssertionError: {msg}");
-        if heap.stream_output {
-            println!("{err_msg}");
-        }
-        heap.output_lines.push(err_msg);
+        writeln!(heap.output, "{err_msg}")?;
         return Err(RuntimeError::value(format!("assertion failed: {msg}")));
     }
     Ok(StackValue::Nil)
@@ -109,10 +93,7 @@ fn builtin_error(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
         format_stack_value(&args[0], heap)
     };
     let err_msg = format!("Error: {msg}");
-    if heap.stream_output {
-        println!("{err_msg}");
-    }
-    heap.output_lines.push(err_msg);
+    writeln!(heap.output, "{err_msg}")?;
     Err(RuntimeError::value(format!("error: {msg}")))
 }
 
@@ -375,11 +356,8 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
 }
 
 fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
-    if let Some(line) = heap.input_queue.pop_front() {
-        return heap.alloc_string(line);
-    }
     let mut line = String::new();
-    std::io::stdin().read_line(&mut line).ok();
+    heap.input.read_line(&mut line).ok();
     if line.ends_with('\n') {
         line.pop();
         if line.ends_with('\r') {
@@ -439,8 +417,8 @@ fn builtin_trigger_gc(_args: &[StackValue], heap: &mut Heap) -> StackValue {
 #[must_use]
 pub fn builtins() -> Vec<(&'static str, Builtin)> {
     vec![
-        ("print", wrap_infallible(builtin_print)),
-        ("println", wrap_infallible(builtin_println)),
+        ("print", wrap(builtin_print)),
+        ("println", wrap(builtin_println)),
         ("assert", wrap(builtin_assert)),
         ("error", wrap(builtin_error)),
         ("int", wrap_infallible(builtin_int)),

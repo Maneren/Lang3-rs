@@ -8,7 +8,10 @@ use std::rc::Rc;
 pub type L3Args = Vec<StackValue>;
 
 pub type BuiltinBody = Rc<
-    dyn Fn(&[StackValue], &mut crate::heap::Heap) -> Result<StackValue, crate::error::RuntimeError>,
+    dyn for<'h, 'r> Fn(
+        &[StackValue],
+        &'r mut crate::heap::Heap<'h>,
+    ) -> Result<StackValue, crate::error::RuntimeError>,
 >;
 
 #[derive(Clone)]

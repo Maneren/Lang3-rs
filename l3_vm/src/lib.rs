@@ -8,8 +8,8 @@ use l3_runtime::heap_data::{
 use l3_runtime::*;
 use std::collections::HashMap;
 
-pub struct BytecodeVM {
-    pub heap: Heap,
+pub struct BytecodeVM<'a> {
+    pub heap: Heap<'a>,
     pub stack: Vec<StackValue>,
     pub global_symbols: std::collections::HashMap<String, StackValue, foldhash::fast::FixedState>,
     program: Option<ProgramBytecode>,
@@ -36,11 +36,15 @@ macro_rules! debug_println {
     };
 }
 
-impl BytecodeVM {
+impl<'a> BytecodeVM<'a> {
     #[must_use]
-    pub fn new(debug: bool) -> Self {
+    pub fn new(
+        writer: &'a mut impl std::io::Write,
+        reader: &'a mut impl std::io::Read,
+        debug: bool,
+    ) -> Self {
         let mut vm = Self {
-            heap: Heap::new(),
+            heap: Heap::new(writer, reader),
             stack: Vec::new(),
             global_symbols: std::collections::HashMap::with_hasher(
                 foldhash::fast::FixedState::default(),

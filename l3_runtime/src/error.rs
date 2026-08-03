@@ -29,7 +29,7 @@ pub enum RuntimeError {
         message: String,
         location: Option<Location>,
     },
-    Generic {
+    Internal {
         message: String,
         location: Option<Location>,
     },
@@ -67,7 +67,7 @@ impl RuntimeError {
         }
     }
     pub fn generic(msg: impl Into<String>) -> Self {
-        RuntimeError::Generic {
+        RuntimeError::Internal {
             message: msg.into(),
             location: None,
         }
@@ -81,7 +81,7 @@ impl RuntimeError {
             | RuntimeError::TypeError { location: l, .. }
             | RuntimeError::NameError { location: l, .. }
             | RuntimeError::UndefinedVariable { location: l, .. }
-            | RuntimeError::Generic { location: l, .. } => *l = Some(loc),
+            | RuntimeError::Internal { location: l, .. } => *l = Some(loc),
         }
         self
     }
@@ -94,7 +94,7 @@ impl RuntimeError {
             | RuntimeError::TypeError { message: m, .. }
             | RuntimeError::NameError { message: m, .. }
             | RuntimeError::UndefinedVariable { message: m, .. }
-            | RuntimeError::Generic { message: m, .. } => m,
+            | RuntimeError::Internal { message: m, .. } => m,
         }
     }
 }
@@ -111,12 +111,21 @@ impl fmt::Display for RuntimeError {
             RuntimeError::UndefinedVariable { message, .. } => {
                 write!(f, "UndefinedVariable: {message}")
             }
-            RuntimeError::Generic { message, .. } => write!(f, "RuntimeError: {message}"),
+            RuntimeError::Internal { message, .. } => write!(f, "RuntimeError: {message}"),
         }
     }
 }
 
 impl std::error::Error for RuntimeError {}
+
+impl From<std::io::Error> for RuntimeError {
+    fn from(err: std::io::Error) -> Self {
+        RuntimeError::Internal {
+            message: err.to_string(),
+            location: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct CompileError {

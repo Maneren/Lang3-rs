@@ -439,7 +439,9 @@ fn step(inst: &Instruction, stack: &mut Stack) {
 // ---------------------------------------------------------------------------
 
 fn fold_constants(chunk: &Chunk, pool: &mut Vec<HeapCell>) -> (Chunk, bool) {
-    let mut heap = Heap::new();
+    let mut sink = std::io::sink();
+    let mut empty = std::io::empty();
+    let mut heap = Heap::new(&mut sink, &mut empty);
     let mut values: Vec<StackValue> = pool
         .iter()
         .map(|cell| heap.alloc(cell.value.clone()))
