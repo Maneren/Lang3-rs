@@ -594,7 +594,7 @@ impl<'a> BytecodeVM<'a> {
             chunk_id: bc.id,
             ip: 0,
             frame_pointer,
-            closure_info: Some((bc.clone(), func)),
+            closure_info: Some((*bc.clone(), func)),
             upvalues: bc.captured_upvalues.clone(),
             captured_locals: HashMap::new(),
             discard_return: !keep_return_value,

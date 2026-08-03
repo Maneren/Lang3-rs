@@ -7,7 +7,7 @@ use l3_ast::{
 };
 use l3_bytecode::{Chunk, Instruction, ProgramBytecode, UpvalueDesc};
 use l3_location::Location;
-use l3_runtime::{CompileError, Function, HeapCell, HeapData, Primitive};
+use l3_runtime::{BytecodeFunction, CompileError, Function, HeapCell, HeapData, Primitive};
 
 pub struct Compiler {
     program: ProgramBytecode,
@@ -274,13 +274,13 @@ impl Compiler {
         let upvalues = self.contexts.last().unwrap().upvalues.clone();
         self.pop_context();
 
-        let func_data = HeapData::Function(Function::Bytecode(l3_runtime::BytecodeFunction {
+        let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id,
             name: nf.name.name.clone(),
             arity,
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),
-        }));
+        })));
         let func_idx = self.make_constant(func_data);
 
         if upvalues.is_empty() {
@@ -1130,13 +1130,13 @@ impl Compiler {
         let upvalues = self.contexts.last().unwrap().upvalues.clone();
         self.pop_context();
 
-        let func_data = HeapData::Function(Function::Bytecode(l3_runtime::BytecodeFunction {
+        let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id,
             name,
             arity,
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),
-        }));
+        })));
         let func_idx = self.make_constant(func_data);
 
         if upvalues.is_empty() {

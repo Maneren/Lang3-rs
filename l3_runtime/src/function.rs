@@ -54,7 +54,7 @@ pub struct BytecodeFunction {
 #[derive(Debug, Clone)]
 pub enum Function {
     Builtin(BuiltinFunction),
-    Bytecode(BytecodeFunction),
+    Bytecode(Box<BytecodeFunction>),
 }
 
 impl Function {
