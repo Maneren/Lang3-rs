@@ -1,35 +1,10 @@
-use crate::function::Function;
 use crate::heap::Heap;
 use crate::primitive::{Primitive, compare_primitives};
 use crate::stack_value::StackValue;
+use crate::{error::RuntimeError, function::Function};
 use slotmap::DefaultKey;
 use std::cmp::Ordering;
 use std::fmt;
-use std::hash::{Hash, Hasher};
-
-impl fmt::Display for HeapData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            HeapData::Nil => write!(f, "nil"),
-            HeapData::Primitive(p) => write!(f, "{p}"),
-            HeapData::Function(fun) => match fun {
-                Function::Builtin(b) => write!(f, "function <{}>", b.name),
-                Function::Bytecode(bc) => write!(f, "function <{}>", bc.name),
-            },
-            HeapData::Vector(v) => {
-                write!(f, "[")?;
-                for (i, sv) in v.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{sv}")?;
-                }
-                write!(f, "]")
-            }
-            HeapData::String(s) => write!(f, "\"{s}\""),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum HeapData {
@@ -47,30 +22,6 @@ impl PartialEq for HeapData {
             (HeapData::Primitive(a), HeapData::Primitive(b)) => a == b,
             (HeapData::String(a), HeapData::String(b)) => a == b,
             _ => false,
-        }
-    }
-}
-
-impl Hash for HeapData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            HeapData::Nil => 0u8.hash(state),
-            HeapData::Primitive(p) => {
-                1u8.hash(state);
-                p.hash(state);
-            }
-            HeapData::String(s) => {
-                2u8.hash(state);
-                s.hash(state);
-            }
-            HeapData::Function(_) => {
-                3u8.hash(state);
-                // Functions are unique — use a random-ish constant
-            }
-            HeapData::Vector(v) => {
-                v.len().hash(state);
-                4u8.hash(state);
-            }
         }
     }
 }
@@ -212,7 +163,7 @@ enum Resolved<'a> {
     Other,
 }
 
-/// Resolve a StackValue to its effective kind with a single heap lookup.
+/// Resolve a `StackValue` to its effective kind with a single heap lookup.
 fn resolve<'a>(sv: &'a StackValue, heap: &'a Heap) -> Resolved<'a> {
     match sv {
         StackValue::Primitive(p) => Resolved::Num(*p),
@@ -226,42 +177,28 @@ fn resolve<'a>(sv: &'a StackValue, heap: &'a Heap) -> Resolved<'a> {
     }
 }
 
-fn numeric_result(
-    r: Result<Primitive, &'static str>,
-) -> Result<StackValue, crate::error::RuntimeError> {
+fn numeric_result(r: Result<Primitive, &'static str>) -> Result<StackValue, RuntimeError> {
     r.map(StackValue::Primitive)
-        .map_err(crate::error::RuntimeError::type_error)
+        .map_err(RuntimeError::type_error)
 }
 
-pub fn add(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa + pb),
         (Resolved::Str(sa), Resolved::Str(sb)) => Ok(heap.alloc_string(format!("{sa}{sb}"))),
         (Resolved::Vec(va), Resolved::Vec(vb)) => {
             let mut result = va.clone();
-            result.extend(vb.iter().cloned());
+            result.extend(vb.iter().copied());
             Ok(heap.alloc_vector(result))
         }
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for +",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for +")),
     }
 }
 
-pub fn sub(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn sub(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa - pb),
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for -",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for -")),
     }
 }
 
@@ -279,17 +216,13 @@ fn repeat_vec(v: &[StackValue], n: i64) -> Vec<StackValue> {
     } else {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.extend(v.iter().cloned());
+            result.extend(v.iter().copied());
         }
         result
     }
 }
 
-pub fn mul(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa * pb),
         (Resolved::Num(Primitive::Integer(n)), Resolved::Str(s))
@@ -299,43 +232,25 @@ pub fn mul(
         (Resolved::Vec(v), Resolved::Num(Primitive::Integer(n))) => {
             Ok(heap.alloc_vector(repeat_vec(v, n)))
         }
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for *",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for *")),
     }
 }
 
-pub fn div(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn div(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa / pb),
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for /",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for /")),
     }
 }
 
-pub fn modulo(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa % pb),
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for %",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for %")),
     }
 }
 
-pub fn pow(
-    a: &StackValue,
-    b: &StackValue,
-    heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => {
             let result = match (pa, pb) {
@@ -350,16 +265,12 @@ pub fn pow(
                     Primitive::Double(a.powi(b as i32))
                 }
                 _ => {
-                    return Err(crate::error::RuntimeError::type_error(
-                        "unsupported operand types for ^",
-                    ));
+                    return Err(RuntimeError::type_error("unsupported operand types for ^"));
                 }
             };
             Ok(StackValue::Primitive(result))
         }
-        _ => Err(crate::error::RuntimeError::type_error(
-            "unsupported operand types for ^",
-        )),
+        _ => Err(RuntimeError::type_error("unsupported operand types for ^")),
     }
 }
 
@@ -372,10 +283,10 @@ pub fn compare(a: &StackValue, b: &StackValue, _heap: &Heap) -> Option<Ordering>
     }
 }
 
-pub fn negative(a: &StackValue, heap: &Heap) -> Result<StackValue, crate::error::RuntimeError> {
+pub fn negative(a: &StackValue, heap: &Heap) -> Result<StackValue, RuntimeError> {
     match resolve(a, heap) {
         Resolved::Num(p) => Ok(StackValue::Primitive(-p)),
-        _ => Err(crate::error::RuntimeError::type_error(
+        _ => Err(RuntimeError::type_error(
             "unsupported operand types for unary -",
         )),
     }
@@ -386,21 +297,19 @@ pub fn not_op(a: &StackValue, heap: &Heap) -> StackValue {
     StackValue::Primitive(Primitive::Bool(!a.is_truthy(heap)))
 }
 
-fn integer_index(sv: &StackValue, heap: &Heap) -> Result<i64, crate::error::RuntimeError> {
+fn integer_index(sv: &StackValue, heap: &Heap) -> Result<i64, RuntimeError> {
     match resolve(sv, heap) {
         Resolved::Num(Primitive::Integer(i)) => Ok(i),
-        _ => Err(crate::error::RuntimeError::type_error(
+        _ => Err(RuntimeError::type_error(
             "index to a container must be an integer",
         )),
     }
 }
 
-fn heap_key(container: &StackValue) -> Result<DefaultKey, crate::error::RuntimeError> {
+fn heap_key(container: &StackValue) -> Result<DefaultKey, RuntimeError> {
     match container {
         StackValue::Heap(key) => Ok(*key),
-        _ => Err(crate::error::RuntimeError::type_error(
-            "cannot index non-container type",
-        )),
+        _ => Err(RuntimeError::type_error("cannot index non-container type")),
     }
 }
 
@@ -408,25 +317,25 @@ pub fn index(
     container: &StackValue,
     index: &StackValue,
     heap: &mut Heap,
-) -> Result<StackValue, crate::error::RuntimeError> {
+) -> Result<StackValue, RuntimeError> {
     let idx = integer_index(index, heap)?;
     if idx < 0 {
-        return Err(crate::error::RuntimeError::value("index out of bounds"));
+        return Err(RuntimeError::value("index out of bounds"));
     }
     let i = idx as usize;
     match resolve(container, heap) {
         Resolved::Str(s) => {
             let chars: Vec<char> = s.chars().collect();
             if i >= chars.len() {
-                return Err(crate::error::RuntimeError::value("index out of bounds"));
+                return Err(RuntimeError::value("index out of bounds"));
             }
             Ok(heap.alloc_string(chars[i].to_string()))
         }
         Resolved::Vec(v) => {
             if i >= v.len() {
-                return Err(crate::error::RuntimeError::value("index out of bounds"));
+                return Err(RuntimeError::value("index out of bounds"));
             }
-            Ok(v[i].clone())
+            Ok(v[i])
         }
         Resolved::Num(p) => {
             let type_name = match p {
@@ -434,11 +343,11 @@ pub fn index(
                 Primitive::Double(_) => "float",
                 Primitive::Bool(_) => "bool",
             };
-            Err(crate::error::RuntimeError::type_error(format!(
+            Err(RuntimeError::type_error(format!(
                 "cannot index a {type_name} value"
             )))
         }
-        Resolved::Other => Err(crate::error::RuntimeError::type_error(
+        Resolved::Other => Err(RuntimeError::type_error(
             "cannot index a non-container value",
         )),
     }
@@ -448,24 +357,24 @@ pub fn index_mut<'a>(
     container: &'a mut StackValue,
     index: &StackValue,
     heap: &'a mut Heap,
-) -> Result<&'a mut StackValue, crate::error::RuntimeError> {
+) -> Result<&'a mut StackValue, RuntimeError> {
     let idx = integer_index(index, heap)?;
     let key = heap_key(container)?;
 
     let cell = heap
         .cells
         .get_mut(key)
-        .ok_or_else(|| crate::error::RuntimeError::value("invalid heap reference"))?;
+        .ok_or_else(|| RuntimeError::value("invalid heap reference"))?;
     let v = cell
         .value
         .as_mut_vector()
-        .ok_or_else(|| crate::error::RuntimeError::type_error("cannot index non-vector type"))?;
+        .ok_or_else(|| RuntimeError::type_error("cannot index non-vector type"))?;
     if idx < 0 {
-        return Err(crate::error::RuntimeError::value("index out of bounds"));
+        return Err(RuntimeError::value("index out of bounds"));
     }
     let i = idx as usize;
     if i >= v.len() {
-        return Err(crate::error::RuntimeError::value("index out of bounds"));
+        return Err(RuntimeError::value("index out of bounds"));
     }
     Ok(&mut v[i])
 }
@@ -481,6 +390,30 @@ pub fn to_owned(sv: &StackValue, heap: &Heap) -> HeapData {
             } else {
                 HeapData::Nil
             }
+        }
+    }
+}
+
+impl fmt::Display for HeapData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HeapData::Nil => write!(f, "nil"),
+            HeapData::Primitive(p) => write!(f, "{p}"),
+            HeapData::Function(fun) => match fun {
+                Function::Builtin(b) => write!(f, "function <{}>", b.name),
+                Function::Bytecode(bc) => write!(f, "function <{}>", bc.name),
+            },
+            HeapData::Vector(v) => {
+                write!(f, "[")?;
+                for (i, sv) in v.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{sv}")?;
+                }
+                write!(f, "]")
+            }
+            HeapData::String(s) => write!(f, "\"{s}\""),
         }
     }
 }

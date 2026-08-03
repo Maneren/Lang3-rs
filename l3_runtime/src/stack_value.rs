@@ -9,7 +9,7 @@ pub struct Slice {
     pub end: Option<i64>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum StackValue {
     #[default]
     Nil,

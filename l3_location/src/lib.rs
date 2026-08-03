@@ -48,7 +48,7 @@ fn add(lhs: Counter, rhs: Counter, min: Counter) -> Counter {
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref filename) = self.filename {
-            write!(f, "{}:{}.{}", filename, self.line, self.column)
+            write!(f, "{filename}:{}.{}", self.line, self.column)
         } else {
             write!(f, "{}.{}", self.line, self.column)
         }

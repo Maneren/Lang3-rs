@@ -1,31 +1,11 @@
 use std::cmp::Ordering;
 use std::fmt;
-use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Primitive {
     Bool(bool),
     Integer(i64),
     Double(f64),
-}
-
-impl Hash for Primitive {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Primitive::Bool(b) => {
-                0u8.hash(state);
-                b.hash(state);
-            }
-            Primitive::Integer(i) => {
-                1u8.hash(state);
-                i.hash(state);
-            }
-            Primitive::Double(d) => {
-                2u8.hash(state);
-                d.to_bits().hash(state);
-            }
-        }
-    }
 }
 
 impl Primitive {

@@ -62,7 +62,7 @@ fn mark_stack_value(sv: &StackValue, heap: &SlotMap<DefaultKey, HeapCell>) {
     }
 }
 
-/// An upvalue cell captured by a closure. Stored as Rc<RefCell<..>> for
+/// An upvalue cell captured by a closure. Stored as `Rc<RefCell<..>>` for
 /// shared mutable access between the GC heap and active closures.
 #[derive(Debug, Clone)]
 pub struct UpvalueCell {
@@ -92,7 +92,6 @@ impl UpvalueCell {
 /// Mark-and-sweep with configurable threshold.
 pub struct Heap<'a> {
     pub cells: SlotMap<DefaultKey, HeapCell>,
-    pub size: usize,
     pub added_since_last_sweep: usize,
     pub next_gc_threshold: usize,
     pub sweep_count: usize,
@@ -106,7 +105,6 @@ impl<'a> Heap<'a> {
     pub fn new(writer: &'a mut impl Write, reader: &'a mut impl Read) -> Self {
         Self {
             cells: SlotMap::with_capacity(1024),
-            size: 0,
             added_since_last_sweep: 0,
             next_gc_threshold: 1024,
             sweep_count: 0,
@@ -121,7 +119,6 @@ impl<'a> Heap<'a> {
             HeapData::Nil => StackValue::Nil,
             HeapData::Primitive(p) => StackValue::Primitive(*p),
             _ => {
-                self.size += 1;
                 self.added_since_last_sweep += 1;
                 let key = self.cells.insert(HeapCell::new(value));
                 StackValue::Heap(key)
@@ -144,15 +141,10 @@ impl<'a> Heap<'a> {
     pub fn sweep(&mut self) -> usize {
         self.sweep_count += 1;
         let before = self.cells.len();
-        self.cells.retain(|_, cell| {
-            let marked = cell.marked.get();
-            cell.marked.set(false); // unmark for next cycle
-            marked
-        });
+        self.cells.retain(|_, cell| cell.marked.replace(false));
         let erased = before - self.cells.len();
-        self.size = self.cells.len();
         self.added_since_last_sweep = 0;
-        self.next_gc_threshold = (self.size * 2).max(1024);
+        self.next_gc_threshold = (self.cells.len() * 2).max(1024);
         erased
     }
 

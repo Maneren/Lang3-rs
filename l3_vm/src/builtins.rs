@@ -165,13 +165,14 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
             if v.is_empty() {
                 return Err(RuntimeError::value("head of empty vector"));
             }
-            Ok(v[0].clone())
+            Ok(v[0])
         }
         HeapData::String(s) => {
-            if s.is_empty() {
-                return Err(RuntimeError::value("head of empty string"));
+            if let Some(c) = s.chars().next() {
+                Ok(heap.alloc_string(c.to_string()))
+            } else {
+                Err(RuntimeError::value("head of empty string"))
             }
-            Ok(heap.alloc_string(s.chars().next().unwrap().to_string()))
         }
         _ => Err(RuntimeError::type_error("head requires a vector or string")),
     }
@@ -283,7 +284,7 @@ fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
 }
 
 fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> StackValue {
-    args.first().cloned().unwrap_or(StackValue::Nil)
+    args.first().copied().unwrap_or(StackValue::Nil)
 }
 
 fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {

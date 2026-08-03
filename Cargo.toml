@@ -32,12 +32,9 @@ lalrpop = "0.23"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
-doc_markdown = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 missing_safety_doc = "allow"
-doc_lazy_continuation = "allow"
-doc_link_with_quotes = "allow"
 
 # Truly impractical to fix across the codebase
 cast_possible_truncation = "allow"

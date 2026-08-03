@@ -1,17 +1,19 @@
 pub mod builtins;
 
+use foldhash::fast::FixedState;
+use l3_ast::Identifier;
 use l3_bytecode::*;
 use l3_location::Location;
 use l3_runtime::heap_data::{
     add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub,
 };
 use l3_runtime::*;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
     pub stack: Vec<StackValue>,
-    pub global_symbols: std::collections::HashMap<String, StackValue, foldhash::fast::FixedState>,
+    pub global_symbols: HashMap<String, StackValue, FixedState>,
     program: Option<ProgramBytecode>,
     constant_keys: Vec<slotmap::DefaultKey>,
     frames: Vec<CallFrame>,
@@ -23,8 +25,8 @@ struct CallFrame {
     ip: usize,
     frame_pointer: usize,
     closure_info: Option<(BytecodeFunction, StackValue)>,
-    upvalues: Vec<std::rc::Rc<std::cell::RefCell<UpvalueCell>>>,
-    captured_locals: HashMap<usize, std::rc::Rc<std::cell::RefCell<UpvalueCell>>>,
+    upvalues: Vec<Rc<RefCell<UpvalueCell>>>,
+    captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>>,
     discard_return: bool,
 }
 
@@ -46,9 +48,7 @@ impl<'a> BytecodeVM<'a> {
         let mut vm = Self {
             heap: Heap::new(writer, reader),
             stack: Vec::new(),
-            global_symbols: std::collections::HashMap::with_hasher(
-                foldhash::fast::FixedState::default(),
-            ),
+            global_symbols: HashMap::with_hasher(FixedState::default()),
             program: None,
             constant_keys: Vec::new(),
             frames: Vec::new(),
@@ -60,7 +60,7 @@ impl<'a> BytecodeVM<'a> {
             let func = vm
                 .heap
                 .alloc_function(Function::Builtin(BuiltinFunction::new(
-                    l3_ast::Identifier::new(name.to_string(), Location::default()),
+                    Identifier::new(name.to_string(), Location::default()),
                     body,
                 )));
             vm.global_symbols.insert(name.to_string(), func);
@@ -184,7 +184,7 @@ impl<'a> BytecodeVM<'a> {
                 let idx = self.stack.len() - 1 - index;
                 debug_println!(self, "    DUPLICATE({}) stack[len-1-{}]", index, index);
                 if idx < self.stack.len() {
-                    self.stack.push(self.stack[idx].clone());
+                    self.stack.push(self.stack[idx]);
                 }
             }
             Instruction::Add => {
@@ -272,8 +272,8 @@ impl<'a> BytecodeVM<'a> {
                 let name = &self.program.as_ref().unwrap().constants[*name_index];
                 if let HeapData::String(s) = &name.value {
                     debug_println!(self, "    GET_GLOBAL {}", s);
-                    if let Some(val) = self.global_symbols.get(s) {
-                        self.stack.push(val.clone());
+                    if let Some(&val) = self.global_symbols.get(s) {
+                        self.stack.push(val);
                     } else {
                         return Err(RuntimeError::undefined(s));
                     }
@@ -293,7 +293,7 @@ impl<'a> BytecodeVM<'a> {
                 let fp = self.frames.last().unwrap().frame_pointer;
                 debug_println!(self, "    GET_LOCAL {} fp={}", index, fp);
                 if fp + index < self.stack.len() {
-                    self.stack.push(self.stack[fp + index].clone());
+                    self.stack.push(self.stack[fp + index]);
                 }
             }
             Instruction::SetLocal { index } => {
@@ -306,7 +306,7 @@ impl<'a> BytecodeVM<'a> {
                 let _old = std::mem::replace(&mut self.stack[fp + index], val);
 
                 if let Some(cell) = self.frames.last_mut().unwrap().captured_locals.get(index) {
-                    cell.borrow_mut().value = self.stack[fp + index].clone();
+                    cell.borrow_mut().value = self.stack[fp + index];
                 }
             }
             Instruction::ForLoop {
@@ -396,7 +396,7 @@ impl<'a> BytecodeVM<'a> {
                 keep_return_value,
             } => {
                 let base = self.stack.len() - 1 - arg_count;
-                let func_sv = self.stack[base].clone();
+                let func_sv = self.stack[base];
                 debug_println!(
                     self,
                     "    CALL argc={} keep_ret={} func={:?}",
@@ -475,9 +475,7 @@ impl<'a> BytecodeVM<'a> {
                     if uv_desc.is_local {
                         let fp = self.frames.last().unwrap().frame_pointer;
                         let idx = uv_desc.index;
-                        let cell = std::rc::Rc::new(std::cell::RefCell::new(UpvalueCell::new(
-                            self.stack[fp + idx].clone(),
-                        )));
+                        let cell = Rc::new(RefCell::new(UpvalueCell::new(self.stack[fp + idx])));
                         self.frames
                             .last_mut()
                             .unwrap()
@@ -496,7 +494,7 @@ impl<'a> BytecodeVM<'a> {
             Instruction::GetUpvalue { index } => {
                 debug_println!(self, "    GET_UPVALUE {}", index);
                 if let Ok(cell) = self.frames.last().unwrap().upvalues[*index].try_borrow() {
-                    self.stack.push(cell.value.clone());
+                    self.stack.push(cell.value);
                 }
             }
             Instruction::SetUpvalue { index } => {
@@ -571,7 +569,7 @@ impl<'a> BytecodeVM<'a> {
             let mut new_bc = bc.clone();
             new_bc.curried_args.reserve(arg_count);
             for i in 0..arg_count {
-                new_bc.curried_args.push(self.stack[base + 1 + i].clone());
+                new_bc.curried_args.push(self.stack[base + 1 + i]);
             }
             self.stack.truncate(base);
             return Ok(self.heap.alloc_function(Function::Bytecode(new_bc)));
@@ -587,8 +585,8 @@ impl<'a> BytecodeVM<'a> {
                 self.stack[frame_pointer + curried_count + i] =
                     std::mem::replace(&mut self.stack[frame_pointer + i], StackValue::Nil);
             }
-            for (i, arg) in bc.curried_args.iter().enumerate() {
-                self.stack[frame_pointer + i] = arg.clone();
+            for (i, &arg) in bc.curried_args.iter().enumerate() {
+                self.stack[frame_pointer + i] = arg;
             }
         }
 
