@@ -8,7 +8,6 @@ members = [
   "l3_parser",
   "l3_compiler",
   "l3_vm",
-  "l3_cli",
   "l3",
 ]
 

@@ -2,7 +2,6 @@ use clap::Parser;
 use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::format as bytecode_fmt;
 use l3_bytecode::optimizer::Optimizer;
-use l3_cli::Cli;
 use l3_compiler::Compiler;
 use l3_parser::parse_program;
 use l3_vm::BytecodeVM;
@@ -10,6 +9,9 @@ use std::fs;
 use std::io::Read;
 use std::process;
 use std::time::Instant;
+
+mod cli;
+use cli::Cli;
 
 struct Debug {
     lexer: bool,

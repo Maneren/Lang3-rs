@@ -298,7 +298,6 @@ dependencies = [
  "clap",
  "l3_ast",
  "l3_bytecode",
- "l3_cli",
  "l3_compiler",
  "l3_parser",
  "l3_vm",
@@ -318,13 +317,6 @@ version = "0.1.0"
 dependencies = [
  "l3_location",
  "l3_runtime",
-]
-
-[[package]]
-name = "l3_cli"
-version = "0.1.0"
-dependencies = [
- "clap",
 ]
 
 [[package]]
