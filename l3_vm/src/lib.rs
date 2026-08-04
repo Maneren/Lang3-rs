@@ -14,7 +14,6 @@ pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
     pub stack: Vec<StackValue>,
     pub global_symbols: HashMap<String, StackValue, FixedState>,
-    program: Option<ProgramBytecode>,
     constant_keys: Vec<slotmap::DefaultKey>,
     frames: Vec<CallFrame>,
     debug: bool,
@@ -31,9 +30,9 @@ struct CallFrame {
 }
 
 macro_rules! debug_println {
-    ($self:expr, $($arg:tt)*) => {
-        if $self.debug {
-            eprintln!($($arg)*);
+    ($debug:expr, $($arg:tt)*) => {
+        if $debug {
+            // eprintln!($($arg)*);
         }
     };
 }
@@ -49,7 +48,6 @@ impl<'a> BytecodeVM<'a> {
             heap: Heap::new(writer, reader),
             stack: Vec::new(),
             global_symbols: HashMap::with_hasher(FixedState::default()),
-            program: None,
             constant_keys: Vec::new(),
             frames: Vec::new(),
             debug,
@@ -70,7 +68,7 @@ impl<'a> BytecodeVM<'a> {
     }
 
     pub fn execute(&mut self, program: &ProgramBytecode) -> Result<(), RuntimeError> {
-        self.program = Some(program.clone());
+        let debug = self.debug;
         let chunks = &program.chunks;
 
         // Pre-insert all program constants into the heap so the Constant
@@ -96,16 +94,377 @@ impl<'a> BytecodeVM<'a> {
             && let Some(chunk) = chunks.get(*chunk_id)
             && let Some(instruction) = chunk.code.get(*ip)
         {
-            debug_println!(self, "  IP={} {:?}", ip, instruction);
+            debug_println!(debug, "  IP={} {:?}", ip, instruction);
             *ip += 1;
 
-            self.dispatch(instruction)?;
+            match instruction {
+                Instruction::Return => {
+                    let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
+                    debug_println!(debug, "    RETURN value={:?}", return_value);
+                    let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
+                    let discard = self.frames.last().is_some_and(|f| f.discard_return);
+                    self.frames.pop();
+                    if !self.frames.is_empty() {
+                        self.stack.truncate(fp - 1);
+                    }
+                    if !discard {
+                        self.stack.push(return_value);
+                    }
+                }
+                Instruction::Constant { index } => {
+                    let val = &program.constants[*index];
+                    let sv = match &val.value {
+                        HeapData::Nil => StackValue::Nil,
+                        HeapData::Primitive(p) => StackValue::Primitive(*p),
+                        _ => StackValue::Heap(self.constant_keys[*index]),
+                    };
+                    debug_println!(debug, "    CONSTANT({}) -> {:?}", index, sv);
+                    self.stack.push(sv);
+                }
+                Instruction::Pop { count } => {
+                    debug_println!(debug, "    POP {}", count);
+                    for _ in 0..*count {
+                        self.stack.pop();
+                    }
+                }
+                Instruction::Duplicate { index } => {
+                    let idx = self.stack.len() - 1 - index;
+                    debug_println!(debug, "    DUPLICATE({}) stack[len-1-{}]", index, index);
+                    if idx < self.stack.len() {
+                        self.stack.push(self.stack[idx]);
+                    }
+                }
+                Instruction::Add => {
+                    debug_println!(debug, "    ADD");
+                    self.binary_op(add)?;
+                }
+                Instruction::Subtract => {
+                    debug_println!(debug, "    SUB");
+                    self.binary_op(sub)?;
+                }
+                Instruction::Multiply => {
+                    debug_println!(debug, "    MUL");
+                    self.binary_op(mul)?;
+                }
+                Instruction::Divide => {
+                    debug_println!(debug, "    DIV");
+                    self.binary_op(div)?;
+                }
+                Instruction::Modulo => {
+                    debug_println!(debug, "    MOD");
+                    self.binary_op(modulo)?;
+                }
+                Instruction::Power => {
+                    debug_println!(debug, "    POW");
+                    self.binary_op(pow)?;
+                }
+                Instruction::Negate => {
+                    debug_println!(debug, "    NEGATE");
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    let result = negative(&a, &self.heap)?;
+                    self.stack.push(result);
+                }
+                Instruction::Not => {
+                    debug_println!(debug, "    NOT");
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    self.stack.push(not_op(&a, &self.heap));
+                }
+                Instruction::Equal { keep_rhs } => {
+                    debug_println!(debug, "    EQ keep_rhs={}", keep_rhs);
+                    self.compare_op(|c| c == Some(std::cmp::Ordering::Equal), *keep_rhs);
+                }
+                Instruction::NotEqual { keep_rhs } => {
+                    debug_println!(debug, "    NE keep_rhs={}", keep_rhs);
+                    self.compare_op(|c| c != Some(std::cmp::Ordering::Equal), *keep_rhs);
+                }
+                Instruction::Less { keep_rhs } => {
+                    debug_println!(debug, "    LT keep_rhs={}", keep_rhs);
+                    self.compare_op(|c| c == Some(std::cmp::Ordering::Less), *keep_rhs);
+                }
+                Instruction::LessEqual { keep_rhs } => {
+                    debug_println!(debug, "    LE keep_rhs={}", keep_rhs);
+                    self.compare_op(
+                        |c| {
+                            matches!(
+                                c,
+                                Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal)
+                            )
+                        },
+                        *keep_rhs,
+                    );
+                }
+                Instruction::Greater { keep_rhs } => {
+                    debug_println!(debug, "    GT keep_rhs={}", keep_rhs);
+                    self.compare_op(|c| c == Some(std::cmp::Ordering::Greater), *keep_rhs);
+                }
+                Instruction::GreaterEqual { keep_rhs } => {
+                    debug_println!(debug, "    GE keep_rhs={}", keep_rhs);
+                    self.compare_op(
+                        |c| {
+                            matches!(
+                                c,
+                                Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
+                            )
+                        },
+                        *keep_rhs,
+                    );
+                }
+                Instruction::GetGlobal { name_index } => {
+                    let name = &program.constants[*name_index];
+                    if let HeapData::String(s) = &name.value {
+                        debug_println!(debug, "    GET_GLOBAL {}", s);
+                        if let Some(&val) = self.global_symbols.get(s) {
+                            self.stack.push(val);
+                        } else {
+                            return Err(RuntimeError::undefined(s));
+                        }
+                    }
+                }
+                Instruction::SetGlobal { name_index } => {
+                    let name = &program.constants[*name_index];
+                    let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
+                    let val = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    debug_println!(debug, "    SET_GLOBAL {} = {:?}", name_str, val);
+                    self.global_symbols.insert(name_str, val);
+                }
+                Instruction::GetLocal { index } => {
+                    let fp = self.frames.last().unwrap().frame_pointer;
+                    debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
+                    if fp + index < self.stack.len() {
+                        self.stack.push(self.stack[fp + index]);
+                    }
+                }
+                Instruction::SetLocal { index } => {
+                    let fp = self.frames.last().unwrap().frame_pointer;
+                    let val = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
+                    let _old = std::mem::replace(&mut self.stack[fp + index], val);
+
+                    if let Some(cell) = self.frames.last_mut().unwrap().captured_locals.get(index) {
+                        cell.borrow_mut().value = self.stack[fp + index];
+                    }
+                }
+                Instruction::ForLoop {
+                    control_index,
+                    limit_index,
+                    body_offset,
+                    inclusive,
+                    step_index,
+                } => {
+                    let fp = self.frames.last().unwrap().frame_pointer;
+                    let control = &self.stack[fp + control_index];
+                    let limit = &self.stack[fp + limit_index];
+
+                    let Some(Primitive::Integer(current)) = control.as_primitive() else {
+                        return Err(RuntimeError::type_error(
+                            "for loop requires integer control",
+                        ));
+                    };
+                    let Some(Primitive::Integer(limit_val)) = limit.as_primitive() else {
+                        return Err(RuntimeError::type_error("for loop requires integer limit"));
+                    };
+
+                    let step = if let Some(si) = step_index {
+                        match self.stack[fp + si].as_primitive() {
+                            Some(Primitive::Integer(i)) => i,
+                            _ => 1,
+                        }
+                    } else {
+                        1
+                    };
+
+                    let next = current + step;
+                    self.stack[fp + control_index] =
+                        StackValue::Primitive(Primitive::Integer(next));
+
+                    let keep_going = if *inclusive {
+                        next <= limit_val
+                    } else {
+                        next < limit_val
+                    };
+                    debug_println!(
+                        debug,
+                        "    FOR_LOOP ctrl={} limit={} step={} next={} keep_going={}",
+                        current,
+                        limit_val,
+                        step,
+                        next,
+                        keep_going
+                    );
+                    if keep_going {
+                        self.frames.last_mut().unwrap().ip = *body_offset;
+                    }
+                }
+                Instruction::Jump { offset } => {
+                    debug_println!(debug, "    JUMP -> {}", offset);
+                    self.frames.last_mut().unwrap().ip = *offset;
+                }
+                Instruction::JumpIf {
+                    offset,
+                    expected,
+                    keep_stay,
+                    keep_jump,
+                } => {
+                    let cond = self
+                        .stack
+                        .last()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    let truthy = cond.is_truthy(&self.heap);
+                    let should_jump = truthy == *expected;
+                    debug_println!(
+                        debug,
+                        "    JUMP_IF expected={} truthy={} should_jump={} -> {}",
+                        expected,
+                        truthy,
+                        should_jump,
+                        offset
+                    );
+                    let should_pop = if should_jump { !keep_jump } else { !keep_stay };
+                    if should_pop {
+                        self.stack.pop();
+                    }
+                    if should_jump {
+                        self.frames.last_mut().unwrap().ip = *offset;
+                    }
+                }
+                Instruction::Call {
+                    arg_count,
+                    keep_return_value,
+                } => {
+                    let base = self.stack.len() - 1 - arg_count;
+                    let func_sv = self.stack[base];
+                    debug_println!(
+                        debug,
+                        "    CALL argc={} keep_ret={} func={:?}",
+                        arg_count,
+                        keep_return_value,
+                        func_sv
+                    );
+                    let frame_count = self.frames.len();
+                    let result =
+                        self.call_function(func_sv, base, *arg_count, *keep_return_value)?;
+                    if *keep_return_value && self.frames.len() <= frame_count {
+                        self.stack.push(result);
+                    }
+                }
+                Instruction::MakeArray { count } => {
+                    debug_println!(debug, "    MAKE_ARRAY {}", count);
+                    let start = self.stack.len() - count;
+                    let elements: Vec<StackValue> = self.stack.drain(start..).collect();
+                    let sv = self.heap.alloc_vector(elements);
+                    self.stack.push(sv);
+                }
+                Instruction::GetIndex => {
+                    debug_println!(debug, "    GET_INDEX");
+                    let idx = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    let container = self
+                        .stack
+                        .last_mut()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    *container = index(container, &idx, &mut self.heap)?;
+                }
+                Instruction::SetIndex => {
+                    debug_println!(debug, "    SET_INDEX");
+                    let val = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    let idx = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    let container = self
+                        .stack
+                        .last_mut()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    *index_mut(container, &idx, &mut self.heap)? = val;
+                }
+                Instruction::Closure {
+                    function_index,
+                    upvalues,
+                } => {
+                    debug_println!(
+                        debug,
+                        "    CLOSURE func={} upvalues={}",
+                        function_index,
+                        upvalues.len()
+                    );
+                    let constant_key = self.constant_keys[*function_index];
+                    let mut bc = match self.heap.cells.get(constant_key) {
+                        Some(cell) => match &cell.value {
+                            HeapData::Function(Function::Bytecode(bc)) => bc.clone(),
+                            _ => {
+                                return Err(RuntimeError::type_error(
+                                    "closure constant is not a function",
+                                ));
+                            }
+                        },
+                        None => {
+                            return Err(RuntimeError::type_error(
+                                "invalid closure function constant",
+                            ));
+                        }
+                    };
+                    for uv_desc in upvalues {
+                        if uv_desc.is_local {
+                            let fp = self.frames.last().unwrap().frame_pointer;
+                            let idx = uv_desc.index;
+                            let cell =
+                                Rc::new(RefCell::new(UpvalueCell::new(self.stack[fp + idx])));
+                            self.frames
+                                .last_mut()
+                                .unwrap()
+                                .captured_locals
+                                .insert(idx, cell.clone());
+                            bc.captured_upvalues.push(cell);
+                        } else {
+                            let uv = self.frames.last().unwrap().upvalues[uv_desc.index].clone();
+                            bc.captured_upvalues.push(uv);
+                        }
+                    }
+                    let sv = self.heap.alloc_function(Function::Bytecode(bc));
+                    debug_println!(debug, "      -> allocated function {:?}", sv);
+                    self.stack.push(sv);
+                }
+                Instruction::GetUpvalue { index } => {
+                    debug_println!(debug, "    GET_UPVALUE {}", index);
+                    if let Ok(cell) = self.frames.last().unwrap().upvalues[*index].try_borrow() {
+                        self.stack.push(cell.value);
+                    }
+                }
+                Instruction::SetUpvalue { index } => {
+                    let val = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                    debug_println!(debug, "    SET_UPVALUE {} val={:?}", index, val);
+                    if let Ok(mut cell) =
+                        self.frames.last().unwrap().upvalues[*index].try_borrow_mut()
+                    {
+                        cell.value = val;
+                    }
+                }
+            }
 
             self.maybe_gc();
         }
 
         self.constant_keys.clear();
-        self.program = None;
         Ok(())
     }
 
@@ -147,369 +506,6 @@ impl<'a> BytecodeVM<'a> {
                 cell.mark(&self.heap.cells);
             }
         }
-    }
-
-    fn dispatch(&mut self, inst: &Instruction) -> Result<(), RuntimeError> {
-        match inst {
-            Instruction::Return => {
-                let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
-                debug_println!(self, "    RETURN value={:?}", return_value);
-                let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
-                let discard = self.frames.last().is_some_and(|f| f.discard_return);
-                self.frames.pop();
-                if !self.frames.is_empty() {
-                    self.stack.truncate(fp - 1);
-                }
-                if !discard {
-                    self.stack.push(return_value);
-                }
-            }
-            Instruction::Constant { index } => {
-                let val = &self.program.as_ref().unwrap().constants[*index];
-                let sv = match &val.value {
-                    HeapData::Nil => StackValue::Nil,
-                    HeapData::Primitive(p) => StackValue::Primitive(*p),
-                    _ => StackValue::Heap(self.constant_keys[*index]),
-                };
-                debug_println!(self, "    CONSTANT({}) -> {:?}", index, sv);
-                self.stack.push(sv);
-            }
-            Instruction::Pop { count } => {
-                debug_println!(self, "    POP {}", count);
-                for _ in 0..*count {
-                    self.stack.pop();
-                }
-            }
-            Instruction::Duplicate { index } => {
-                let idx = self.stack.len() - 1 - index;
-                debug_println!(self, "    DUPLICATE({}) stack[len-1-{}]", index, index);
-                if idx < self.stack.len() {
-                    self.stack.push(self.stack[idx]);
-                }
-            }
-            Instruction::Add => {
-                debug_println!(self, "    ADD");
-                self.binary_op(add)?;
-            }
-            Instruction::Subtract => {
-                debug_println!(self, "    SUB");
-                self.binary_op(sub)?;
-            }
-            Instruction::Multiply => {
-                debug_println!(self, "    MUL");
-                self.binary_op(mul)?;
-            }
-            Instruction::Divide => {
-                debug_println!(self, "    DIV");
-                self.binary_op(div)?;
-            }
-            Instruction::Modulo => {
-                debug_println!(self, "    MOD");
-                self.binary_op(modulo)?;
-            }
-            Instruction::Power => {
-                debug_println!(self, "    POW");
-                self.binary_op(pow)?;
-            }
-            Instruction::Negate => {
-                debug_println!(self, "    NEGATE");
-                let a = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let result = negative(&a, &self.heap)?;
-                self.stack.push(result);
-            }
-            Instruction::Not => {
-                debug_println!(self, "    NOT");
-                let a = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                self.stack.push(not_op(&a, &self.heap));
-            }
-            Instruction::Equal { keep_rhs } => {
-                debug_println!(self, "    EQ keep_rhs={}", keep_rhs);
-                self.compare_op(|c| c == Some(std::cmp::Ordering::Equal), *keep_rhs);
-            }
-            Instruction::NotEqual { keep_rhs } => {
-                debug_println!(self, "    NE keep_rhs={}", keep_rhs);
-                self.compare_op(|c| c != Some(std::cmp::Ordering::Equal), *keep_rhs);
-            }
-            Instruction::Less { keep_rhs } => {
-                debug_println!(self, "    LT keep_rhs={}", keep_rhs);
-                self.compare_op(|c| c == Some(std::cmp::Ordering::Less), *keep_rhs);
-            }
-            Instruction::LessEqual { keep_rhs } => {
-                debug_println!(self, "    LE keep_rhs={}", keep_rhs);
-                self.compare_op(
-                    |c| {
-                        matches!(
-                            c,
-                            Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal)
-                        )
-                    },
-                    *keep_rhs,
-                );
-            }
-            Instruction::Greater { keep_rhs } => {
-                debug_println!(self, "    GT keep_rhs={}", keep_rhs);
-                self.compare_op(|c| c == Some(std::cmp::Ordering::Greater), *keep_rhs);
-            }
-            Instruction::GreaterEqual { keep_rhs } => {
-                debug_println!(self, "    GE keep_rhs={}", keep_rhs);
-                self.compare_op(
-                    |c| {
-                        matches!(
-                            c,
-                            Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
-                        )
-                    },
-                    *keep_rhs,
-                );
-            }
-            Instruction::GetGlobal { name_index } => {
-                let name = &self.program.as_ref().unwrap().constants[*name_index];
-                if let HeapData::String(s) = &name.value {
-                    debug_println!(self, "    GET_GLOBAL {}", s);
-                    if let Some(&val) = self.global_symbols.get(s) {
-                        self.stack.push(val);
-                    } else {
-                        return Err(RuntimeError::undefined(s));
-                    }
-                }
-            }
-            Instruction::SetGlobal { name_index } => {
-                let name = &self.program.as_ref().unwrap().constants[*name_index];
-                let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
-                let val = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_GLOBAL {} = {:?}", name_str, val);
-                self.global_symbols.insert(name_str, val);
-            }
-            Instruction::GetLocal { index } => {
-                let fp = self.frames.last().unwrap().frame_pointer;
-                debug_println!(self, "    GET_LOCAL {} fp={}", index, fp);
-                if fp + index < self.stack.len() {
-                    self.stack.push(self.stack[fp + index]);
-                }
-            }
-            Instruction::SetLocal { index } => {
-                let fp = self.frames.last().unwrap().frame_pointer;
-                let val = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
-                let _old = std::mem::replace(&mut self.stack[fp + index], val);
-
-                if let Some(cell) = self.frames.last_mut().unwrap().captured_locals.get(index) {
-                    cell.borrow_mut().value = self.stack[fp + index];
-                }
-            }
-            Instruction::ForLoop {
-                control_index,
-                limit_index,
-                body_offset,
-                inclusive,
-                step_index,
-            } => {
-                let fp = self.frames.last().unwrap().frame_pointer;
-                let control = &self.stack[fp + control_index];
-                let limit = &self.stack[fp + limit_index];
-
-                let Some(Primitive::Integer(current)) = control.as_primitive() else {
-                    return Err(RuntimeError::type_error(
-                        "for loop requires integer control",
-                    ));
-                };
-                let Some(Primitive::Integer(limit_val)) = limit.as_primitive() else {
-                    return Err(RuntimeError::type_error("for loop requires integer limit"));
-                };
-
-                let step = if let Some(si) = step_index {
-                    match self.stack[fp + si].as_primitive() {
-                        Some(Primitive::Integer(i)) => i,
-                        _ => 1,
-                    }
-                } else {
-                    1
-                };
-
-                let next = current + step;
-                self.stack[fp + control_index] = StackValue::Primitive(Primitive::Integer(next));
-
-                let keep_going = if *inclusive {
-                    next <= limit_val
-                } else {
-                    next < limit_val
-                };
-                debug_println!(
-                    self,
-                    "    FOR_LOOP ctrl={} limit={} step={} next={} keep_going={}",
-                    current,
-                    limit_val,
-                    step,
-                    next,
-                    keep_going
-                );
-                if keep_going {
-                    self.frames.last_mut().unwrap().ip = *body_offset;
-                }
-            }
-            Instruction::Jump { offset } => {
-                debug_println!(self, "    JUMP -> {}", offset);
-                self.frames.last_mut().unwrap().ip = *offset;
-            }
-            Instruction::JumpIf {
-                offset,
-                expected,
-                keep_stay,
-                keep_jump,
-            } => {
-                let cond = self
-                    .stack
-                    .last()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let truthy = cond.is_truthy(&self.heap);
-                let should_jump = truthy == *expected;
-                debug_println!(
-                    self,
-                    "    JUMP_IF expected={} truthy={} should_jump={} -> {}",
-                    expected,
-                    truthy,
-                    should_jump,
-                    offset
-                );
-                let should_pop = if should_jump { !keep_jump } else { !keep_stay };
-                if should_pop {
-                    self.stack.pop();
-                }
-                if should_jump {
-                    self.frames.last_mut().unwrap().ip = *offset;
-                }
-            }
-            Instruction::Call {
-                arg_count,
-                keep_return_value,
-            } => {
-                let base = self.stack.len() - 1 - arg_count;
-                let func_sv = self.stack[base];
-                debug_println!(
-                    self,
-                    "    CALL argc={} keep_ret={} func={:?}",
-                    arg_count,
-                    keep_return_value,
-                    func_sv
-                );
-                let frame_count = self.frames.len();
-                let result = self.call_function(func_sv, base, *arg_count, *keep_return_value)?;
-                if *keep_return_value && self.frames.len() <= frame_count {
-                    self.stack.push(result);
-                }
-            }
-            Instruction::MakeArray { count } => {
-                debug_println!(self, "    MAKE_ARRAY {}", count);
-                let start = self.stack.len() - count;
-                let elements: Vec<StackValue> = self.stack.drain(start..).collect();
-                let sv = self.heap.alloc_vector(elements);
-                self.stack.push(sv);
-            }
-            Instruction::GetIndex => {
-                debug_println!(self, "    GET_INDEX");
-                let idx = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let container = self
-                    .stack
-                    .last_mut()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                *container = index(container, &idx, &mut self.heap)?;
-            }
-            Instruction::SetIndex => {
-                debug_println!(self, "    SET_INDEX");
-                let val = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let idx = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                let container = self
-                    .stack
-                    .last_mut()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                *index_mut(container, &idx, &mut self.heap)? = val;
-            }
-            Instruction::Closure {
-                function_index,
-                upvalues,
-            } => {
-                debug_println!(
-                    self,
-                    "    CLOSURE func={} upvalues={}",
-                    function_index,
-                    upvalues.len()
-                );
-                let constant_key = self.constant_keys[*function_index];
-                let mut bc = match self.heap.cells.get(constant_key) {
-                    Some(cell) => match &cell.value {
-                        HeapData::Function(Function::Bytecode(bc)) => bc.clone(),
-                        _ => {
-                            return Err(RuntimeError::type_error(
-                                "closure constant is not a function",
-                            ));
-                        }
-                    },
-                    None => {
-                        return Err(RuntimeError::type_error(
-                            "invalid closure function constant",
-                        ));
-                    }
-                };
-                for uv_desc in upvalues {
-                    if uv_desc.is_local {
-                        let fp = self.frames.last().unwrap().frame_pointer;
-                        let idx = uv_desc.index;
-                        let cell = Rc::new(RefCell::new(UpvalueCell::new(self.stack[fp + idx])));
-                        self.frames
-                            .last_mut()
-                            .unwrap()
-                            .captured_locals
-                            .insert(idx, cell.clone());
-                        bc.captured_upvalues.push(cell);
-                    } else {
-                        let uv = self.frames.last().unwrap().upvalues[uv_desc.index].clone();
-                        bc.captured_upvalues.push(uv);
-                    }
-                }
-                let sv = self.heap.alloc_function(Function::Bytecode(bc));
-                debug_println!(self, "      -> allocated function {:?}", sv);
-                self.stack.push(sv);
-            }
-            Instruction::GetUpvalue { index } => {
-                debug_println!(self, "    GET_UPVALUE {}", index);
-                if let Ok(cell) = self.frames.last().unwrap().upvalues[*index].try_borrow() {
-                    self.stack.push(cell.value);
-                }
-            }
-            Instruction::SetUpvalue { index } => {
-                let val = self
-                    .stack
-                    .pop()
-                    .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                debug_println!(self, "    SET_UPVALUE {} val={:?}", index, val);
-                if let Ok(mut cell) = self.frames.last().unwrap().upvalues[*index].try_borrow_mut()
-                {
-                    cell.value = val;
-                }
-            }
-        }
-        Ok(())
     }
 
     fn call_function(
