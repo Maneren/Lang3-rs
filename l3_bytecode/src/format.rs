@@ -1,5 +1,6 @@
-use crate::{Instruction, ProgramBytecode};
 use std::fmt::{Display, Write};
+
+use crate::{Instruction, ProgramBytecode};
 
 const OP_WIDTH: usize = 10;
 const OPERAND_WIDTH: usize = 4;
@@ -63,44 +64,44 @@ fn format_instruction(
         Instruction::Pop { count } => {
             pad_op(out, "POP");
             write_operand(out, count);
-        }
+        },
         Instruction::Duplicate { index } => {
             pad_op(out, "DUPLICATE");
             write_operand(out, index);
-        }
+        },
         Instruction::GetLocal { index } => {
             pad_op(out, "GET_LOCAL");
             write_operand(out, index);
-        }
+        },
         Instruction::SetLocal { index } => {
             pad_op(out, "SET_LOCAL");
             write_operand(out, index);
-        }
+        },
         Instruction::Jump {
             offset: jump_offset,
         } => {
             pad_op(out, "JUMP");
             write_operand(out, jump_offset);
-        }
+        },
         Instruction::MakeArray { count } => {
             pad_op(out, "MAKE_ARRAY");
             write_operand(out, count);
-        }
+        },
         Instruction::GetUpvalue { index } => {
             pad_op(out, "GET_UPVALUE");
             write_operand(out, index);
-        }
+        },
         Instruction::SetUpvalue { index } => {
             pad_op(out, "SET_UPVALUE");
             write_operand(out, index);
-        }
+        },
 
         // Index + value
         Instruction::Constant { index } => {
             pad_op(out, "CONSTANT");
             write_operand(out, index);
             write_value(out, &program.constants[*index]);
-        }
+        },
 
         // Named global
         Instruction::GetGlobal { name_index } | Instruction::SetGlobal { name_index } => {
@@ -117,7 +118,7 @@ fn format_instruction(
                 display_constant(&program.constants[*name_index])
             )
             .unwrap();
-        }
+        },
 
         // Comparisons with optional keep_rhs suffix
         Instruction::Equal { keep_rhs }
@@ -139,7 +140,7 @@ fn format_instruction(
             if *keep_rhs {
                 write!(out, " keep rhs").unwrap();
             }
-        }
+        },
 
         // Call
         Instruction::Call {
@@ -149,7 +150,7 @@ fn format_instruction(
             pad_op(out, "CALL");
             write_operand(out, arg_count);
             write!(out, " {keep_return_value}").unwrap();
-        }
+        },
 
         // For loop
         Instruction::ForLoop {
@@ -169,7 +170,7 @@ fn format_instruction(
                 Some(si) => write!(out, " step={si:>OPERAND_WIDTH$}").unwrap(),
                 None => write!(out, " step=const1").unwrap(),
             }
-        }
+        },
 
         // Jump-if
         Instruction::JumpIf {
@@ -190,7 +191,7 @@ fn format_instruction(
             if *keep_stay {
                 write!(out, " stay").unwrap();
             }
-        }
+        },
 
         // Closure with upvalue continuation lines
         Instruction::Closure {
@@ -219,7 +220,7 @@ fn format_instruction(
                 .unwrap();
                 write!(out, "{kind} {}", uv.index).unwrap();
             }
-        }
+        },
     }
 }
 

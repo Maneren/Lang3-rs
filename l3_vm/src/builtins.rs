@@ -1,6 +1,9 @@
+use std::{
+    io::{BufRead, Write},
+    rc::Rc,
+};
+
 use l3_runtime::*;
-use std::io::{BufRead, Write};
-use std::rc::Rc;
 
 type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>>;
 
@@ -104,13 +107,13 @@ fn builtin_int(args: &[StackValue], heap: &mut Heap) -> StackValue {
     match &args[0] {
         StackValue::Primitive(Primitive::Integer(i)) => {
             StackValue::Primitive(Primitive::Integer(*i))
-        }
+        },
         StackValue::Primitive(Primitive::Double(f)) => {
             StackValue::Primitive(Primitive::Integer(*f as i64))
-        }
+        },
         StackValue::Primitive(Primitive::Bool(b)) => {
             StackValue::Primitive(Primitive::Integer(i64::from(*b)))
-        }
+        },
         StackValue::Heap(key) => {
             if let Some(cell) = heap.cells.get(*key)
                 && let Some(s) = cell.value.as_string()
@@ -119,7 +122,7 @@ fn builtin_int(args: &[StackValue], heap: &mut Heap) -> StackValue {
                 return StackValue::Primitive(Primitive::Integer(n));
             }
             StackValue::Primitive(Primitive::Integer(0))
-        }
+        },
         StackValue::Nil => StackValue::Primitive(Primitive::Integer(0)),
     }
 }
@@ -142,16 +145,16 @@ fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
                 match &cell.value {
                     HeapData::String(s) => {
                         StackValue::Primitive(Primitive::Integer(s.len() as i64))
-                    }
+                    },
                     HeapData::Vector(v) => {
                         StackValue::Primitive(Primitive::Integer(v.len() as i64))
-                    }
+                    },
                     _ => StackValue::Primitive(Primitive::Integer(0)),
                 }
             } else {
                 StackValue::Primitive(Primitive::Integer(0))
             }
-        }
+        },
         _ => StackValue::Primitive(Primitive::Integer(0)),
     }
 }
@@ -166,14 +169,14 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
                 return Err(RuntimeError::value("head of empty vector"));
             }
             Ok(v[0])
-        }
+        },
         HeapData::String(s) => {
             if let Some(c) = s.chars().next() {
                 Ok(heap.alloc_string(c.to_string()))
             } else {
                 Err(RuntimeError::value("head of empty string"))
             }
-        }
+        },
         _ => Err(RuntimeError::type_error("head requires a vector or string")),
     }
 }
@@ -188,13 +191,13 @@ fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
                 return Err(RuntimeError::value("tail of empty vector"));
             }
             Ok(heap.alloc_vector(v[1..].to_vec()))
-        }
+        },
         HeapData::String(s) => {
             if s.is_empty() {
                 return Err(RuntimeError::value("tail of empty string"));
             }
             Ok(heap.alloc_string(s.chars().skip(1).collect()))
-        }
+        },
         _ => Err(RuntimeError::type_error("tail requires a vector or string")),
     }
 }
@@ -213,7 +216,7 @@ fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
                 return Ok(heap.alloc_vector(Vec::new()));
             }
             Ok(heap.alloc_vector(v[n..].to_vec()))
-        }
+        },
         HeapData::String(s) => Ok(heap.alloc_string(s.chars().skip(n).collect())),
         _ => Err(RuntimeError::type_error("drop requires a vector or string")),
     }
@@ -231,7 +234,7 @@ fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
         HeapData::Vector(v) => {
             let end = n.min(v.len());
             Ok(heap.alloc_vector(v[..end].to_vec()))
-        }
+        },
         HeapData::String(s) => Ok(heap.alloc_string(s.chars().take(n).collect())),
         _ => Err(RuntimeError::type_error("take requires a vector or string")),
     }
@@ -261,7 +264,7 @@ fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
                 return Err(RuntimeError::type_error(
                     "range requires non-zero integer step",
                 ));
-            }
+            },
         }
     } else {
         1
@@ -302,7 +305,7 @@ fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runti
                 result.push(b.invoke(std::slice::from_ref(elem), heap)?);
             }
             Ok(heap.alloc_vector(result))
-        }
+        },
         _ => Err(RuntimeError::type_error(
             "map currently only supports builtin functions",
         )),
@@ -326,7 +329,7 @@ fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
                 }
             }
             Ok(StackValue::Primitive(Primitive::Integer(total)))
-        }
+        },
         _ => Err(RuntimeError::type_error(
             "count currently only supports builtin functions",
         )),
@@ -348,7 +351,7 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
                 return Err(RuntimeError::type_error(
                     "random requires a positive integer argument",
                 ));
-            }
+            },
         }
     };
     Ok(StackValue::Primitive(Primitive::Integer(
@@ -378,7 +381,7 @@ fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, Ru
                 return Err(RuntimeError::type_error(
                     "sleep requires a non-negative integer argument",
                 ));
-            }
+            },
         }
     };
     std::thread::sleep(std::time::Duration::from_millis(ms));
@@ -398,8 +401,8 @@ fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> StackValue {
                 Some(Primitive::Double(f)) => {
                     total += f;
                     is_int = false;
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
     }
@@ -459,12 +462,12 @@ pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
                         let elems: Vec<String> =
                             v.iter().map(|sv| format_stack_value(sv, heap)).collect();
                         format!("[{}]", elems.join(", "))
-                    }
+                    },
                     HeapData::String(s) => s.clone(),
                 }
             } else {
                 "<dead>".to_string()
             }
-        }
+        },
     }
 }

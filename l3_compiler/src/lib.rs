@@ -600,20 +600,20 @@ impl Compiler {
             match self.resolve_variable(name) {
                 VarType::Local(idx) => {
                     self.emit(Instruction::SetLocal { index: idx }, Location::default());
-                }
+                },
                 VarType::Upvalue(uv) => {
                     self.emit(
                         Instruction::SetUpvalue { index: uv.index },
                         Location::default(),
                     );
-                }
+                },
                 VarType::Global(_) => {
                     let idx = self.make_string_constant(name);
                     self.emit(
                         Instruction::SetGlobal { name_index: idx },
                         Location::default(),
                     );
-                }
+                },
             }
         }
         Ok(())
@@ -630,16 +630,16 @@ impl Compiler {
                     AssignmentOperator::Plus => self.emit(Instruction::Add, Location::default()),
                     AssignmentOperator::Minus => {
                         self.emit(Instruction::Subtract, Location::default());
-                    }
+                    },
                     AssignmentOperator::Multiply => {
                         self.emit(Instruction::Multiply, Location::default());
-                    }
+                    },
                     AssignmentOperator::Divide => {
                         self.emit(Instruction::Divide, Location::default());
-                    }
+                    },
                     AssignmentOperator::Modulo => {
                         self.emit(Instruction::Modulo, Location::default());
-                    }
+                    },
                     AssignmentOperator::Power => self.emit(Instruction::Power, Location::default()),
                     AssignmentOperator::Assign => {
                         self.emit(Instruction::Pop { count: 1 }, Location::default());
@@ -647,34 +647,34 @@ impl Compiler {
                         match self.resolve_variable(name) {
                             VarType::Local(idx) => {
                                 self.emit(Instruction::SetLocal { index: idx }, loc);
-                            }
+                            },
                             VarType::Upvalue(uv) => {
                                 self.emit(Instruction::SetUpvalue { index: uv.index }, loc);
-                            }
+                            },
                             VarType::Global(_) => {
                                 let idx = self.make_string_constant(name);
                                 self.emit(Instruction::SetGlobal { name_index: idx }, loc);
-                            }
+                            },
                         }
                         return Ok(());
-                    }
+                    },
                 }
 
                 let loc = Location::default();
                 match self.resolve_variable(name) {
                     VarType::Local(idx) => {
                         self.emit(Instruction::SetLocal { index: idx }, loc);
-                    }
+                    },
                     VarType::Upvalue(uv) => {
                         self.emit(Instruction::SetUpvalue { index: uv.index }, loc);
-                    }
+                    },
                     VarType::Global(_) => {
                         let idx = self.make_string_constant(name);
                         self.emit(Instruction::SetGlobal { name_index: idx }, loc);
-                    }
+                    },
                 }
                 Ok(())
-            }
+            },
             Variable::IndexExpression(ie) => {
                 self.compile_variable(&ie.base)?;
                 self.compile_expression(&ie.index)?;
@@ -691,29 +691,29 @@ impl Compiler {
                     match oa.op {
                         AssignmentOperator::Plus => {
                             self.emit(Instruction::Add, Location::default());
-                        }
+                        },
                         AssignmentOperator::Minus => {
                             self.emit(Instruction::Subtract, Location::default());
-                        }
+                        },
                         AssignmentOperator::Multiply => {
                             self.emit(Instruction::Multiply, Location::default());
-                        }
+                        },
                         AssignmentOperator::Divide => {
                             self.emit(Instruction::Divide, Location::default());
-                        }
+                        },
                         AssignmentOperator::Modulo => {
                             self.emit(Instruction::Modulo, Location::default());
-                        }
+                        },
                         AssignmentOperator::Power => {
                             self.emit(Instruction::Power, Location::default());
-                        }
+                        },
                         AssignmentOperator::Assign => unreachable!(),
                     }
                     self.emit(Instruction::SetIndex, Location::default());
                     self.emit(Instruction::Pop { count: 1 }, Location::default());
                 }
                 Ok(())
-            }
+            },
         }
     }
 
@@ -736,14 +736,14 @@ impl Compiler {
                 if self.contexts.len() > 1 {
                     self.emit(Instruction::Return, Location::default());
                 }
-            }
+            },
             LastStatement::Break(_) => {
                 let jump = self.current_chunk().code.len();
                 self.emit(Instruction::Jump { offset: 0 }, Location::default());
                 if let Some(lc) = self.loop_contexts.last_mut() {
                     lc.break_jumps.push(jump);
                 }
-            }
+            },
             LastStatement::Continue(_) => {
                 if let Some(lc) = self.loop_contexts.last() {
                     let body_locals =
@@ -757,7 +757,7 @@ impl Compiler {
                 if let Some(lc) = self.loop_contexts.last_mut() {
                     lc.continue_jumps.push(jump);
                 }
-            }
+            },
         }
         Ok(())
     }
@@ -798,7 +798,7 @@ impl Compiler {
                     Location::default(),
                 );
                 return Ok(());
-            }
+            },
         };
         let idx = self.make_constant(heap_data);
         self.emit(Instruction::Constant { index: idx }, Location::default());
@@ -810,26 +810,26 @@ impl Compiler {
             Variable::Identifier(id) => match self.resolve_variable(&id.name) {
                 VarType::Local(idx) => {
                     self.emit(Instruction::GetLocal { index: idx }, Location::default());
-                }
+                },
                 VarType::Upvalue(uv) => {
                     self.emit(
                         Instruction::GetUpvalue { index: uv.index },
                         Location::default(),
                     );
-                }
+                },
                 VarType::Global(name) => {
                     let idx = self.make_string_constant(&name);
                     self.emit(
                         Instruction::GetGlobal { name_index: idx },
                         Location::default(),
                     );
-                }
+                },
             },
             Variable::IndexExpression(ie) => {
                 self.compile_variable(&ie.base)?;
                 self.compile_expression(&ie.index)?;
                 self.emit(Instruction::GetIndex, Location::default());
-            }
+            },
         }
         Ok(())
     }
@@ -842,13 +842,13 @@ impl Compiler {
         match self.resolve_variable(&fc.name.name) {
             VarType::Local(idx) => {
                 self.emit(Instruction::GetLocal { index: idx }, Location::default());
-            }
+            },
             VarType::Upvalue(uv) => {
                 self.emit(
                     Instruction::GetUpvalue { index: uv.index },
                     Location::default(),
                 );
-            }
+            },
             VarType::Global(_) => {
                 let name_idx = self.make_string_constant(&fc.name.name);
                 self.emit(
@@ -857,7 +857,7 @@ impl Compiler {
                     },
                     Location::default(),
                 );
-            }
+            },
         }
 
         for arg in &fc.arguments {
@@ -917,18 +917,18 @@ impl Compiler {
                     HeapData::Primitive(p) => Some(HeapData::Primitive(-p)),
                     _ => None,
                 }
-            }
+            },
             UnaryOperator::Plus => self.try_fold_expression(&ue.expression),
             UnaryOperator::Not => {
                 let inner = self.try_fold_expression(&ue.expression)?;
                 match inner {
                     HeapData::Primitive(p) => {
                         Some(HeapData::Primitive(Primitive::Bool(!p.is_truthy())))
-                    }
+                    },
                     HeapData::Nil => Some(HeapData::Primitive(Primitive::Bool(true))),
                     _ => None,
                 }
-            }
+            },
         }
     }
 
@@ -946,21 +946,21 @@ impl Compiler {
                     BinaryOperator::Power => match (a, b) {
                         (Primitive::Integer(a), Primitive::Integer(b)) => {
                             Ok(Primitive::Integer(a.wrapping_pow(b as u32)))
-                        }
+                        },
                         (Primitive::Double(a), Primitive::Double(b)) => {
                             Ok(Primitive::Double(a.powf(b)))
-                        }
+                        },
                         (Primitive::Integer(a), Primitive::Double(b)) => {
                             Ok(Primitive::Double((a as f64).powf(b)))
-                        }
+                        },
                         (Primitive::Double(a), Primitive::Integer(b)) => {
                             Ok(Primitive::Double(a.powi(b as i32)))
-                        }
+                        },
                         _ => Err("unsupported operand types for ^"),
                     },
                 };
                 result.ok().map(HeapData::Primitive)
-            }
+            },
             _ => None,
         }
     }
@@ -977,7 +977,7 @@ impl Compiler {
             UnaryOperator::Not => Instruction::Not,
             UnaryOperator::Plus => {
                 return Ok(());
-            }
+            },
         };
         self.emit(inst, Location::default());
         Ok(())
@@ -1005,7 +1005,7 @@ impl Compiler {
                 {
                     *offset = patch;
                 }
-            }
+            },
             LogicalOperator::Or => {
                 // Short-circuit: if lhs is truthy, keep it as result and jump past rhs
                 let jump = self.current_chunk().code.len();
@@ -1024,7 +1024,7 @@ impl Compiler {
                 {
                     *offset = patch;
                 }
-            }
+            },
         }
         Ok(())
     }

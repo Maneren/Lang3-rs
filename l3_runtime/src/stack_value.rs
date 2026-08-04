@@ -1,7 +1,8 @@
-use crate::heap::Heap;
-use crate::primitive::Primitive;
-use slotmap::DefaultKey;
 use std::fmt;
+
+use slotmap::DefaultKey;
+
+use crate::{heap::Heap, primitive::Primitive};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Slice {
@@ -62,7 +63,7 @@ impl StackValue {
                 } else {
                     false
                 }
-            }
+            },
         }
     }
 
@@ -77,7 +78,7 @@ impl StackValue {
                 } else {
                     "invalid"
                 }
-            }
+            },
         }
     }
 

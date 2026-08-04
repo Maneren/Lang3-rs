@@ -5,7 +5,6 @@ pub mod token;
 lalrpop_util::lalrpop_mod!(pub grammar);
 
 use l3_ast::Program;
-
 pub use token::Token;
 
 pub fn parse_program(source: &str, filename: &str) -> Result<Program, String> {

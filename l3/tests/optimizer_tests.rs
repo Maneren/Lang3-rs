@@ -59,7 +59,8 @@ fn preserves_loop_constant_invalidation() {
 
 #[test]
 fn removes_unreachable_code_after_return() {
-    let source = "fn f(n)\n  while n > 0 do\n    n = n - 1;\n    return 5\n  end\n  return 6\nend\nprintln(f(3))\n";
+    let source = "fn f(n)\n  while n > 0 do\n    n = n - 1;\n    return 5\n  end\n  return \
+                  6\nend\nprintln(f(3))\n";
     assert_eq!(run_optimized(source), "5");
 }
 
@@ -71,6 +72,7 @@ fn preserves_chained_comparison() {
 
 #[test]
 fn preserves_parameter_alignment_in_function_chunks() {
-    let source = "fn f(x)\n  let mut acc = 0\n  for i in x - 1 ..= x + 1 do\n    acc = acc + i\n  end\n  return acc\nend\nprintln(f(3))\n";
+    let source = "fn f(x)\n  let mut acc = 0\n  for i in x - 1 ..= x + 1 do\n    acc = acc + i\n  \
+                  end\n  return acc\nend\nprintln(f(3))\n";
     assert_eq!(run_optimized(source), "9");
 }

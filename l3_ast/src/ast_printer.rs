@@ -1,5 +1,6 @@
-use crate::*;
 use std::fmt::Write;
+
+use crate::*;
 
 #[must_use]
 pub fn format_ast(program: &Program) -> String {
@@ -85,7 +86,7 @@ impl AstPrinter {
                     self.print_expression(elem, out);
                 }
                 self.depth -= 1;
-            }
+            },
         }
     }
 
@@ -98,7 +99,7 @@ impl AstPrinter {
                 self.print_variable(&idx.base, out);
                 self.print_expression(&idx.index, out);
                 self.depth -= 1;
-            }
+            },
         }
     }
 
@@ -315,7 +316,7 @@ impl AstPrinter {
                     self.print_expression(expr, out);
                     self.depth -= 1;
                 }
-            }
+            },
             LastStatement::Break(_) => self.line(out, "Break"),
             LastStatement::Continue(_) => self.line(out, "Continue"),
         }

@@ -1,5 +1,6 @@
-use crate::*;
 use std::fmt::Write;
+
+use crate::*;
 
 #[must_use]
 pub fn format_ast_graph(program: &Program) -> String {
@@ -46,23 +47,23 @@ impl DotPrinter {
             Literal::Nil(_) => {
                 let id = self.next_id();
                 Self::write_node(out, id, "Nil");
-            }
+            },
             Literal::Boolean(b) => {
                 let id = self.next_id();
                 Self::write_node(out, id, format!("Boolean\\n{}", b.value));
-            }
+            },
             Literal::Number(n) => {
                 let id = self.next_id();
                 Self::write_node(out, id, format!("Number\\n{}", n.value));
-            }
+            },
             Literal::Float(f) => {
                 let id = self.next_id();
                 Self::write_node(out, id, format!("Float\\n{}", f.value));
-            }
+            },
             Literal::String(s) => {
                 let id = self.next_id();
                 Self::write_node(out, id, format!("String\\n\"{}\"", s.value));
-            }
+            },
             Literal::Array(a) => {
                 let id = self.next_id();
                 Self::write_node(out, id, "Array");
@@ -70,7 +71,7 @@ impl DotPrinter {
                     Self::write_edge(out, id, self.node_id);
                     self.visit_expression(elem, out);
                 }
-            }
+            },
         }
     }
 
@@ -79,7 +80,7 @@ impl DotPrinter {
             Variable::Identifier(id) => {
                 let node_id = self.next_id();
                 Self::write_node(out, node_id, format!("Identifier\\n'{}'", id.name));
-            }
+            },
             Variable::IndexExpression(idx) => {
                 let id = self.next_id();
                 Self::write_node(out, id, "IndexExpression");
@@ -87,7 +88,7 @@ impl DotPrinter {
                 self.visit_variable(&idx.base, out);
                 Self::write_edge_labeled(out, id, self.node_id, "index");
                 self.visit_expression(&idx.index, out);
-            }
+            },
         }
     }
 
@@ -311,15 +312,15 @@ impl DotPrinter {
                     Self::write_edge(out, id, self.node_id);
                     self.visit_expression(expr, out);
                 }
-            }
+            },
             LastStatement::Break(_) => {
                 let id = self.next_id();
                 Self::write_node(out, id, "Break");
-            }
+            },
             LastStatement::Continue(_) => {
                 let id = self.next_id();
                 Self::write_node(out, id, "Continue");
-            }
+            },
         }
     }
 
@@ -450,7 +451,8 @@ fn write_header(out: &mut String) {
     out.push_str(
         "node [shape=box, style=\"rounded\", ordering=out];  rankdir=TB;  nodesep=0.5;  \
          ranksep=1.0;  splines=true;fontname=\"Helvetica,Roboto,sans-serif\";node \
-         [fontname=\"Helvetica,Roboto,sans-serif\"];edge [fontname=\"Helvetica,Roboto,sans-serif\"];\n",
+         [fontname=\"Helvetica,Roboto,sans-serif\"];edge \
+         [fontname=\"Helvetica,Roboto,sans-serif\"];\n",
     );
     out.push('\n');
 }

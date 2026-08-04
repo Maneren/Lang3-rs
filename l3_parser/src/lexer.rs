@@ -1,5 +1,6 @@
-use crate::token::Token;
 use logos::Logos;
+
+use crate::token::Token;
 
 pub struct Lexer<'input> {
     inner: logos::Lexer<'input, Token<'input>>,

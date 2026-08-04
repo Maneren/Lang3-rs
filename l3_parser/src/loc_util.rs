@@ -46,7 +46,7 @@ pub fn unescape_string(s: &str) -> String {
                     if let Ok(code) = u8::from_str_radix(&hex, 16) {
                         result.push(code as char);
                     }
-                }
+                },
                 Some('\\') | None => result.push('\\'),
                 Some(c) => result.push(c),
             }

@@ -1,6 +1,4 @@
-use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
+use std::{fs, io::Write, path::PathBuf};
 
 fn snapshot_dir() -> PathBuf {
     PathBuf::from("tests").join("snapshot")

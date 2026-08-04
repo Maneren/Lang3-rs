@@ -1,10 +1,14 @@
-use crate::heap::Heap;
-use crate::primitive::{Primitive, compare_primitives};
-use crate::stack_value::StackValue;
-use crate::{error::RuntimeError, function::Function};
+use std::{cmp::Ordering, fmt};
+
 use slotmap::DefaultKey;
-use std::cmp::Ordering;
-use std::fmt;
+
+use crate::{
+    error::RuntimeError,
+    function::Function,
+    heap::Heap,
+    primitive::{Primitive, compare_primitives},
+    stack_value::StackValue,
+};
 
 #[derive(Debug, Clone)]
 pub enum HeapData {
@@ -129,7 +133,7 @@ impl HeapData {
             HeapData::Vector(v) => {
                 let elems: Vec<String> = v.iter().map(|sv| format_stack_value(sv, heap)).collect();
                 format!("[{}]", elems.join(", "))
-            }
+            },
             HeapData::String(s) => format!("\"{s}\""),
         }
     }
@@ -147,7 +151,7 @@ pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
             } else {
                 "<dead>".to_string()
             }
-        }
+        },
     }
 }
 
@@ -190,7 +194,7 @@ pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
             let mut result = va.clone();
             result.extend(vb.iter().copied());
             Ok(heap.alloc_vector(result))
-        }
+        },
         _ => Err(RuntimeError::type_error("unsupported operand types for +")),
     }
 }
@@ -228,10 +232,10 @@ pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
         (Resolved::Num(Primitive::Integer(n)), Resolved::Str(s))
         | (Resolved::Str(s), Resolved::Num(Primitive::Integer(n))) => {
             Ok(heap.alloc_string(repeat_str(s, n)))
-        }
+        },
         (Resolved::Vec(v), Resolved::Num(Primitive::Integer(n))) => {
             Ok(heap.alloc_vector(repeat_vec(v, n)))
-        }
+        },
         _ => Err(RuntimeError::type_error("unsupported operand types for *")),
     }
 }
@@ -256,20 +260,20 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
             let result = match (pa, pb) {
                 (Primitive::Integer(a), Primitive::Integer(b)) => {
                     Primitive::Integer(a.wrapping_pow(b as u32))
-                }
+                },
                 (Primitive::Double(a), Primitive::Double(b)) => Primitive::Double(a.powf(b)),
                 (Primitive::Integer(a), Primitive::Double(b)) => {
                     Primitive::Double((a as f64).powf(b))
-                }
+                },
                 (Primitive::Double(a), Primitive::Integer(b)) => {
                     Primitive::Double(a.powi(b as i32))
-                }
+                },
                 _ => {
                     return Err(RuntimeError::type_error("unsupported operand types for ^"));
-                }
+                },
             };
             Ok(StackValue::Primitive(result))
-        }
+        },
         _ => Err(RuntimeError::type_error("unsupported operand types for ^")),
     }
 }
@@ -330,13 +334,13 @@ pub fn index(
                 return Err(RuntimeError::value("index out of bounds"));
             }
             Ok(heap.alloc_string(chars[i].to_string()))
-        }
+        },
         Resolved::Vec(v) => {
             if i >= v.len() {
                 return Err(RuntimeError::value("index out of bounds"));
             }
             Ok(v[i])
-        }
+        },
         Resolved::Num(p) => {
             let type_name = match p {
                 Primitive::Integer(_) => "int",
@@ -346,7 +350,7 @@ pub fn index(
             Err(RuntimeError::type_error(format!(
                 "cannot index a {type_name} value"
             )))
-        }
+        },
         Resolved::Other => Err(RuntimeError::type_error(
             "cannot index a non-container value",
         )),
@@ -390,7 +394,7 @@ pub fn to_owned(sv: &StackValue, heap: &Heap) -> HeapData {
             } else {
                 HeapData::Nil
             }
-        }
+        },
     }
 }
 
@@ -412,7 +416,7 @@ impl fmt::Display for HeapData {
                     write!(f, "{sv}")?;
                 }
                 write!(f, "]")
-            }
+            },
             HeapData::String(s) => write!(f, "\"{s}\""),
         }
     }

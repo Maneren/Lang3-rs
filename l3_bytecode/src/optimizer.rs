@@ -1,10 +1,14 @@
-use crate::{Chunk, Instruction, ProgramBytecode};
-use l3_runtime::heap_data::{add, compare, div, modulo, mul, negative, not_op, pow, sub, to_owned};
-use l3_runtime::{Function, Heap, HeapCell, HeapData, Primitive, StackValue};
-use std::cmp::Ordering;
-use std::collections::VecDeque;
+use std::{cmp::Ordering, collections::VecDeque};
 
-/// A whole-program bytecode optimizer. Runs after compilation, before execution.
+use l3_runtime::{
+    Function, Heap, HeapCell, HeapData, Primitive, StackValue,
+    heap_data::{add, compare, div, modulo, mul, negative, not_op, pow, sub, to_owned},
+};
+
+use crate::{Chunk, Instruction, ProgramBytecode};
+
+/// A whole-program bytecode optimizer. Runs after compilation, before
+/// execution.
 ///
 /// Passes (per chunk, iterated to a fixpoint):
 /// 1. dead code elimination (unreachable regions after `Jump`/`Return`),
@@ -134,7 +138,7 @@ fn remap_offsets(instruction: &mut Instruction, old_to_new: &[usize]) {
     match instruction {
         Instruction::Jump { offset } | Instruction::JumpIf { offset, .. } => remap(offset),
         Instruction::ForLoop { body_offset, .. } => remap(body_offset),
-        _ => {}
+        _ => {},
     }
 }
 
@@ -181,7 +185,7 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
                 None => {
                     in_stacks[succ] = Some(out);
                     true
-                }
+                },
                 Some(dst) => merge_stack(dst, &out),
             };
             if merged && !queued[succ] {
@@ -221,11 +225,11 @@ fn build_blocks(code: &[Instruction]) -> Vec<Block> {
         match inst {
             Instruction::Jump { offset } | Instruction::JumpIf { offset, .. } if *offset < len => {
                 starts[*offset] = true;
-            }
+            },
             Instruction::ForLoop { body_offset, .. } if *body_offset < len => {
                 starts[*body_offset] = true;
-            }
-            _ => {}
+            },
+            _ => {},
         }
         if matches!(
             inst,
@@ -252,7 +256,8 @@ fn build_blocks(code: &[Instruction]) -> Vec<Block> {
 }
 
 /// Simulate a straight-line block, producing the outgoing abstract stack for
-/// each successor. Control-flow instructions are always the last in their block.
+/// each successor. Control-flow instructions are always the last in their
+/// block.
 fn transfer(
     code: &[Instruction],
     block: &Block,
@@ -287,7 +292,7 @@ fn transfer(
                 out.push((index_to_block[block.end], stay));
             }
             out
-        }
+        },
         Instruction::ForLoop {
             control_index,
             body_offset,
@@ -302,7 +307,7 @@ fn transfer(
                 out.push((index_to_block[block.end], stack));
             }
             out
-        }
+        },
         _ => {
             step(&code[last], &mut stack);
             if block.end < code.len() {
@@ -310,7 +315,7 @@ fn transfer(
             } else {
                 Vec::new()
             }
-        }
+        },
     }
 }
 
@@ -340,30 +345,30 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             for _ in 0..*count {
                 stack.pop();
             }
-        }
+        },
         Instruction::Duplicate { index } => {
             let idx = stack.len().saturating_sub(*index + 1);
             if idx < stack.len() {
                 stack.push(stack[idx]);
             }
-        }
+        },
         Instruction::GetLocal { index } => {
             let value = stack.get(*index).copied().flatten();
             stack.push(value);
-        }
+        },
         Instruction::SetLocal { index } => {
             let value = stack.pop().flatten();
             if *index >= stack.len() {
                 stack.resize(*index + 1, None);
             }
             stack[*index] = value;
-        }
+        },
         Instruction::ForLoop { control_index, .. } => {
             if *control_index >= stack.len() {
                 stack.resize(*control_index + 1, None);
             }
             stack[*control_index] = None;
-        }
+        },
         Instruction::Call {
             arg_count,
             keep_return_value,
@@ -374,31 +379,31 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             if *keep_return_value {
                 stack.push(None);
             }
-        }
+        },
         Instruction::MakeArray { count } => {
             for _ in 0..*count {
                 stack.pop();
             }
             stack.push(None);
-        }
+        },
         Instruction::GetIndex => {
             stack.pop();
             if let Some(top) = stack.last_mut() {
                 *top = None;
             }
-        }
+        },
         Instruction::SetIndex => {
             stack.pop();
             stack.pop();
-        }
+        },
         Instruction::GetGlobal { .. }
         | Instruction::GetUpvalue { .. }
         | Instruction::Closure { .. } => {
             stack.push(None);
-        }
+        },
         Instruction::SetGlobal { .. } | Instruction::SetUpvalue { .. } => {
             stack.pop();
-        }
+        },
         Instruction::Add
         | Instruction::Subtract
         | Instruction::Multiply
@@ -414,7 +419,7 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             stack.pop();
             stack.pop();
             stack.push(None);
-        }
+        },
         Instruction::Equal { keep_rhs: true }
         | Instruction::NotEqual { keep_rhs: true }
         | Instruction::Greater { keep_rhs: true }
@@ -425,12 +430,12 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             stack.pop();
             stack.push(None);
             stack.push(None);
-        }
+        },
         Instruction::Negate | Instruction::Not => {
             stack.pop();
             stack.push(None);
-        }
-        Instruction::Jump { .. } | Instruction::JumpIf { .. } | Instruction::Return => {}
+        },
+        Instruction::Jump { .. } | Instruction::JumpIf { .. } | Instruction::Return => {},
     }
 }
 
@@ -528,32 +533,32 @@ fn fold_binary(
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 c == Some(Ordering::Equal)
             }));
-        }
+        },
         Instruction::NotEqual { keep_rhs: false } => {
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 c != Some(Ordering::Equal)
             }));
-        }
+        },
         Instruction::Less { keep_rhs: false } => {
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 c == Some(Ordering::Less)
             }));
-        }
+        },
         Instruction::LessEqual { keep_rhs: false } => {
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 matches!(c, Some(Ordering::Less | Ordering::Equal))
             }));
-        }
+        },
         Instruction::Greater { keep_rhs: false } => {
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 c == Some(Ordering::Greater)
             }));
-        }
+        },
         Instruction::GreaterEqual { keep_rhs: false } => {
             return Some(compare_result(lhs, rhs, values, heap, |c| {
                 matches!(c, Some(Ordering::Greater | Ordering::Equal))
             }));
-        }
+        },
         _ => return None,
     };
     result.as_ref().ok().and_then(|sv| foldable_data(sv, heap))
@@ -585,7 +590,8 @@ fn fold_unary(
 }
 
 /// Foldable results are only values that do not reference optimizer-internal
-/// heap cells (vectors and functions embed cell keys and are therefore skipped).
+/// heap cells (vectors and functions embed cell keys and are therefore
+/// skipped).
 fn foldable_data(result: &StackValue, heap: &Heap) -> Option<HeapData> {
     let data = to_owned(result, heap);
     match data {

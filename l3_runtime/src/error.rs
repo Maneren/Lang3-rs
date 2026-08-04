@@ -1,5 +1,6 @@
-use l3_location::Location;
 use std::fmt;
+
+use l3_location::Location;
 
 #[derive(Debug, Clone)]
 pub struct StacktraceFrame {
@@ -104,13 +105,13 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::UnsupportedOperation { message, .. } => {
                 write!(f, "UnsupportedOperation: {message}")
-            }
+            },
             RuntimeError::ValueError { message, .. } => write!(f, "ValueError: {message}"),
             RuntimeError::TypeError { message, .. } => write!(f, "TypeError: {message}"),
             RuntimeError::NameError { message, .. } => write!(f, "NameError: {message}"),
             RuntimeError::UndefinedVariable { message, .. } => {
                 write!(f, "UndefinedVariable: {message}")
-            }
+            },
             RuntimeError::Internal { message, .. } => write!(f, "RuntimeError: {message}"),
         }
     }

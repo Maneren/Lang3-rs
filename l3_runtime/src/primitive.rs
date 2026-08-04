@@ -1,5 +1,4 @@
-use std::cmp::Ordering;
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Primitive {
@@ -88,7 +87,7 @@ impl std::ops::Add for Primitive {
         match (self, rhs) {
             (Primitive::Integer(a), Primitive::Integer(b)) => {
                 Ok(Primitive::Integer(a.wrapping_add(b)))
-            }
+            },
             (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a + b)),
             (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 + b)),
             (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a + b as f64)),
@@ -103,7 +102,7 @@ impl std::ops::Sub for Primitive {
         match (self, rhs) {
             (Primitive::Integer(a), Primitive::Integer(b)) => {
                 Ok(Primitive::Integer(a.wrapping_sub(b)))
-            }
+            },
             (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a - b)),
             (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 - b)),
             (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a - b as f64)),
@@ -118,7 +117,7 @@ impl std::ops::Mul for Primitive {
         match (self, rhs) {
             (Primitive::Integer(a), Primitive::Integer(b)) => {
                 Ok(Primitive::Integer(a.wrapping_mul(b)))
-            }
+            },
             (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a * b)),
             (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 * b)),
             (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a * b as f64)),
@@ -134,7 +133,7 @@ impl std::ops::Div for Primitive {
             (Primitive::Integer(_), Primitive::Integer(0)) => Err("division by zero"),
             (Primitive::Integer(a), Primitive::Integer(b)) => {
                 Ok(Primitive::Integer(a.wrapping_div(b)))
-            }
+            },
             (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a / b)),
             (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 / b)),
             (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a / b as f64)),
@@ -150,7 +149,7 @@ impl std::ops::Rem for Primitive {
             (Primitive::Integer(_), Primitive::Integer(0)) => Err("modulo by zero"),
             (Primitive::Integer(a), Primitive::Integer(b)) => {
                 Ok(Primitive::Integer(a.wrapping_rem(b)))
-            }
+            },
             (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a % b)),
             _ => Err("unsupported operand types for %"),
         }
@@ -168,7 +167,8 @@ impl std::ops::Neg for Primitive {
     }
 }
 
-/// Three-way comparison between primitives. Cross-type compares promote integer to double.
+/// Three-way comparison between primitives. Cross-type compares promote integer
+/// to double.
 #[must_use]
 pub fn compare_primitives(a: Primitive, b: Primitive) -> Option<Ordering> {
     match (a, b) {

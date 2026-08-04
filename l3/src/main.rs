@@ -1,14 +1,11 @@
+use std::{fs, io::Read, process, time::Instant};
+
 use clap::Parser;
 use l3_ast::{ast_printer, dot_printer};
-use l3_bytecode::format as bytecode_fmt;
-use l3_bytecode::optimizer::Optimizer;
+use l3_bytecode::{format as bytecode_fmt, optimizer::Optimizer};
 use l3_compiler::Compiler;
 use l3_parser::parse_program;
 use l3_vm::BytecodeVM;
-use std::fs;
-use std::io::Read;
-use std::process;
-use std::time::Instant;
 
 mod cli;
 use cli::Cli;
@@ -38,7 +35,7 @@ fn read_input(cli: &Cli) -> (String, String) {
             Err(e) => {
                 eprintln!("Error reading file '{filename}': {e}");
                 process::exit(1);
-            }
+            },
         }
     }
 }
@@ -76,7 +73,7 @@ fn main() {
         Err(e) => {
             eprintln!("{e}");
             process::exit(1);
-        }
+        },
     };
 
     if debug.timings {
@@ -94,7 +91,7 @@ fn main() {
             Err(e) => {
                 eprintln!("Error writing AST graph to '{path}': {e}");
                 process::exit(1);
-            }
+            },
         }
     }
 
@@ -113,7 +110,7 @@ fn main() {
         Err(e) => {
             eprintln!("Internal compiler error: {e}");
             process::exit(1);
-        }
+        },
     };
 
     let bytecode = if cli.optimize {

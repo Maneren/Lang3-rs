@@ -1,9 +1,8 @@
-use crate::heap::UpvalueCell;
-use crate::stack_value::StackValue;
+use std::{cell::RefCell, fmt, rc::Rc};
+
 use l3_ast::Identifier;
-use std::cell::RefCell;
-use std::fmt;
-use std::rc::Rc;
+
+use crate::{heap::UpvalueCell, stack_value::StackValue};
 
 pub type L3Args = Vec<StackValue>;
 

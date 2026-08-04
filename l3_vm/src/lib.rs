@@ -1,14 +1,15 @@
 pub mod builtins;
 
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use foldhash::fast::FixedState;
 use l3_ast::Identifier;
 use l3_bytecode::*;
 use l3_location::Location;
-use l3_runtime::heap_data::{
-    add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub,
+use l3_runtime::{
+    heap_data::{add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub},
+    *,
 };
-use l3_runtime::*;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
@@ -113,7 +114,7 @@ impl<'a> BytecodeVM<'a> {
                         }
                         self.maybe_gc();
                         break;
-                    }
+                    },
                     Instruction::Constant { index } => {
                         let val = &program.constants[*index];
                         let sv = match &val.value {
@@ -123,44 +124,44 @@ impl<'a> BytecodeVM<'a> {
                         };
                         debug_println!(debug, "    CONSTANT({}) -> {:?}", index, sv);
                         self.stack.push(sv);
-                    }
+                    },
                     Instruction::Pop { count } => {
                         debug_println!(debug, "    POP {}", count);
                         for _ in 0..*count {
                             self.stack.pop();
                         }
-                    }
+                    },
                     Instruction::Duplicate { index } => {
                         let idx = self.stack.len() - 1 - index;
                         debug_println!(debug, "    DUPLICATE({}) stack[len-1-{}]", index, index);
                         if idx < self.stack.len() {
                             self.stack.push(self.stack[idx]);
                         }
-                    }
+                    },
                     Instruction::Add => {
                         debug_println!(debug, "    ADD");
                         self.binary_op(add)?;
-                    }
+                    },
                     Instruction::Subtract => {
                         debug_println!(debug, "    SUB");
                         self.binary_op(sub)?;
-                    }
+                    },
                     Instruction::Multiply => {
                         debug_println!(debug, "    MUL");
                         self.binary_op(mul)?;
-                    }
+                    },
                     Instruction::Divide => {
                         debug_println!(debug, "    DIV");
                         self.binary_op(div)?;
-                    }
+                    },
                     Instruction::Modulo => {
                         debug_println!(debug, "    MOD");
                         self.binary_op(modulo)?;
-                    }
+                    },
                     Instruction::Power => {
                         debug_println!(debug, "    POW");
                         self.binary_op(pow)?;
-                    }
+                    },
                     Instruction::Negate => {
                         debug_println!(debug, "    NEGATE");
                         let a = self
@@ -169,7 +170,7 @@ impl<'a> BytecodeVM<'a> {
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         let result = negative(&a, &self.heap)?;
                         self.stack.push(result);
-                    }
+                    },
                     Instruction::Not => {
                         debug_println!(debug, "    NOT");
                         let a = self
@@ -177,19 +178,19 @@ impl<'a> BytecodeVM<'a> {
                             .pop()
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         self.stack.push(not_op(&a, &self.heap));
-                    }
+                    },
                     Instruction::Equal { keep_rhs } => {
                         debug_println!(debug, "    EQ keep_rhs={}", keep_rhs);
                         self.compare_op(|c| c == Some(std::cmp::Ordering::Equal), *keep_rhs);
-                    }
+                    },
                     Instruction::NotEqual { keep_rhs } => {
                         debug_println!(debug, "    NE keep_rhs={}", keep_rhs);
                         self.compare_op(|c| c != Some(std::cmp::Ordering::Equal), *keep_rhs);
-                    }
+                    },
                     Instruction::Less { keep_rhs } => {
                         debug_println!(debug, "    LT keep_rhs={}", keep_rhs);
                         self.compare_op(|c| c == Some(std::cmp::Ordering::Less), *keep_rhs);
-                    }
+                    },
                     Instruction::LessEqual { keep_rhs } => {
                         debug_println!(debug, "    LE keep_rhs={}", keep_rhs);
                         self.compare_op(
@@ -201,11 +202,11 @@ impl<'a> BytecodeVM<'a> {
                             },
                             *keep_rhs,
                         );
-                    }
+                    },
                     Instruction::Greater { keep_rhs } => {
                         debug_println!(debug, "    GT keep_rhs={}", keep_rhs);
                         self.compare_op(|c| c == Some(std::cmp::Ordering::Greater), *keep_rhs);
-                    }
+                    },
                     Instruction::GreaterEqual { keep_rhs } => {
                         debug_println!(debug, "    GE keep_rhs={}", keep_rhs);
                         self.compare_op(
@@ -217,7 +218,7 @@ impl<'a> BytecodeVM<'a> {
                             },
                             *keep_rhs,
                         );
-                    }
+                    },
                     Instruction::GetGlobal { name_index } => {
                         let name = &program.constants[*name_index];
                         if let HeapData::String(s) = &name.value {
@@ -228,7 +229,7 @@ impl<'a> BytecodeVM<'a> {
                                 return Err(RuntimeError::undefined(s));
                             }
                         }
-                    }
+                    },
                     Instruction::SetGlobal { name_index } => {
                         let name = &program.constants[*name_index];
                         let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
@@ -238,14 +239,14 @@ impl<'a> BytecodeVM<'a> {
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         debug_println!(debug, "    SET_GLOBAL {} = {:?}", name_str, val);
                         self.global_symbols.insert(name_str, val);
-                    }
+                    },
                     Instruction::GetLocal { index } => {
                         let fp = self.frames.last().unwrap().frame_pointer;
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
                         if fp + index < self.stack.len() {
                             self.stack.push(self.stack[fp + index]);
                         }
-                    }
+                    },
                     Instruction::SetLocal { index } => {
                         let fp = self.frames.last().unwrap().frame_pointer;
                         let val = self
@@ -260,7 +261,7 @@ impl<'a> BytecodeVM<'a> {
                         {
                             cell.borrow_mut().value = self.stack[fp + index];
                         }
-                    }
+                    },
                     Instruction::ForLoop {
                         control_index,
                         limit_index,
@@ -313,11 +314,11 @@ impl<'a> BytecodeVM<'a> {
                         if keep_going {
                             ip = *body_offset;
                         }
-                    }
+                    },
                     Instruction::Jump { offset } => {
                         debug_println!(debug, "    JUMP -> {}", offset);
                         ip = *offset;
-                    }
+                    },
                     Instruction::JumpIf {
                         offset,
                         expected,
@@ -345,7 +346,7 @@ impl<'a> BytecodeVM<'a> {
                         if should_jump {
                             ip = *offset;
                         }
-                    }
+                    },
                     Instruction::Call {
                         arg_count,
                         keep_return_value,
@@ -370,14 +371,14 @@ impl<'a> BytecodeVM<'a> {
                             self.maybe_gc();
                             break;
                         }
-                    }
+                    },
                     Instruction::MakeArray { count } => {
                         debug_println!(debug, "    MAKE_ARRAY {}", count);
                         let start = self.stack.len() - count;
                         let elements: Vec<StackValue> = self.stack.drain(start..).collect();
                         let sv = self.heap.alloc_vector(elements);
                         self.stack.push(sv);
-                    }
+                    },
                     Instruction::GetIndex => {
                         debug_println!(debug, "    GET_INDEX");
                         let idx = self
@@ -389,7 +390,7 @@ impl<'a> BytecodeVM<'a> {
                             .last_mut()
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         *container = index(container, &idx, &mut self.heap)?;
-                    }
+                    },
                     Instruction::SetIndex => {
                         debug_println!(debug, "    SET_INDEX");
                         let val = self
@@ -405,7 +406,7 @@ impl<'a> BytecodeVM<'a> {
                             .last_mut()
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         *index_mut(container, &idx, &mut self.heap)? = val;
-                    }
+                    },
                     Instruction::Closure {
                         function_index,
                         upvalues,
@@ -424,13 +425,13 @@ impl<'a> BytecodeVM<'a> {
                                     return Err(RuntimeError::type_error(
                                         "closure constant is not a function",
                                     ));
-                                }
+                                },
                             },
                             None => {
                                 return Err(RuntimeError::type_error(
                                     "invalid closure function constant",
                                 ));
-                            }
+                            },
                         };
                         for uv_desc in upvalues {
                             if uv_desc.is_local {
@@ -453,14 +454,14 @@ impl<'a> BytecodeVM<'a> {
                         let sv = self.heap.alloc_function(Function::Bytecode(bc));
                         debug_println!(debug, "      -> allocated function {:?}", sv);
                         self.stack.push(sv);
-                    }
+                    },
                     Instruction::GetUpvalue { index } => {
                         debug_println!(debug, "    GET_UPVALUE {}", index);
                         if let Ok(cell) = self.frames.last().unwrap().upvalues[*index].try_borrow()
                         {
                             self.stack.push(cell.value);
                         }
-                    }
+                    },
                     Instruction::SetUpvalue { index } => {
                         let val = self
                             .stack
@@ -472,7 +473,7 @@ impl<'a> BytecodeVM<'a> {
                         {
                             cell.value = val;
                         }
-                    }
+                    },
                 }
 
                 self.maybe_gc();

@@ -1,8 +1,9 @@
 pub mod ast_printer;
 pub mod dot_printer;
 
-use l3_location::Location;
 use std::fmt;
+
+use l3_location::Location;
 
 // ---------------------------------------------------------------------------
 // Operators
@@ -329,7 +330,8 @@ impl Comparison {
         }
     }
 
-    /// Add another comparison. Returns false if types are mixed (equality vs inequality).
+    /// Add another comparison. Returns false if types are mixed (equality vs
+    /// inequality).
     pub fn add_comparison(&mut self, op: ComparisonOperator, expr: Expression) -> bool {
         self.comparisons.push((op, expr));
         true
