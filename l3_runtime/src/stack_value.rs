@@ -2,9 +2,9 @@ use std::fmt;
 
 use slotmap::DefaultKey;
 
-use crate::{heap::Heap, primitive::Primitive};
+use crate::{heap::Heap, heap_data::HeapData, primitive::Primitive};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Slice {
     pub start: Option<i64>,
     pub end: Option<i64>,
@@ -20,18 +20,18 @@ pub enum StackValue {
 
 impl StackValue {
     #[must_use]
-    pub fn is_nil(&self) -> bool {
-        matches!(self, StackValue::Nil)
+    pub const fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
     }
 
     #[must_use]
-    pub fn is_primitive(&self) -> bool {
-        matches!(self, StackValue::Primitive(_))
+    pub const fn is_primitive(&self) -> bool {
+        matches!(self, Self::Primitive(_))
     }
 
     #[must_use]
-    pub fn as_primitive(&self) -> Option<Primitive> {
-        if let StackValue::Primitive(p) = self {
+    pub const fn as_primitive(&self) -> Option<Primitive> {
+        if let Self::Primitive(p) = self {
             Some(*p)
         } else {
             None
@@ -39,13 +39,13 @@ impl StackValue {
     }
 
     #[must_use]
-    pub fn holds_heap_cell(&self) -> bool {
-        matches!(self, StackValue::Heap(_))
+    pub const fn holds_heap_cell(&self) -> bool {
+        matches!(self, Self::Heap(_))
     }
 
     #[must_use]
-    pub fn get_heap_key(&self) -> Option<DefaultKey> {
-        if let StackValue::Heap(k) = self {
+    pub const fn get_heap_key(&self) -> Option<DefaultKey> {
+        if let Self::Heap(k) = self {
             Some(*k)
         } else {
             None
@@ -55,47 +55,38 @@ impl StackValue {
     #[must_use]
     pub fn is_truthy(&self, heap: &Heap) -> bool {
         match self {
-            StackValue::Nil => false,
-            StackValue::Primitive(p) => p.is_truthy(),
-            StackValue::Heap(key) => {
-                if let Some(cell) = heap.cells.get(*key) {
-                    cell.value.is_truthy(heap)
-                } else {
-                    false
-                }
-            },
+            Self::Nil => false,
+            Self::Primitive(p) => p.is_truthy(),
+            Self::Heap(key) => heap
+                .cells
+                .get(*key)
+                .is_some_and(|cell| cell.value.is_truthy(heap)),
         }
     }
 
     #[must_use]
     pub fn type_name(&self, heap: &Heap) -> &'static str {
         match self {
-            StackValue::Nil => "nil",
-            StackValue::Primitive(p) => p.type_name(),
-            StackValue::Heap(key) => {
-                if let Some(cell) = heap.cells.get(*key) {
-                    cell.value.type_name(heap)
-                } else {
-                    "invalid"
-                }
-            },
+            Self::Nil => "nil",
+            Self::Primitive(p) => p.type_name(),
+            Self::Heap(key) => heap
+                .cells
+                .get(*key)
+                .map_or("invalid", |cell| cell.value.type_name(heap)),
         }
     }
 
     #[must_use]
-    pub fn as_heap_ref<'a>(&self, heap: &'a Heap) -> Option<&'a crate::heap_data::HeapData> {
-        if let StackValue::Heap(key) = self {
+    pub fn as_heap_ref<'a>(&self, heap: &'a Heap) -> Option<&'a HeapData> {
+        if let Self::Heap(key) = self {
             heap.cells.get(*key).map(|c| &c.value)
         } else {
             None
         }
     }
 
-    pub fn as_heap_mut<'a>(
-        &mut self,
-        heap: &'a mut Heap,
-    ) -> Option<&'a mut crate::heap_data::HeapData> {
-        if let StackValue::Heap(key) = self {
+    pub fn as_heap_mut<'a>(&mut self, heap: &'a mut Heap) -> Option<&'a mut HeapData> {
+        if let Self::Heap(key) = self {
             heap.cells.get_mut(*key).map(|c| &mut c.value)
         } else {
             None
@@ -105,16 +96,16 @@ impl StackValue {
 
 impl From<Primitive> for StackValue {
     fn from(p: Primitive) -> Self {
-        StackValue::Primitive(p)
+        Self::Primitive(p)
     }
 }
 
 impl fmt::Display for StackValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StackValue::Nil => write!(f, "nil"),
-            StackValue::Primitive(p) => write!(f, "{p}"),
-            StackValue::Heap(_) => write!(f, "<heap>"),
+            Self::Nil => write!(f, "nil"),
+            Self::Primitive(p) => write!(f, "{p}"),
+            Self::Heap(_) => write!(f, "<heap>"),
         }
     }
 }

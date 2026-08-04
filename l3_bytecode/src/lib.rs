@@ -149,7 +149,7 @@ pub struct ProgramBytecode {
 
 impl ProgramBytecode {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             chunks: Vec::new(),
             constants: Vec::new(),

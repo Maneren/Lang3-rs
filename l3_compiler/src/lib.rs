@@ -42,7 +42,7 @@ enum VarType {
 
 impl Compiler {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         let program = ProgramBytecode::new();
         Self {
             program,
@@ -487,7 +487,7 @@ impl Compiler {
         self.emit(Instruction::Add, loc.clone());
         self.emit(Instruction::SetLocal { index: idx_idx }, loc.clone());
 
-        self.emit(Instruction::Jump { offset: loop_start }, loc.clone());
+        self.emit(Instruction::Jump { offset: loop_start }, loc);
 
         let exit_patch = self.current_chunk().code.len();
         if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[exit_jump] {
@@ -563,7 +563,7 @@ impl Compiler {
 
         let body_start = self.current_chunk().code.len();
         self.compile_block(&rfl.body)?;
-        self.emit(Instruction::Jump { offset: for_idx }, loc.clone());
+        self.emit(Instruction::Jump { offset: for_idx }, loc);
 
         if let Instruction::ForLoop {
             ref mut body_offset,
@@ -681,8 +681,6 @@ impl Compiler {
 
                 if oa.op == AssignmentOperator::Assign {
                     self.compile_expression(&oa.expression)?;
-                    self.emit(Instruction::SetIndex, Location::default());
-                    self.emit(Instruction::Pop { count: 1 }, Location::default());
                 } else {
                     self.emit(Instruction::Duplicate { index: 1 }, Location::default());
                     self.emit(Instruction::Duplicate { index: 1 }, Location::default());
@@ -709,9 +707,10 @@ impl Compiler {
                         },
                         AssignmentOperator::Assign => unreachable!(),
                     }
-                    self.emit(Instruction::SetIndex, Location::default());
-                    self.emit(Instruction::Pop { count: 1 }, Location::default());
                 }
+
+                self.emit(Instruction::SetIndex, Location::default());
+                self.emit(Instruction::Pop { count: 1 }, Location::default());
                 Ok(())
             },
         }
@@ -1157,12 +1156,12 @@ impl Compiler {
         Ok(())
     }
 
-    fn deduplicate_constants() {
+    const fn deduplicate_constants() {
         // For MVP, skip deduplication
     }
 }
 
-fn match_comparison_op(op: ComparisonOperator, keep_rhs: bool) -> Instruction {
+const fn match_comparison_op(op: ComparisonOperator, keep_rhs: bool) -> Instruction {
     match op {
         ComparisonOperator::Equal => Instruction::Equal { keep_rhs },
         ComparisonOperator::NotEqual => Instruction::NotEqual { keep_rhs },

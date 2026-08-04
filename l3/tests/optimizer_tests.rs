@@ -1,6 +1,8 @@
+use std::io;
+
 fn run_optimized(source: &str) -> String {
     let mut output = Vec::new();
-    let mut reader = std::io::empty();
+    let mut reader = io::empty();
     l3::run_pipeline_optimized(source, "<test>", &mut output, &mut reader).unwrap();
     String::from_utf8(output).unwrap().trim_end().to_string()
 }

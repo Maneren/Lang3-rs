@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{error::Error, fmt, io::Error as IoError};
 
 use l3_location::Location;
 
@@ -38,37 +38,37 @@ pub enum RuntimeError {
 
 impl RuntimeError {
     pub fn unsupported(msg: impl Into<String>) -> Self {
-        RuntimeError::UnsupportedOperation {
+        Self::UnsupportedOperation {
             message: msg.into(),
             location: None,
         }
     }
     pub fn value(msg: impl Into<String>) -> Self {
-        RuntimeError::ValueError {
+        Self::ValueError {
             message: msg.into(),
             location: None,
         }
     }
     pub fn type_error(msg: impl Into<String>) -> Self {
-        RuntimeError::TypeError {
+        Self::TypeError {
             message: msg.into(),
             location: None,
         }
     }
     pub fn name(msg: impl Into<String>) -> Self {
-        RuntimeError::NameError {
+        Self::NameError {
             message: msg.into(),
             location: None,
         }
     }
     pub fn undefined(msg: impl Into<String>) -> Self {
-        RuntimeError::UndefinedVariable {
+        Self::UndefinedVariable {
             message: msg.into(),
             location: None,
         }
     }
     pub fn generic(msg: impl Into<String>) -> Self {
-        RuntimeError::Internal {
+        Self::Internal {
             message: msg.into(),
             location: None,
         }
@@ -77,12 +77,12 @@ impl RuntimeError {
     #[must_use]
     pub fn with_location(mut self, loc: Location) -> Self {
         match &mut self {
-            RuntimeError::UnsupportedOperation { location: l, .. }
-            | RuntimeError::ValueError { location: l, .. }
-            | RuntimeError::TypeError { location: l, .. }
-            | RuntimeError::NameError { location: l, .. }
-            | RuntimeError::UndefinedVariable { location: l, .. }
-            | RuntimeError::Internal { location: l, .. } => *l = Some(loc),
+            Self::UnsupportedOperation { location: l, .. }
+            | Self::ValueError { location: l, .. }
+            | Self::TypeError { location: l, .. }
+            | Self::NameError { location: l, .. }
+            | Self::UndefinedVariable { location: l, .. }
+            | Self::Internal { location: l, .. } => *l = Some(loc),
         }
         self
     }
@@ -90,12 +90,12 @@ impl RuntimeError {
     #[must_use]
     pub fn message(&self) -> &str {
         match self {
-            RuntimeError::UnsupportedOperation { message: m, .. }
-            | RuntimeError::ValueError { message: m, .. }
-            | RuntimeError::TypeError { message: m, .. }
-            | RuntimeError::NameError { message: m, .. }
-            | RuntimeError::UndefinedVariable { message: m, .. }
-            | RuntimeError::Internal { message: m, .. } => m,
+            Self::UnsupportedOperation { message: m, .. }
+            | Self::ValueError { message: m, .. }
+            | Self::TypeError { message: m, .. }
+            | Self::NameError { message: m, .. }
+            | Self::UndefinedVariable { message: m, .. }
+            | Self::Internal { message: m, .. } => m,
         }
     }
 }
@@ -103,25 +103,25 @@ impl RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeError::UnsupportedOperation { message, .. } => {
+            Self::UnsupportedOperation { message, .. } => {
                 write!(f, "UnsupportedOperation: {message}")
             },
-            RuntimeError::ValueError { message, .. } => write!(f, "ValueError: {message}"),
-            RuntimeError::TypeError { message, .. } => write!(f, "TypeError: {message}"),
-            RuntimeError::NameError { message, .. } => write!(f, "NameError: {message}"),
-            RuntimeError::UndefinedVariable { message, .. } => {
+            Self::ValueError { message, .. } => write!(f, "ValueError: {message}"),
+            Self::TypeError { message, .. } => write!(f, "TypeError: {message}"),
+            Self::NameError { message, .. } => write!(f, "NameError: {message}"),
+            Self::UndefinedVariable { message, .. } => {
                 write!(f, "UndefinedVariable: {message}")
             },
-            RuntimeError::Internal { message, .. } => write!(f, "RuntimeError: {message}"),
+            Self::Internal { message, .. } => write!(f, "RuntimeError: {message}"),
         }
     }
 }
 
-impl std::error::Error for RuntimeError {}
+impl Error for RuntimeError {}
 
-impl From<std::io::Error> for RuntimeError {
-    fn from(err: std::io::Error) -> Self {
-        RuntimeError::Internal {
+impl From<IoError> for RuntimeError {
+    fn from(err: IoError) -> Self {
+        Self::Internal {
             message: err.to_string(),
             location: None,
         }
@@ -147,4 +147,4 @@ impl fmt::Display for CompileError {
     }
 }
 
-impl std::error::Error for CompileError {}
+impl Error for CompileError {}

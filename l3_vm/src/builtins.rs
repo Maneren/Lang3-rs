@@ -1,6 +1,8 @@
 use std::{
     io::{BufRead, Write},
     rc::Rc,
+    slice, thread,
+    time::Duration,
 };
 
 use l3_runtime::*;
@@ -26,7 +28,7 @@ fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> Result<&'a HeapData, Runtim
     }
 }
 
-fn int_val(sv: &StackValue) -> Option<i64> {
+const fn int_val(sv: &StackValue) -> Option<i64> {
     match sv.as_primitive() {
         Some(Primitive::Integer(i)) => Some(i),
         _ => None,
@@ -141,19 +143,12 @@ fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
     }
     match &args[0] {
         StackValue::Heap(key) => {
-            if let Some(cell) = heap.cells.get(*key) {
-                match &cell.value {
-                    HeapData::String(s) => {
-                        StackValue::Primitive(Primitive::Integer(s.len() as i64))
-                    },
-                    HeapData::Vector(v) => {
-                        StackValue::Primitive(Primitive::Integer(v.len() as i64))
-                    },
-                    _ => StackValue::Primitive(Primitive::Integer(0)),
-                }
-            } else {
-                StackValue::Primitive(Primitive::Integer(0))
-            }
+            let zero = StackValue::Primitive(Primitive::Integer(0));
+            heap.cells.get(*key).map_or(zero, |cell| match &cell.value {
+                HeapData::String(s) => StackValue::Primitive(Primitive::Integer(s.len() as i64)),
+                HeapData::Vector(v) => StackValue::Primitive(Primitive::Integer(v.len() as i64)),
+                _ => zero,
+            })
         },
         _ => StackValue::Primitive(Primitive::Integer(0)),
     }
@@ -170,13 +165,10 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
             }
             Ok(v[0])
         },
-        HeapData::String(s) => {
-            if let Some(c) = s.chars().next() {
-                Ok(heap.alloc_string(c.to_string()))
-            } else {
-                Err(RuntimeError::value("head of empty string"))
-            }
-        },
+        HeapData::String(s) => s.chars().next().map_or_else(
+            || Err(RuntimeError::value("head of empty string")),
+            |c| Ok(heap.alloc_string(c.to_string())),
+        ),
         _ => Err(RuntimeError::type_error("head requires a vector or string")),
     }
 }
@@ -302,7 +294,7 @@ fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runti
         HeapData::Function(Function::Builtin(b)) => {
             let mut result = Vec::new();
             for elem in &vec {
-                result.push(b.invoke(std::slice::from_ref(elem), heap)?);
+                result.push(b.invoke(slice::from_ref(elem), heap)?);
             }
             Ok(heap.alloc_vector(result))
         },
@@ -324,7 +316,7 @@ fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
         HeapData::Function(Function::Builtin(b)) => {
             let mut total = 0i64;
             for elem in &vec {
-                if b.invoke(std::slice::from_ref(elem), heap)?.is_truthy(heap) {
+                if b.invoke(slice::from_ref(elem), heap)?.is_truthy(heap) {
                     total += 1;
                 }
             }
@@ -384,7 +376,7 @@ fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, Ru
             },
         }
     };
-    std::thread::sleep(std::time::Duration::from_millis(ms));
+    thread::sleep(Duration::from_millis(ms));
     Ok(StackValue::Nil)
 }
 
@@ -449,25 +441,22 @@ pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
     match sv {
         StackValue::Nil => "nil".to_string(),
         StackValue::Primitive(p) => format!("{p}"),
-        StackValue::Heap(key) => {
-            if let Some(cell) = heap.cells.get(*key) {
-                match &cell.value {
-                    HeapData::Nil => "nil".to_string(),
-                    HeapData::Primitive(p) => format!("{p}"),
-                    HeapData::Function(f) => match f {
-                        Function::Builtin(b) => format!("<builtin {}>", b.name),
-                        Function::Bytecode(bc) => format!("<fn {}>", bc.name),
-                    },
-                    HeapData::Vector(v) => {
-                        let elems: Vec<String> =
-                            v.iter().map(|sv| format_stack_value(sv, heap)).collect();
-                        format!("[{}]", elems.join(", "))
-                    },
-                    HeapData::String(s) => s.clone(),
-                }
-            } else {
-                "<dead>".to_string()
-            }
-        },
+        StackValue::Heap(key) => heap.cells.get(*key).map_or_else(
+            || "<dead>".to_string(),
+            |cell| match &cell.value {
+                HeapData::Nil => "nil".to_string(),
+                HeapData::Primitive(p) => format!("{p}"),
+                HeapData::Function(f) => match f {
+                    Function::Builtin(b) => format!("<builtin {}>", b.name),
+                    Function::Bytecode(bc) => format!("<fn {}>", bc.name),
+                },
+                HeapData::Vector(v) => {
+                    let elems: Vec<String> =
+                        v.iter().map(|sv| format_stack_value(sv, heap)).collect();
+                    format!("[{}]", elems.join(", "))
+                },
+                HeapData::String(s) => s.clone(),
+            },
+        ),
     }
 }

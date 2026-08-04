@@ -18,7 +18,7 @@ pub struct HeapCell {
 
 impl HeapCell {
     #[must_use]
-    pub fn new(value: HeapData) -> Self {
+    pub const fn new(value: HeapData) -> Self {
         Self {
             value,
             marked: Cell::new(false),
@@ -26,7 +26,7 @@ impl HeapCell {
     }
 
     /// Recursively mark this cell and all cells it references.
-    pub fn mark(&self, heap: &SlotMap<DefaultKey, HeapCell>) {
+    pub fn mark(&self, heap: &SlotMap<DefaultKey, Self>) {
         if self.marked.get() {
             return;
         }
@@ -74,7 +74,7 @@ pub struct UpvalueCell {
 
 impl UpvalueCell {
     #[must_use]
-    pub fn new(value: StackValue) -> Self {
+    pub const fn new(value: StackValue) -> Self {
         Self {
             value,
             marked: Cell::new(false),

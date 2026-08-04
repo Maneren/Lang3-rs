@@ -1,3 +1,5 @@
+use std::io::{Read, Write};
+
 use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::{format as bytecode_fmt, optimizer::Optimizer};
 use l3_compiler::Compiler;
@@ -7,8 +9,8 @@ use l3_vm::BytecodeVM;
 fn run(
     source: &str,
     filename: &str,
-    writer: &mut impl std::io::Write,
-    reader: &mut impl std::io::Read,
+    writer: &mut impl Write,
+    reader: &mut impl Read,
     optimize: bool,
 ) -> Result<(), String> {
     let program = parse_program(source, filename).map_err(|e| format!("Parse error: {e}"))?;
@@ -33,8 +35,8 @@ fn run(
 pub fn run_pipeline(
     source: &str,
     filename: &str,
-    writer: &mut impl std::io::Write,
-    reader: &mut impl std::io::Read,
+    writer: &mut impl Write,
+    reader: &mut impl Read,
 ) -> Result<(), String> {
     run(source, filename, writer, reader, false)
 }
@@ -42,8 +44,8 @@ pub fn run_pipeline(
 pub fn run_pipeline_optimized(
     source: &str,
     filename: &str,
-    writer: &mut impl std::io::Write,
-    reader: &mut impl std::io::Read,
+    writer: &mut impl Write,
+    reader: &mut impl Read,
 ) -> Result<(), String> {
     run(source, filename, writer, reader, true)
 }

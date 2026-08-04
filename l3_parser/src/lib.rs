@@ -2,7 +2,14 @@ pub mod lexer;
 pub mod loc_util;
 pub mod token;
 
-lalrpop_util::lalrpop_mod!(pub grammar);
+lalrpop_util::lalrpop_mod!(
+    #[allow(clippy::all)]
+    #[allow(clippy::pedantic)]
+    #[allow(clippy::nursery)]
+    #[allow(unused)]
+    #[allow(warnings)]
+    pub grammar
+);
 
 use l3_ast::Program;
 pub use token::Token;

@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, fmt};
+use std::{
+    cmp::Ordering,
+    fmt,
+    ops::{Add, Div, Mul, Neg, Rem, Sub},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Primitive {
@@ -9,23 +13,23 @@ pub enum Primitive {
 
 impl Primitive {
     #[must_use]
-    pub fn is_bool(&self) -> bool {
-        matches!(self, Primitive::Bool(_))
+    pub const fn is_bool(&self) -> bool {
+        matches!(self, Self::Bool(_))
     }
 
     #[must_use]
-    pub fn is_integer(&self) -> bool {
-        matches!(self, Primitive::Integer(_))
+    pub const fn is_integer(&self) -> bool {
+        matches!(self, Self::Integer(_))
     }
 
     #[must_use]
-    pub fn is_double(&self) -> bool {
-        matches!(self, Primitive::Double(_))
+    pub const fn is_double(&self) -> bool {
+        matches!(self, Self::Double(_))
     }
 
     #[must_use]
-    pub fn as_bool(&self) -> Option<bool> {
-        if let Primitive::Bool(b) = self {
+    pub const fn as_bool(&self) -> Option<bool> {
+        if let Self::Bool(b) = self {
             Some(*b)
         } else {
             None
@@ -33,8 +37,8 @@ impl Primitive {
     }
 
     #[must_use]
-    pub fn as_integer(&self) -> Option<i64> {
-        if let Primitive::Integer(i) = self {
+    pub const fn as_integer(&self) -> Option<i64> {
+        if let Self::Integer(i) = self {
             Some(*i)
         } else {
             None
@@ -42,8 +46,8 @@ impl Primitive {
     }
 
     #[must_use]
-    pub fn as_double(&self) -> Option<f64> {
-        if let Primitive::Double(f) = self {
+    pub const fn as_double(&self) -> Option<f64> {
+        if let Self::Double(f) = self {
             Some(*f)
         } else {
             None
@@ -53,18 +57,18 @@ impl Primitive {
     #[must_use]
     pub fn is_truthy(&self) -> bool {
         match self {
-            Primitive::Bool(b) => *b,
-            Primitive::Integer(i) => *i != 0,
-            Primitive::Double(f) => *f != 0.0,
+            Self::Bool(b) => *b,
+            Self::Integer(i) => *i != 0,
+            Self::Double(f) => *f != 0.0,
         }
     }
 
     #[must_use]
-    pub fn type_name(&self) -> &'static str {
+    pub const fn type_name(&self) -> &'static str {
         match self {
-            Primitive::Bool(_) => "bool",
-            Primitive::Integer(_) => "int",
-            Primitive::Double(_) => "double",
+            Self::Bool(_) => "bool",
+            Self::Integer(_) => "int",
+            Self::Double(_) => "double",
         }
     }
 }
@@ -72,97 +76,87 @@ impl Primitive {
 impl fmt::Display for Primitive {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Primitive::Bool(b) => write!(f, "{b}"),
-            Primitive::Integer(i) => write!(f, "{i}"),
-            Primitive::Double(d) => write!(f, "{d}"),
+            Self::Bool(b) => write!(f, "{b}"),
+            Self::Integer(i) => write!(f, "{i}"),
+            Self::Double(d) => write!(f, "{d}"),
         }
     }
 }
 
 // Arithmetic operations
 
-impl std::ops::Add for Primitive {
-    type Output = Result<Primitive, &'static str>;
-    fn add(self, rhs: Primitive) -> Result<Primitive, &'static str> {
+impl Add for Primitive {
+    type Output = Result<Self, &'static str>;
+    fn add(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
-            (Primitive::Integer(a), Primitive::Integer(b)) => {
-                Ok(Primitive::Integer(a.wrapping_add(b)))
-            },
-            (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a + b)),
-            (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 + b)),
-            (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a + b as f64)),
+            (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_add(b))),
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a + b)),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double(a as f64 + b)),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a + b as f64)),
             _ => Err("unsupported operand types for +"),
         }
     }
 }
 
-impl std::ops::Sub for Primitive {
-    type Output = Result<Primitive, &'static str>;
-    fn sub(self, rhs: Primitive) -> Result<Primitive, &'static str> {
+impl Sub for Primitive {
+    type Output = Result<Self, &'static str>;
+    fn sub(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
-            (Primitive::Integer(a), Primitive::Integer(b)) => {
-                Ok(Primitive::Integer(a.wrapping_sub(b)))
-            },
-            (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a - b)),
-            (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 - b)),
-            (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a - b as f64)),
+            (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_sub(b))),
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a - b)),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double(a as f64 - b)),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a - b as f64)),
             _ => Err("unsupported operand types for -"),
         }
     }
 }
 
-impl std::ops::Mul for Primitive {
-    type Output = Result<Primitive, &'static str>;
-    fn mul(self, rhs: Primitive) -> Result<Primitive, &'static str> {
+impl Mul for Primitive {
+    type Output = Result<Self, &'static str>;
+    fn mul(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
-            (Primitive::Integer(a), Primitive::Integer(b)) => {
-                Ok(Primitive::Integer(a.wrapping_mul(b)))
-            },
-            (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a * b)),
-            (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 * b)),
-            (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a * b as f64)),
+            (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_mul(b))),
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a * b)),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double(a as f64 * b)),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a * b as f64)),
             _ => Err("unsupported operand types for *"),
         }
     }
 }
 
-impl std::ops::Div for Primitive {
-    type Output = Result<Primitive, &'static str>;
-    fn div(self, rhs: Primitive) -> Result<Primitive, &'static str> {
+impl Div for Primitive {
+    type Output = Result<Self, &'static str>;
+    fn div(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
-            (Primitive::Integer(_), Primitive::Integer(0)) => Err("division by zero"),
-            (Primitive::Integer(a), Primitive::Integer(b)) => {
-                Ok(Primitive::Integer(a.wrapping_div(b)))
-            },
-            (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a / b)),
-            (Primitive::Integer(a), Primitive::Double(b)) => Ok(Primitive::Double(a as f64 / b)),
-            (Primitive::Double(a), Primitive::Integer(b)) => Ok(Primitive::Double(a / b as f64)),
+            (Self::Integer(_), Self::Integer(0)) => Err("division by zero"),
+            (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_div(b))),
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a / b)),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double(a as f64 / b)),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a / b as f64)),
             _ => Err("unsupported operand types for /"),
         }
     }
 }
 
-impl std::ops::Rem for Primitive {
-    type Output = Result<Primitive, &'static str>;
-    fn rem(self, rhs: Primitive) -> Result<Primitive, &'static str> {
+impl Rem for Primitive {
+    type Output = Result<Self, &'static str>;
+    fn rem(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
-            (Primitive::Integer(_), Primitive::Integer(0)) => Err("modulo by zero"),
-            (Primitive::Integer(a), Primitive::Integer(b)) => {
-                Ok(Primitive::Integer(a.wrapping_rem(b)))
-            },
-            (Primitive::Double(a), Primitive::Double(b)) => Ok(Primitive::Double(a % b)),
+            (Self::Integer(_), Self::Integer(0)) => Err("modulo by zero"),
+            (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_rem(b))),
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a % b)),
             _ => Err("unsupported operand types for %"),
         }
     }
 }
 
-impl std::ops::Neg for Primitive {
-    type Output = Primitive;
-    fn neg(self) -> Primitive {
+impl Neg for Primitive {
+    type Output = Self;
+    fn neg(self) -> Self {
         match self {
-            Primitive::Integer(i) => Primitive::Integer(i.wrapping_neg()),
-            Primitive::Double(f) => Primitive::Double(-f),
-            Primitive::Bool(b) => Primitive::Integer(if b { -1 } else { 0 }),
+            Self::Integer(i) => Self::Integer(i.wrapping_neg()),
+            Self::Double(f) => Self::Double(-f),
+            Self::Bool(b) => Self::Integer(if b { -1 } else { 0 }),
         }
     }
 }

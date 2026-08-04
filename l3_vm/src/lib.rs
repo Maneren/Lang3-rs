@@ -1,6 +1,13 @@
 pub mod builtins;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Ordering,
+    collections::HashMap,
+    io::{Read, Write},
+    mem,
+    rc::Rc,
+};
 
 use foldhash::fast::FixedState;
 use l3_ast::Identifier;
@@ -40,11 +47,7 @@ macro_rules! debug_println {
 
 impl<'a> BytecodeVM<'a> {
     #[must_use]
-    pub fn new(
-        writer: &'a mut impl std::io::Write,
-        reader: &'a mut impl std::io::Read,
-        debug: bool,
-    ) -> Self {
+    pub fn new(writer: &'a mut impl Write, reader: &'a mut impl Read, debug: bool) -> Self {
         let mut vm = Self {
             heap: Heap::new(writer, reader),
             stack: Vec::new(),
@@ -181,41 +184,31 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Equal { keep_rhs } => {
                         debug_println!(debug, "    EQ keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(std::cmp::Ordering::Equal), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Equal), *keep_rhs);
                     },
                     Instruction::NotEqual { keep_rhs } => {
                         debug_println!(debug, "    NE keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c != Some(std::cmp::Ordering::Equal), *keep_rhs);
+                        self.compare_op(|c| c != Some(Ordering::Equal), *keep_rhs);
                     },
                     Instruction::Less { keep_rhs } => {
                         debug_println!(debug, "    LT keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(std::cmp::Ordering::Less), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Less), *keep_rhs);
                     },
                     Instruction::LessEqual { keep_rhs } => {
                         debug_println!(debug, "    LE keep_rhs={}", keep_rhs);
                         self.compare_op(
-                            |c| {
-                                matches!(
-                                    c,
-                                    Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal)
-                                )
-                            },
+                            |c| matches!(c, Some(Ordering::Less | Ordering::Equal)),
                             *keep_rhs,
                         );
                     },
                     Instruction::Greater { keep_rhs } => {
                         debug_println!(debug, "    GT keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(std::cmp::Ordering::Greater), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Greater), *keep_rhs);
                     },
                     Instruction::GreaterEqual { keep_rhs } => {
                         debug_println!(debug, "    GE keep_rhs={}", keep_rhs);
                         self.compare_op(
-                            |c| {
-                                matches!(
-                                    c,
-                                    Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
-                                )
-                            },
+                            |c| matches!(c, Some(Ordering::Greater | Ordering::Equal)),
                             *keep_rhs,
                         );
                     },
@@ -254,7 +247,7 @@ impl<'a> BytecodeVM<'a> {
                             .pop()
                             .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
-                        let _old = std::mem::replace(&mut self.stack[fp + index], val);
+                        let _old = mem::replace(&mut self.stack[fp + index], val);
 
                         if let Some(cell) =
                             self.frames.last_mut().unwrap().captured_locals.get(index)
@@ -500,7 +493,7 @@ impl<'a> BytecodeVM<'a> {
         }
     }
 
-    fn gc_mark_roots(&mut self) {
+    fn gc_mark_roots(&self) {
         for sv in &self.stack {
             mark_stack_value(sv, &self.heap.cells);
         }
@@ -600,7 +593,7 @@ impl<'a> BytecodeVM<'a> {
             self.stack.resize(old_end + curried_count, StackValue::Nil);
             for i in (0..arg_count).rev() {
                 self.stack[frame_pointer + curried_count + i] =
-                    std::mem::replace(&mut self.stack[frame_pointer + i], StackValue::Nil);
+                    mem::replace(&mut self.stack[frame_pointer + i], StackValue::Nil);
             }
             for (i, &arg) in bc.curried_args.iter().enumerate() {
                 self.stack[frame_pointer + i] = arg;
@@ -640,7 +633,7 @@ impl<'a> BytecodeVM<'a> {
 
     fn compare_op<F>(&mut self, pred: F, keep_rhs: bool)
     where
-        F: Fn(Option<std::cmp::Ordering>) -> bool,
+        F: Fn(Option<Ordering>) -> bool,
     {
         let b = self.stack.pop().unwrap_or(StackValue::Nil);
         if keep_rhs {

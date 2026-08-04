@@ -1,4 +1,9 @@
-use std::{fs, io::Read, process, time::Instant};
+use std::{
+    fs,
+    io::{self, Read},
+    process,
+    time::Instant,
+};
 
 use clap::Parser;
 use l3_ast::{ast_printer, dot_printer};
@@ -23,7 +28,7 @@ struct Debug {
 fn read_input(cli: &Cli) -> (String, String) {
     if cli.files.is_empty() || cli.files[0] == "-" {
         let mut source = String::new();
-        if std::io::stdin().read_to_string(&mut source).is_err() {
+        if io::stdin().read_to_string(&mut source).is_err() {
             eprintln!("Error reading from stdin");
             process::exit(1);
         }
@@ -135,8 +140,8 @@ fn main() {
     }
 
     let exec_start = Instant::now();
-    let mut stdout = std::io::stdout();
-    let mut stdin = std::io::stdin();
+    let mut stdout = io::stdout();
+    let mut stdin = io::stdin();
     let mut vm = BytecodeVM::new(&mut stdout, &mut stdin, debug.vm);
     let result = vm.execute(&bytecode);
     vm.heap.flush_print();

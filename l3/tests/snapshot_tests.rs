@@ -1,4 +1,9 @@
-use std::{fs, io::Write, path::PathBuf};
+use std::{
+    env,
+    fs::{self, DirEntry},
+    io::{self, BufWriter, Cursor, Write},
+    path::PathBuf,
+};
 
 fn snapshot_dir() -> PathBuf {
     PathBuf::from("tests").join("snapshot")
@@ -23,7 +28,7 @@ fn expected_text(name: &str, kind: &str) -> String {
 }
 
 fn should_update() -> bool {
-    std::env::var("L3_UPDATE_SNAPSHOTS").as_deref() == Ok("1")
+    env::var("L3_UPDATE_SNAPSHOTS").as_deref() == Ok("1")
 }
 
 fn write_expected(name: &str, kind: &str, content: &str) {
@@ -49,8 +54,8 @@ fn run_update_or_check_output(name: &str) {
 fn run_capture(optimized: bool, source: &str, filename: &str) -> String {
     let mut bytes = Vec::new();
     {
-        let mut writer = std::io::BufWriter::new(&mut bytes);
-        let mut reader = std::io::empty();
+        let mut writer = BufWriter::new(&mut bytes);
+        let mut reader = io::empty();
         let result = if optimized {
             l3::run_pipeline_optimized(source, filename, &mut writer, &mut reader)
         } else {
@@ -195,7 +200,7 @@ fn snapshot_optimized_output_matches_expected() {
         .map(Result::unwrap)
         .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("l3"))
         .collect();
-    inputs.sort_by_key(std::fs::DirEntry::file_name);
+    inputs.sort_by_key(DirEntry::file_name);
     for entry in inputs {
         let name = entry
             .path()
@@ -217,7 +222,7 @@ fn snapshot_optimized_output_matches_expected() {
 fn input_builtin_reads_lines_from_reader() {
     let source = "println(input())\nprintln(input())\nprintln(input())\n";
     let mut output = Vec::new();
-    let mut input = std::io::Cursor::new("line1\nline2\nline3\n");
+    let mut input = Cursor::new("line1\nline2\nline3\n");
     l3::run_pipeline(source, "<test>", &mut output, &mut input).unwrap();
     assert_eq!(String::from_utf8(output).unwrap(), "line1\nline2\nline3\n");
 }
@@ -226,7 +231,7 @@ fn input_builtin_reads_lines_from_reader() {
 fn input_builtin_strips_crlf() {
     let source = "println(input())\n";
     let mut output = Vec::new();
-    let mut input = std::io::Cursor::new("line1\r\n");
+    let mut input = Cursor::new("line1\r\n");
     l3::run_pipeline(source, "<test>", &mut output, &mut input).unwrap();
     assert_eq!(String::from_utf8(output).unwrap(), "line1\n");
 }

@@ -11,7 +11,7 @@ pub struct Position {
 
 impl Position {
     #[must_use]
-    pub fn new(filename: Option<String>, line: Counter, column: Counter) -> Self {
+    pub const fn new(filename: Option<String>, line: Counter, column: Counter) -> Self {
         Self {
             filename,
             line,
@@ -63,7 +63,7 @@ pub struct Location {
 
 impl Location {
     #[must_use]
-    pub fn new(begin: Position, end: Position) -> Self {
+    pub const fn new(begin: Position, end: Position) -> Self {
         Self { begin, end }
     }
 

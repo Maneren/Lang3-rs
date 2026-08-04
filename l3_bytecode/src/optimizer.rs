@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::VecDeque};
+use std::{cmp::Ordering, collections::VecDeque, io, mem};
 
 use l3_runtime::{
     Function, Heap, HeapCell, HeapData, Primitive, StackValue,
@@ -19,7 +19,7 @@ pub struct Optimizer;
 
 impl Optimizer {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
@@ -29,7 +29,7 @@ impl Optimizer {
             let mut changed = false;
             let arities = chunk_arities(&program);
             for (ci, chunk_ref) in program.chunks.iter_mut().enumerate() {
-                let chunk = std::mem::take(chunk_ref);
+                let chunk = mem::take(chunk_ref);
                 let (optimized, pass_changed) =
                     optimize_chunk(chunk, &mut program.constants, arities[ci]);
                 *chunk_ref = optimized;
@@ -444,8 +444,8 @@ fn step(inst: &Instruction, stack: &mut Stack) {
 // ---------------------------------------------------------------------------
 
 fn fold_constants(chunk: &Chunk, pool: &mut Vec<HeapCell>) -> (Chunk, bool) {
-    let mut sink = std::io::sink();
-    let mut empty = std::io::empty();
+    let mut sink = io::sink();
+    let mut empty = io::empty();
     let mut heap = Heap::new(&mut sink, &mut empty);
     let mut values: Vec<StackValue> = pool
         .iter()

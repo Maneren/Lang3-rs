@@ -2,16 +2,16 @@ use std::{cell::RefCell, fmt, rc::Rc};
 
 use l3_ast::Identifier;
 
-use crate::{heap::UpvalueCell, stack_value::StackValue};
+use crate::{
+    error::RuntimeError,
+    heap::{Heap, UpvalueCell},
+    stack_value::StackValue,
+};
 
 pub type L3Args = Vec<StackValue>;
 
-pub type BuiltinBody = Rc<
-    dyn for<'h, 'r> Fn(
-        &[StackValue],
-        &'r mut crate::heap::Heap<'h>,
-    ) -> Result<StackValue, crate::error::RuntimeError>,
->;
+pub type BuiltinBody =
+    Rc<dyn for<'h, 'r> Fn(&[StackValue], &'r mut Heap<'h>) -> Result<StackValue, RuntimeError>>;
 
 #[derive(Clone)]
 pub struct BuiltinFunction {
@@ -24,11 +24,7 @@ impl BuiltinFunction {
         Self { name, body }
     }
 
-    pub fn invoke(
-        &self,
-        args: &[StackValue],
-        heap: &mut crate::heap::Heap,
-    ) -> Result<StackValue, crate::error::RuntimeError> {
+    pub fn invoke(&self, args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
         (self.body)(args, heap)
     }
 }
@@ -58,8 +54,8 @@ pub enum Function {
 
 impl Function {
     #[must_use]
-    pub fn as_builtin(&self) -> Option<&BuiltinFunction> {
-        if let Function::Builtin(b) = self {
+    pub const fn as_builtin(&self) -> Option<&BuiltinFunction> {
+        if let Self::Builtin(b) = self {
             Some(b)
         } else {
             None
@@ -68,7 +64,7 @@ impl Function {
 
     #[must_use]
     pub fn as_bytecode(&self) -> Option<&BytecodeFunction> {
-        if let Function::Bytecode(b) = self {
+        if let Self::Bytecode(b) = self {
             Some(b)
         } else {
             None
@@ -76,7 +72,7 @@ impl Function {
     }
 
     pub fn as_mut_bytecode(&mut self) -> Option<&mut BytecodeFunction> {
-        if let Function::Bytecode(b) = self {
+        if let Self::Bytecode(b) = self {
             Some(b)
         } else {
             None

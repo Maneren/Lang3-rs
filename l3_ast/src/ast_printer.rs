@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use crate::*;
 
@@ -14,7 +14,7 @@ struct AstPrinter {
 }
 
 impl AstPrinter {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self { depth: 0 }
     }
 
@@ -24,7 +24,7 @@ impl AstPrinter {
         }
     }
 
-    fn line(&self, out: &mut String, text: impl std::fmt::Display) {
+    fn line(&self, out: &mut String, text: impl Display) {
         self.indent(out);
         writeln!(out, "{text}").unwrap();
     }

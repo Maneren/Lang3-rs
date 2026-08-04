@@ -22,9 +22,9 @@ pub enum HeapData {
 impl PartialEq for HeapData {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (HeapData::Nil, HeapData::Nil) => true,
-            (HeapData::Primitive(a), HeapData::Primitive(b)) => a == b,
-            (HeapData::String(a), HeapData::String(b)) => a == b,
+            (Self::Nil, Self::Nil) => true,
+            (Self::Primitive(a), Self::Primitive(b)) => a == b,
+            (Self::String(a), Self::String(b)) => a == b,
             _ => false,
         }
     }
@@ -32,33 +32,33 @@ impl PartialEq for HeapData {
 
 impl HeapData {
     #[must_use]
-    pub fn is_nil(&self) -> bool {
-        matches!(self, HeapData::Nil)
+    pub const fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
     }
 
     #[must_use]
-    pub fn is_primitive(&self) -> bool {
-        matches!(self, HeapData::Primitive(_))
+    pub const fn is_primitive(&self) -> bool {
+        matches!(self, Self::Primitive(_))
     }
 
     #[must_use]
-    pub fn is_function(&self) -> bool {
-        matches!(self, HeapData::Function(_))
+    pub const fn is_function(&self) -> bool {
+        matches!(self, Self::Function(_))
     }
 
     #[must_use]
-    pub fn is_vector(&self) -> bool {
-        matches!(self, HeapData::Vector(_))
+    pub const fn is_vector(&self) -> bool {
+        matches!(self, Self::Vector(_))
     }
 
     #[must_use]
-    pub fn is_string(&self) -> bool {
-        matches!(self, HeapData::String(_))
+    pub const fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
     }
 
     #[must_use]
-    pub fn as_primitive(&self) -> Option<Primitive> {
-        if let HeapData::Primitive(p) = self {
+    pub const fn as_primitive(&self) -> Option<Primitive> {
+        if let Self::Primitive(p) = self {
             Some(*p)
         } else {
             None
@@ -66,16 +66,16 @@ impl HeapData {
     }
 
     #[must_use]
-    pub fn as_vector(&self) -> Option<&Vec<StackValue>> {
-        if let HeapData::Vector(v) = self {
+    pub const fn as_vector(&self) -> Option<&Vec<StackValue>> {
+        if let Self::Vector(v) = self {
             Some(v)
         } else {
             None
         }
     }
 
-    pub fn as_mut_vector(&mut self) -> Option<&mut Vec<StackValue>> {
-        if let HeapData::Vector(v) = self {
+    pub const fn as_mut_vector(&mut self) -> Option<&mut Vec<StackValue>> {
+        if let Self::Vector(v) = self {
             Some(v)
         } else {
             None
@@ -83,16 +83,16 @@ impl HeapData {
     }
 
     #[must_use]
-    pub fn as_string(&self) -> Option<&str> {
-        if let HeapData::String(s) = self {
+    pub const fn as_string(&self) -> Option<&str> {
+        if let Self::String(s) = self {
             Some(s.as_str())
         } else {
             None
         }
     }
 
-    pub fn as_mut_string(&mut self) -> Option<&mut String> {
-        if let HeapData::String(s) = self {
+    pub const fn as_mut_string(&mut self) -> Option<&mut String> {
+        if let Self::String(s) = self {
             Some(s)
         } else {
             None
@@ -100,41 +100,41 @@ impl HeapData {
     }
 
     #[must_use]
-    pub fn type_name(&self, _heap: &Heap) -> &'static str {
+    pub const fn type_name(&self, _heap: &Heap) -> &'static str {
         match self {
-            HeapData::Nil => "nil",
-            HeapData::Primitive(p) => p.type_name(),
-            HeapData::Function(_) => "function",
-            HeapData::Vector(_) => "vector",
-            HeapData::String(_) => "string",
+            Self::Nil => "nil",
+            Self::Primitive(p) => p.type_name(),
+            Self::Function(_) => "function",
+            Self::Vector(_) => "vector",
+            Self::String(_) => "string",
         }
     }
 
     #[must_use]
     pub fn is_truthy(&self, _heap: &Heap) -> bool {
         match self {
-            HeapData::Nil => false,
-            HeapData::Primitive(p) => p.is_truthy(),
-            HeapData::Function(_) => true,
-            HeapData::Vector(v) => !v.is_empty(),
-            HeapData::String(s) => !s.is_empty(),
+            Self::Nil => false,
+            Self::Primitive(p) => p.is_truthy(),
+            Self::Function(_) => true,
+            Self::Vector(v) => !v.is_empty(),
+            Self::String(s) => !s.is_empty(),
         }
     }
 
     #[must_use]
     pub fn fmt_with_heap(&self, heap: &Heap) -> String {
         match self {
-            HeapData::Nil => "nil".to_string(),
-            HeapData::Primitive(p) => format!("{p}"),
-            HeapData::Function(f) => match f {
-                crate::function::Function::Builtin(b) => format!("<builtin {}>", b.name),
-                crate::function::Function::Bytecode(bc) => format!("<fn {}>", bc.name),
+            Self::Nil => "nil".to_string(),
+            Self::Primitive(p) => format!("{p}"),
+            Self::Function(f) => match f {
+                Function::Builtin(b) => format!("<builtin {}>", b.name),
+                Function::Bytecode(bc) => format!("<fn {}>", bc.name),
             },
-            HeapData::Vector(v) => {
+            Self::Vector(v) => {
                 let elems: Vec<String> = v.iter().map(|sv| format_stack_value(sv, heap)).collect();
                 format!("[{}]", elems.join(", "))
             },
-            HeapData::String(s) => format!("\"{s}\""),
+            Self::String(s) => format!("\"{s}\""),
         }
     }
 }
@@ -145,13 +145,10 @@ pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
     match sv {
         StackValue::Nil => "nil".to_string(),
         StackValue::Primitive(p) => format!("{p}"),
-        StackValue::Heap(key) => {
-            if let Some(cell) = heap.cells.get(*key) {
-                cell.value.fmt_with_heap(heap)
-            } else {
-                "<dead>".to_string()
-            }
-        },
+        StackValue::Heap(key) => heap.cells.get(*key).map_or_else(
+            || "<dead>".to_string(),
+            |cell| cell.value.fmt_with_heap(heap),
+        ),
     }
 }
 
@@ -388,26 +385,23 @@ pub fn to_owned(sv: &StackValue, heap: &Heap) -> HeapData {
     match sv {
         StackValue::Nil => HeapData::Nil,
         StackValue::Primitive(p) => HeapData::Primitive(*p),
-        StackValue::Heap(key) => {
-            if let Some(cell) = heap.cells.get(*key) {
-                cell.value.clone()
-            } else {
-                HeapData::Nil
-            }
-        },
+        StackValue::Heap(key) => heap
+            .cells
+            .get(*key)
+            .map_or_else(|| HeapData::Nil, |cell| cell.value.clone()),
     }
 }
 
 impl fmt::Display for HeapData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HeapData::Nil => write!(f, "nil"),
-            HeapData::Primitive(p) => write!(f, "{p}"),
-            HeapData::Function(fun) => match fun {
+            Self::Nil => write!(f, "nil"),
+            Self::Primitive(p) => write!(f, "{p}"),
+            Self::Function(fun) => match fun {
                 Function::Builtin(b) => write!(f, "function <{}>", b.name),
                 Function::Bytecode(bc) => write!(f, "function <{}>", bc.name),
             },
-            HeapData::Vector(v) => {
+            Self::Vector(v) => {
                 write!(f, "[")?;
                 for (i, sv) in v.iter().enumerate() {
                     if i > 0 {
@@ -417,7 +411,7 @@ impl fmt::Display for HeapData {
                 }
                 write!(f, "]")
             },
-            HeapData::String(s) => write!(f, "\"{s}\""),
+            Self::String(s) => write!(f, "\"{s}\""),
         }
     }
 }

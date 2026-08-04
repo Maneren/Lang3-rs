@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use crate::*;
 
@@ -14,17 +14,17 @@ struct DotPrinter {
 }
 
 impl DotPrinter {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self { node_id: 0 }
     }
 
-    fn next_id(&mut self) -> usize {
+    const fn next_id(&mut self) -> usize {
         let id = self.node_id;
         self.node_id += 1;
         id
     }
 
-    fn write_node(out: &mut String, id: usize, label: impl std::fmt::Display) {
+    fn write_node(out: &mut String, id: usize, label: impl Display) {
         writeln!(out, "  n{id} [label=\"{label}\"];").unwrap();
     }
 

@@ -101,7 +101,7 @@ pub struct Nil {
 
 impl Nil {
     #[must_use]
-    pub fn new(location: Location) -> Self {
+    pub const fn new(location: Location) -> Self {
         Self { location }
     }
 }
@@ -114,7 +114,7 @@ pub struct Boolean {
 
 impl Boolean {
     #[must_use]
-    pub fn new(value: bool, location: Location) -> Self {
+    pub const fn new(value: bool, location: Location) -> Self {
         Self { value, location }
     }
 }
@@ -127,7 +127,7 @@ pub struct Number {
 
 impl Number {
     #[must_use]
-    pub fn new(value: i64, location: Location) -> Self {
+    pub const fn new(value: i64, location: Location) -> Self {
         Self { value, location }
     }
 }
@@ -140,7 +140,7 @@ pub struct Float {
 
 impl Float {
     #[must_use]
-    pub fn new(value: f64, location: Location) -> Self {
+    pub const fn new(value: f64, location: Location) -> Self {
         Self { value, location }
     }
 }
@@ -179,7 +179,7 @@ pub struct Array {
 
 impl Array {
     #[must_use]
-    pub fn new(elements: ExpressionList, location: Location) -> Self {
+    pub const fn new(elements: ExpressionList, location: Location) -> Self {
         Self { elements, location }
     }
 }
@@ -196,14 +196,14 @@ pub enum Literal {
 
 impl Literal {
     #[must_use]
-    pub fn location(&self) -> &Location {
+    pub const fn location(&self) -> &Location {
         match self {
-            Literal::Nil(n) => &n.location,
-            Literal::Boolean(b) => &b.location,
-            Literal::Number(n) => &n.location,
-            Literal::Float(f) => &f.location,
-            Literal::String(s) => &s.location,
-            Literal::Array(a) => &a.location,
+            Self::Nil(n) => &n.location,
+            Self::Boolean(b) => &b.location,
+            Self::Number(n) => &n.location,
+            Self::Float(f) => &f.location,
+            Self::String(s) => &s.location,
+            Self::Array(a) => &a.location,
         }
     }
 }
@@ -238,10 +238,10 @@ pub enum Variable {
 
 impl Variable {
     #[must_use]
-    pub fn location(&self) -> &Location {
+    pub const fn location(&self) -> &Location {
         match self {
-            Variable::Identifier(i) => &i.location,
-            Variable::IndexExpression(i) => &i.location,
+            Self::Identifier(i) => &i.location,
+            Self::IndexExpression(i) => &i.location,
         }
     }
 }
@@ -347,7 +347,7 @@ pub struct FunctionCall {
 
 impl FunctionCall {
     #[must_use]
-    pub fn new(name: Identifier, arguments: ExpressionList, location: Location) -> Self {
+    pub const fn new(name: Identifier, arguments: ExpressionList, location: Location) -> Self {
         Self {
             name,
             arguments,
@@ -365,7 +365,7 @@ pub struct FunctionBody {
 
 impl FunctionBody {
     #[must_use]
-    pub fn new(parameters: NameList, block: Block, location: Location) -> Self {
+    pub const fn new(parameters: NameList, block: Block, location: Location) -> Self {
         Self {
             parameters,
             block,
@@ -382,7 +382,7 @@ pub struct AnonymousFunction {
 
 impl AnonymousFunction {
     #[must_use]
-    pub fn new(body: FunctionBody, location: Location) -> Self {
+    pub const fn new(body: FunctionBody, location: Location) -> Self {
         Self { body, location }
     }
 }
@@ -396,7 +396,7 @@ pub struct NamedFunction {
 
 impl NamedFunction {
     #[must_use]
-    pub fn new(name: Identifier, body: FunctionBody, location: Location) -> Self {
+    pub const fn new(name: Identifier, body: FunctionBody, location: Location) -> Self {
         Self {
             name,
             body,
@@ -439,7 +439,12 @@ pub struct IfExpression {
 
 impl IfExpression {
     #[must_use]
-    pub fn new(base_if: IfBase, elseif: ElseIfList, else_block: Block, location: Location) -> Self {
+    pub const fn new(
+        base_if: IfBase,
+        elseif: ElseIfList,
+        else_block: Block,
+        location: Location,
+    ) -> Self {
         Self {
             base_if,
             elseif,
@@ -459,7 +464,7 @@ pub struct IfStatement {
 
 impl IfStatement {
     #[must_use]
-    pub fn new(
+    pub const fn new(
         base_if: IfBase,
         elseif: ElseIfList,
         else_block: Option<Block>,
@@ -587,7 +592,7 @@ pub struct BreakStatement {
 
 impl BreakStatement {
     #[must_use]
-    pub fn new(location: Location) -> Self {
+    pub const fn new(location: Location) -> Self {
         Self { location }
     }
 }
@@ -599,7 +604,7 @@ pub struct ContinueStatement {
 
 impl ContinueStatement {
     #[must_use]
-    pub fn new(location: Location) -> Self {
+    pub const fn new(location: Location) -> Self {
         Self { location }
     }
 }
@@ -692,12 +697,12 @@ impl Declaration {
     }
 
     #[must_use]
-    pub fn is_const(&self) -> bool {
+    pub const fn is_const(&self) -> bool {
         matches!(self.mutability, Mutability::Immutable)
     }
 
     #[must_use]
-    pub fn is_mutable(&self) -> bool {
+    pub const fn is_mutable(&self) -> bool {
         matches!(self.mutability, Mutability::Mutable)
     }
 }
@@ -773,9 +778,9 @@ pub enum Statement {
 impl fmt::Display for UnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UnaryOperator::Plus => write!(f, "+"),
-            UnaryOperator::Minus => write!(f, "-"),
-            UnaryOperator::Not => write!(f, "not"),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Not => write!(f, "not"),
         }
     }
 }
@@ -783,12 +788,12 @@ impl fmt::Display for UnaryOperator {
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BinaryOperator::Plus => write!(f, "+"),
-            BinaryOperator::Minus => write!(f, "-"),
-            BinaryOperator::Multiply => write!(f, "*"),
-            BinaryOperator::Divide => write!(f, "/"),
-            BinaryOperator::Modulo => write!(f, "%"),
-            BinaryOperator::Power => write!(f, "^"),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Multiply => write!(f, "*"),
+            Self::Divide => write!(f, "/"),
+            Self::Modulo => write!(f, "%"),
+            Self::Power => write!(f, "^"),
         }
     }
 }
@@ -796,12 +801,12 @@ impl fmt::Display for BinaryOperator {
 impl fmt::Display for ComparisonOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ComparisonOperator::Equal => write!(f, "=="),
-            ComparisonOperator::NotEqual => write!(f, "!="),
-            ComparisonOperator::Less => write!(f, "<"),
-            ComparisonOperator::LessEqual => write!(f, "<="),
-            ComparisonOperator::Greater => write!(f, ">"),
-            ComparisonOperator::GreaterEqual => write!(f, ">="),
+            Self::Equal => write!(f, "=="),
+            Self::NotEqual => write!(f, "!="),
+            Self::Less => write!(f, "<"),
+            Self::LessEqual => write!(f, "<="),
+            Self::Greater => write!(f, ">"),
+            Self::GreaterEqual => write!(f, ">="),
         }
     }
 }
@@ -809,8 +814,8 @@ impl fmt::Display for ComparisonOperator {
 impl fmt::Display for LogicalOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LogicalOperator::And => write!(f, "and"),
-            LogicalOperator::Or => write!(f, "or"),
+            Self::And => write!(f, "and"),
+            Self::Or => write!(f, "or"),
         }
     }
 }

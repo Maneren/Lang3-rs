@@ -2,7 +2,7 @@ use std::fmt;
 
 use logos::Logos;
 
-fn extract_string<'input>(lex: &mut logos::Lexer<'input, Token<'input>>) -> &'input str {
+fn extract_string<'input>(lex: &logos::Lexer<'input, Token<'input>>) -> &'input str {
     let slice = lex.slice();
     &slice[1..slice.len() - 1]
 }
