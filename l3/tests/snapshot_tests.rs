@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{self, DirEntry},
-    io::{self, BufWriter, Cursor, Write},
+    io::{self, BufWriter, Cursor, Write as _},
     path::PathBuf,
 };
 

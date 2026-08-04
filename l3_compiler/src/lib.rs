@@ -115,39 +115,34 @@ impl Compiler {
     }
 
     fn resolve_local(&self, name: &str) -> Option<usize> {
-        let ctx = self.contexts.last().unwrap();
-        for (i, local) in ctx.locals.iter().enumerate().rev() {
-            if local.name == name {
-                return Some(i);
-            }
-        }
-        None
+        let ctx = self.contexts.last()?;
+        ctx.locals
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, local)| local.name == name)
+            .map(|(i, _)| i)
     }
 
     fn resolve_upvalue(&mut self, name: &str) -> Option<usize> {
-        if self.contexts.len() < 2 {
-            return None;
-        }
-        let outer_idx = self.contexts.len() - 2;
+        let outer_context = self.contexts.get(self.contexts.len() - 2)?;
         // Check if this context already captures the given name from the outer context
-        let cur = self.contexts.last().unwrap();
+        let cur = self.contexts.last()?;
         for (j, existing) in cur.upvalues.iter().enumerate() {
             if existing.is_local
-                && let Some(l) = self.contexts[outer_idx].locals.get(existing.index)
+                && let Some(l) = outer_context.locals.get(existing.index)
                 && l.name == name
             {
                 return Some(j);
             }
         }
-        let outer = &self.contexts[outer_idx];
-        for (i, local) in outer.locals.iter().enumerate() {
+        for (i, local) in outer_context.locals.iter().enumerate() {
             if local.name == name {
-                let upval_idx = self.add_upvalue(true, i);
-                return Some(upval_idx);
+                return Some(self.add_upvalue(true, i));
             }
         }
         // Check outer's upvalues
-        for _uv in &outer.upvalues {
+        for _uv in &outer_context.upvalues {
             // We need to find if the outer captures this name
             // For MVP, we only handle one level of upvalue nesting
         }
@@ -679,34 +674,23 @@ impl Compiler {
                 self.compile_variable(&ie.base)?;
                 self.compile_expression(&ie.index)?;
 
-                if oa.op == AssignmentOperator::Assign {
-                    self.compile_expression(&oa.expression)?;
-                } else {
+                let compound = match oa.op {
+                    AssignmentOperator::Plus => Some(Instruction::Add),
+                    AssignmentOperator::Minus => Some(Instruction::Subtract),
+                    AssignmentOperator::Multiply => Some(Instruction::Multiply),
+                    AssignmentOperator::Divide => Some(Instruction::Divide),
+                    AssignmentOperator::Modulo => Some(Instruction::Modulo),
+                    AssignmentOperator::Power => Some(Instruction::Power),
+                    AssignmentOperator::Assign => None,
+                };
+                if let Some(op) = compound {
                     self.emit(Instruction::Duplicate { index: 1 }, Location::default());
                     self.emit(Instruction::Duplicate { index: 1 }, Location::default());
                     self.emit(Instruction::GetIndex, Location::default());
                     self.compile_expression(&oa.expression)?;
-                    match oa.op {
-                        AssignmentOperator::Plus => {
-                            self.emit(Instruction::Add, Location::default());
-                        },
-                        AssignmentOperator::Minus => {
-                            self.emit(Instruction::Subtract, Location::default());
-                        },
-                        AssignmentOperator::Multiply => {
-                            self.emit(Instruction::Multiply, Location::default());
-                        },
-                        AssignmentOperator::Divide => {
-                            self.emit(Instruction::Divide, Location::default());
-                        },
-                        AssignmentOperator::Modulo => {
-                            self.emit(Instruction::Modulo, Location::default());
-                        },
-                        AssignmentOperator::Power => {
-                            self.emit(Instruction::Power, Location::default());
-                        },
-                        AssignmentOperator::Assign => unreachable!(),
-                    }
+                    self.emit(op, Location::default());
+                } else {
+                    self.compile_expression(&oa.expression)?;
                 }
 
                 self.emit(Instruction::SetIndex, Location::default());
@@ -943,9 +927,10 @@ impl Compiler {
                     BinaryOperator::Divide => a / b,
                     BinaryOperator::Modulo => a % b,
                     BinaryOperator::Power => match (a, b) {
-                        (Primitive::Integer(a), Primitive::Integer(b)) => {
-                            Ok(Primitive::Integer(a.wrapping_pow(b as u32)))
-                        },
+                        (Primitive::Integer(a), Primitive::Integer(b)) => u32::try_from(b)
+                            .ok()
+                            .ok_or("exponent must be a non-negative 32-bit integer")
+                            .map(|exp| Primitive::Integer(a.wrapping_pow(exp))),
                         (Primitive::Double(a), Primitive::Double(b)) => {
                             Ok(Primitive::Double(a.powf(b)))
                         },

@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, Write},
+    io::{BufRead as _, Write as _},
     rc::Rc,
     slice, thread,
     time::Duration,
@@ -73,17 +73,16 @@ fn builtin_println(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, R
 }
 
 fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.is_empty() {
+    let Some(condition) = args.first() else {
         return Err(RuntimeError::type_error(
             "assert requires at least 1 argument",
         ));
-    }
-    if !args[0].is_truthy(heap) {
-        let msg = if args.len() > 1 {
-            format_stack_value(&args[1], heap)
-        } else {
-            "assertion failed".to_string()
-        };
+    };
+    if !condition.is_truthy(heap) {
+        let msg = args.get(1).map_or_else(
+            || "assertion failed".to_string(),
+            |message| format_stack_value(message, heap),
+        );
         let err_msg = format!("AssertionError: {msg}");
         writeln!(heap.output, "{err_msg}")?;
         return Err(RuntimeError::value(format!("assertion failed: {msg}")));
@@ -92,31 +91,27 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
 }
 
 fn builtin_error(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    let msg = if args.is_empty() {
-        "error".to_string()
-    } else {
-        format_stack_value(&args[0], heap)
-    };
+    let msg = args.first().map_or_else(
+        || "error".to_string(),
+        |arg0| format_stack_value(arg0, heap),
+    );
     let err_msg = format!("Error: {msg}");
     writeln!(heap.output, "{err_msg}")?;
     Err(RuntimeError::value(format!("error: {msg}")))
 }
 
 fn builtin_int(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    if args.is_empty() {
-        return StackValue::Primitive(Primitive::Integer(0));
-    }
-    match &args[0] {
-        StackValue::Primitive(Primitive::Integer(i)) => {
+    match args.first() {
+        Some(StackValue::Primitive(Primitive::Integer(i))) => {
             StackValue::Primitive(Primitive::Integer(*i))
         },
-        StackValue::Primitive(Primitive::Double(f)) => {
+        Some(StackValue::Primitive(Primitive::Double(f))) => {
             StackValue::Primitive(Primitive::Integer(*f as i64))
         },
-        StackValue::Primitive(Primitive::Bool(b)) => {
+        Some(StackValue::Primitive(Primitive::Bool(b))) => {
             StackValue::Primitive(Primitive::Integer(i64::from(*b)))
         },
-        StackValue::Heap(key) => {
+        Some(StackValue::Heap(key)) => {
             if let Some(cell) = heap.cells.get(*key)
                 && let Some(s) = cell.value.as_string()
                 && let Ok(n) = s.parse::<i64>()
@@ -125,46 +120,39 @@ fn builtin_int(args: &[StackValue], heap: &mut Heap) -> StackValue {
             }
             StackValue::Primitive(Primitive::Integer(0))
         },
-        StackValue::Nil => StackValue::Primitive(Primitive::Integer(0)),
+        Some(StackValue::Nil) | None => StackValue::Primitive(Primitive::Integer(0)),
     }
 }
 
 fn builtin_str(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    if args.is_empty() {
-        heap.alloc_string(String::new())
-    } else {
-        heap.alloc_string(format_stack_value(&args[0], heap))
-    }
+    let text = args
+        .first()
+        .map_or_else(String::new, |value| format_stack_value(value, heap));
+    heap.alloc_string(text)
 }
 
 fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    if args.is_empty() {
-        return StackValue::Primitive(Primitive::Integer(0));
-    }
-    match &args[0] {
-        StackValue::Heap(key) => {
-            let zero = StackValue::Primitive(Primitive::Integer(0));
+    let zero = StackValue::Primitive(Primitive::Integer(0));
+    match args.first() {
+        Some(StackValue::Heap(key)) => {
             heap.cells.get(*key).map_or(zero, |cell| match &cell.value {
                 HeapData::String(s) => StackValue::Primitive(Primitive::Integer(s.len() as i64)),
                 HeapData::Vector(v) => StackValue::Primitive(Primitive::Integer(v.len() as i64)),
                 _ => zero,
             })
         },
-        _ => StackValue::Primitive(Primitive::Integer(0)),
+        _ => zero,
     }
 }
 
 fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.is_empty() {
+    let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("head requires an argument"));
-    }
-    match heap_data(heap, &args[0])? {
-        HeapData::Vector(v) => {
-            if v.is_empty() {
-                return Err(RuntimeError::value("head of empty vector"));
-            }
-            Ok(v[0])
-        },
+    };
+    match heap_data(heap, container)? {
+        HeapData::Vector(v) => Ok(*v
+            .first()
+            .ok_or_else(|| RuntimeError::value("head of empty vector"))?),
         HeapData::String(s) => s.chars().next().map_or_else(
             || Err(RuntimeError::value("head of empty string")),
             |c| Ok(heap.alloc_string(c.to_string())),
@@ -174,16 +162,15 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
 }
 
 fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.is_empty() {
+    let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("tail requires an argument"));
-    }
-    match heap_data(heap, &args[0])? {
-        HeapData::Vector(v) => {
-            if v.is_empty() {
-                return Err(RuntimeError::value("tail of empty vector"));
-            }
-            Ok(heap.alloc_vector(v[1..].to_vec()))
-        },
+    };
+    match heap_data(heap, container)? {
+        HeapData::Vector(v) => Ok(heap.alloc_vector(
+            v.get(1..)
+                .ok_or_else(|| RuntimeError::value("tail of empty vector"))?
+                .to_vec(),
+        )),
         HeapData::String(s) => {
             if s.is_empty() {
                 return Err(RuntimeError::value("tail of empty string"));
@@ -195,37 +182,38 @@ fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
 }
 
 fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.len() < 2 {
+    let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("drop requires 2 arguments"));
-    }
-    let n = match int_val(&args[1]) {
-        Some(i) => i as usize,
-        _ => return Err(RuntimeError::type_error("drop requires integer count")),
     };
-    match heap_data(heap, &args[0])? {
-        HeapData::Vector(v) => {
-            if n >= v.len() {
-                return Ok(heap.alloc_vector(Vec::new()));
-            }
-            Ok(heap.alloc_vector(v[n..].to_vec()))
-        },
+    let Some(count) = args.get(1) else {
+        return Err(RuntimeError::type_error("drop requires 2 arguments"));
+    };
+    let Some(count) = int_val(count) else {
+        return Err(RuntimeError::type_error("drop requires integer count"));
+    };
+    let n = usize::try_from(count).unwrap_or(usize::MAX);
+    match heap_data(heap, container)? {
+        HeapData::Vector(v) => Ok(heap.alloc_vector(v.get(n..).unwrap_or_default().to_vec())),
         HeapData::String(s) => Ok(heap.alloc_string(s.chars().skip(n).collect())),
         _ => Err(RuntimeError::type_error("drop requires a vector or string")),
     }
 }
 
 fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.len() < 2 {
+    let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("take requires 2 arguments"));
-    }
-    let n = match int_val(&args[1]) {
-        Some(i) => i as usize,
-        _ => return Err(RuntimeError::type_error("take requires integer count")),
     };
-    match heap_data(heap, &args[0])? {
+    let Some(count) = args.get(1) else {
+        return Err(RuntimeError::type_error("take requires 2 arguments"));
+    };
+    let Some(count) = int_val(count) else {
+        return Err(RuntimeError::type_error("take requires integer count"));
+    };
+    let n = usize::try_from(count).unwrap_or(usize::MAX);
+    match heap_data(heap, container)? {
         HeapData::Vector(v) => {
             let end = n.min(v.len());
-            Ok(heap.alloc_vector(v[..end].to_vec()))
+            Ok(heap.alloc_vector(v.get(..end).unwrap_or_default().to_vec()))
         },
         HeapData::String(s) => Ok(heap.alloc_string(s.chars().take(n).collect())),
         _ => Err(RuntimeError::type_error("take requires a vector or string")),
@@ -233,34 +221,18 @@ fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
 }
 
 fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    let start = if args.is_empty() {
-        0
-    } else {
-        match int_val(&args[0]) {
-            Some(i) => i,
-            _ => return Err(RuntimeError::type_error("range requires integer arguments")),
-        }
-    };
-    let end = if args.len() > 1 {
-        match int_val(&args[1]) {
-            Some(i) => i,
-            _ => return Err(RuntimeError::type_error("range requires integer arguments")),
-        }
-    } else {
-        start
-    };
-    let step = if args.len() > 2 {
-        match int_val(&args[2]) {
-            Some(i) if i != 0 => i,
-            _ => {
-                return Err(RuntimeError::type_error(
-                    "range requires non-zero integer step",
-                ));
-            },
-        }
-    } else {
-        1
-    };
+    let start = args.first().map_or(Ok(0), |a| {
+        int_val(a).ok_or_else(|| RuntimeError::type_error("range requires integer arguments"))
+    })?;
+    let end = args.get(1).map_or(Ok(start), |a| {
+        int_val(a).ok_or_else(|| RuntimeError::type_error("range requires integer arguments"))
+    })?;
+    let step = args.get(2).map_or(Ok(1), |a| match int_val(a) {
+        Some(i) if i != 0 => Ok(i),
+        _ => Err(RuntimeError::type_error(
+            "range requires non-zero integer step",
+        )),
+    })?;
 
     let mut vec = Vec::new();
     let mut i = start;
@@ -283,13 +255,16 @@ fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> StackValue {
 }
 
 fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.len() < 2 {
-        return Err(RuntimeError::type_error(
-            "map requires a function and a vector",
-        ));
-    }
-    let func_data = extract_fn(heap, &args[0])?;
-    let vec = extract_vector(heap, &args[1])?;
+    let func_data = extract_fn(
+        heap,
+        args.first()
+            .ok_or_else(|| RuntimeError::type_error("map requires a function and a vector"))?,
+    )?;
+    let vec = extract_vector(
+        heap,
+        args.get(1)
+            .ok_or_else(|| RuntimeError::type_error("map requires a function and a vector"))?,
+    )?;
     match func_data {
         HeapData::Function(Function::Builtin(b)) => {
             let mut result = Vec::new();
@@ -305,13 +280,16 @@ fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runti
 }
 
 fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    if args.len() < 2 {
-        return Err(RuntimeError::type_error(
-            "count requires a predicate and a vector",
-        ));
-    }
-    let func_data = extract_fn(heap, &args[0])?;
-    let vec = extract_vector(heap, &args[1])?;
+    let func_data = extract_fn(
+        heap,
+        args.first()
+            .ok_or_else(|| RuntimeError::type_error("count requires a predicate and a vector"))?,
+    )?;
+    let vec = extract_vector(
+        heap,
+        args.get(1)
+            .ok_or_else(|| RuntimeError::type_error("count requires a predicate and a vector"))?,
+    )?;
     match func_data {
         HeapData::Function(Function::Builtin(b)) => {
             let mut total = 0i64;
@@ -334,18 +312,12 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
         .wrapping_mul(6_364_136_223_846_793_005)
         .wrapping_add(1_442_695_040_888_963_407);
     let val = heap.rng_state;
-    let limit = if args.is_empty() {
-        u64::MAX
-    } else {
-        match int_val(&args[0]) {
-            Some(i) if i > 0 => i as u64,
-            _ => {
-                return Err(RuntimeError::type_error(
-                    "random requires a positive integer argument",
-                ));
-            },
-        }
-    };
+    let limit = args.first().map_or(Ok(u64::MAX), |a| match int_val(a) {
+        Some(i) if i > 0 => Ok(u64::try_from(i).unwrap_or(u64::MAX)),
+        _ => Err(RuntimeError::type_error(
+            "random requires a positive integer argument",
+        )),
+    })?;
     Ok(StackValue::Primitive(Primitive::Integer(
         (val % limit) as i64,
     )))
@@ -364,29 +336,23 @@ fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
 }
 
 fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    let ms = if args.is_empty() {
-        0
-    } else {
-        match int_val(&args[0]) {
-            Some(i) if i >= 0 => i as u64,
-            _ => {
-                return Err(RuntimeError::type_error(
-                    "sleep requires a non-negative integer argument",
-                ));
-            },
-        }
-    };
+    let ms = args.first().map_or(Ok(0), |a| {
+        int_val(a)
+            .and_then(|i| u64::try_from(i).ok())
+            .ok_or_else(|| {
+                RuntimeError::type_error("sleep requires a non-negative integer argument")
+            })
+    })?;
     thread::sleep(Duration::from_millis(ms));
     Ok(StackValue::Nil)
 }
 
 fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    if args.is_empty() {
-        return StackValue::Primitive(Primitive::Integer(0));
-    }
     let mut total: f64 = 0.0;
     let mut is_int = true;
-    if let Ok(HeapData::Vector(v)) = heap_data(heap, &args[0]) {
+    if let Some(arg0) = args.first()
+        && let Ok(HeapData::Vector(v)) = heap_data(heap, arg0)
+    {
         for sv in v {
             match sv.as_primitive() {
                 Some(Primitive::Integer(i)) => total += i as f64,

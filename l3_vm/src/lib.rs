@@ -137,8 +137,8 @@ impl<'a> BytecodeVM<'a> {
                     Instruction::Duplicate { index } => {
                         let idx = self.stack.len() - 1 - index;
                         debug_println!(debug, "    DUPLICATE({}) stack[len-1-{}]", index, index);
-                        if idx < self.stack.len() {
-                            self.stack.push(self.stack[idx]);
+                        if let Some(sv) = self.stack.get(idx) {
+                            self.stack.push(*sv);
                         }
                     },
                     Instruction::Add => {
@@ -167,19 +167,17 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Negate => {
                         debug_println!(debug, "    NEGATE");
-                        let a = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(a) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         let result = negative(&a, &self.heap)?;
                         self.stack.push(result);
                     },
                     Instruction::Not => {
                         debug_println!(debug, "    NOT");
-                        let a = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(a) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         self.stack.push(not_op(&a, &self.heap));
                     },
                     Instruction::Equal { keep_rhs } => {
@@ -226,26 +224,24 @@ impl<'a> BytecodeVM<'a> {
                     Instruction::SetGlobal { name_index } => {
                         let name = &program.constants[*name_index];
                         let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
-                        let val = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(val) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         debug_println!(debug, "    SET_GLOBAL {} = {:?}", name_str, val);
                         self.global_symbols.insert(name_str, val);
                     },
                     Instruction::GetLocal { index } => {
                         let fp = self.frames.last().unwrap().frame_pointer;
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
-                        if fp + index < self.stack.len() {
-                            self.stack.push(self.stack[fp + index]);
+                        if let Some(&cell) = self.stack.get(fp + index) {
+                            self.stack.push(cell);
                         }
                     },
                     Instruction::SetLocal { index } => {
                         let fp = self.frames.last().unwrap().frame_pointer;
-                        let val = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(val) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
                         let _old = mem::replace(&mut self.stack[fp + index], val);
 
@@ -318,10 +314,9 @@ impl<'a> BytecodeVM<'a> {
                         keep_stay,
                         keep_jump,
                     } => {
-                        let cond = self
-                            .stack
-                            .last()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(cond) = self.stack.last() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         let truthy = cond.is_truthy(&self.heap);
                         let should_jump = truthy == *expected;
                         debug_println!(
@@ -374,30 +369,25 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetIndex => {
                         debug_println!(debug, "    GET_INDEX");
-                        let idx = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                        let container = self
-                            .stack
-                            .last_mut()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(idx) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let Some(container) = self.stack.last_mut() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         *container = index(container, &idx, &mut self.heap)?;
                     },
                     Instruction::SetIndex => {
                         debug_println!(debug, "    SET_INDEX");
-                        let val = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                        let idx = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-                        let container = self
-                            .stack
-                            .last_mut()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(val) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let Some(idx) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let Some(container) = self.stack.last_mut() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         *index_mut(container, &idx, &mut self.heap)? = val;
                     },
                     Instruction::Closure {
@@ -456,10 +446,9 @@ impl<'a> BytecodeVM<'a> {
                         }
                     },
                     Instruction::SetUpvalue { index } => {
-                        let val = self
-                            .stack
-                            .pop()
-                            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+                        let Some(val) = self.stack.pop() else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         debug_println!(debug, "    SET_UPVALUE {} val={:?}", index, val);
                         if let Ok(mut cell) =
                             self.frames.last().unwrap().upvalues[*index].try_borrow_mut()
@@ -482,7 +471,7 @@ impl<'a> BytecodeVM<'a> {
         self.heap.sweep();
     }
 
-    #[allow(
+    #[expect(
         clippy::inline_always,
         reason = "It inlines just the check and helps tremendously"
     )]
@@ -534,6 +523,11 @@ impl<'a> BytecodeVM<'a> {
             _ => return Err(RuntimeError::type_error("cannot call non-function")),
         };
 
+        let args_base = base + 1;
+        let Some(args) = self.stack.get(args_base..(args_base + arg_count)) else {
+            return Err(RuntimeError::generic("stack underflow"));
+        };
+
         let is_builtin = self
             .heap
             .cells
@@ -541,32 +535,20 @@ impl<'a> BytecodeVM<'a> {
             .is_some_and(|c| matches!(&c.value, HeapData::Function(Function::Builtin(_))));
 
         if is_builtin {
-            let body = self
-                .heap
-                .cells
-                .get(func_key)
-                .and_then(|c| match &c.value {
-                    HeapData::Function(Function::Builtin(b)) => Some(b.body.clone()),
-                    _ => None,
-                })
-                .ok_or_else(|| RuntimeError::type_error("invalid builtin function"))?;
-            let result = {
-                let arg_slice: &[StackValue] = if arg_count > 0 {
-                    &self.stack[(base + 1)..(base + 1 + arg_count)]
-                } else {
-                    &[]
-                };
-                body(arg_slice, &mut self.heap)
+            let Some(body) = self.heap.cells.get(func_key).and_then(|c| match &c.value {
+                HeapData::Function(Function::Builtin(b)) => Some(b.body.clone()),
+                _ => None,
+            }) else {
+                return Err(RuntimeError::type_error("invalid builtin function"));
             };
+            let result = { body(args, &mut self.heap) };
             self.stack.truncate(base);
             return result.map_err(|e| RuntimeError::type_error(format!("builtin error: {e}")));
         }
 
-        let cell = self
-            .heap
-            .cells
-            .get(func_key)
-            .ok_or_else(|| RuntimeError::type_error("invalid function reference"))?;
+        let Some(cell) = self.heap.cells.get(func_key) else {
+            return Err(RuntimeError::type_error("invalid function reference"));
+        };
         let HeapData::Function(Function::Bytecode(bc)) = &cell.value else {
             return Err(RuntimeError::type_error("cannot call non-function"));
         };
@@ -577,10 +559,7 @@ impl<'a> BytecodeVM<'a> {
         }
         if total_args < bc.arity {
             let mut new_bc = bc.clone();
-            new_bc.curried_args.reserve(arg_count);
-            for i in 0..arg_count {
-                new_bc.curried_args.push(self.stack[base + 1 + i]);
-            }
+            new_bc.curried_args.extend_from_slice(args);
             self.stack.truncate(base);
             return Ok(self.heap.alloc_function(Function::Bytecode(new_bc)));
         }
@@ -588,15 +567,9 @@ impl<'a> BytecodeVM<'a> {
         let frame_pointer = base + 1;
 
         if !bc.curried_args.is_empty() {
-            let curried_count = bc.curried_args.len();
-            let old_end = self.stack.len();
-            self.stack.resize(old_end + curried_count, StackValue::Nil);
-            for i in (0..arg_count).rev() {
-                self.stack[frame_pointer + curried_count + i] =
-                    mem::replace(&mut self.stack[frame_pointer + i], StackValue::Nil);
-            }
-            for (i, &arg) in bc.curried_args.iter().enumerate() {
-                self.stack[frame_pointer + i] = arg;
+            self.stack.extend_from_slice(&bc.curried_args);
+            if let Some(remainder) = self.stack.get_mut(frame_pointer..) {
+                remainder.rotate_right(bc.curried_args.len());
             }
         }
 
@@ -618,14 +591,12 @@ impl<'a> BytecodeVM<'a> {
     where
         F: Fn(&StackValue, &StackValue, &mut Heap) -> Result<StackValue, RuntimeError>,
     {
-        let b = self
-            .stack
-            .pop()
-            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
-        let a = self
-            .stack
-            .last_mut()
-            .ok_or_else(|| RuntimeError::generic("stack underflow"))?;
+        let Some(b) = self.stack.pop() else {
+            return Err(RuntimeError::generic("stack underflow"));
+        };
+        let Some(a) = self.stack.last_mut() else {
+            return Err(RuntimeError::generic("stack underflow"));
+        };
         let result = f(a, &b, &mut self.heap)?;
         *a = result;
         Ok(())

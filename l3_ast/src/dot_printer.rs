@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
 
 use crate::*;
 

@@ -1,11 +1,11 @@
 use std::{
     fs,
-    io::{self, Read},
+    io::{self, Read as _},
     process,
     time::Instant,
 };
 
-use clap::Parser;
+use clap::Parser as _;
 use l3_ast::{ast_printer, dot_printer};
 use l3_bytecode::{format as bytecode_fmt, optimizer::Optimizer};
 use l3_compiler::Compiler;
@@ -26,7 +26,9 @@ struct Debug {
 }
 
 fn read_input(cli: &Cli) -> (String, String) {
-    if cli.files.is_empty() || cli.files[0] == "-" {
+    let filename = &cli.files.first();
+
+    if filename.is_none_or(|f| f == "-") {
         let mut source = String::new();
         if io::stdin().read_to_string(&mut source).is_err() {
             eprintln!("Error reading from stdin");
@@ -48,8 +50,8 @@ fn read_input(cli: &Cli) -> (String, String) {
 fn main() {
     let cli = Cli::parse();
 
-    if cli.files.len() > 1 {
-        eprintln!("Ignoring extra input files: {:?}", &cli.files[1..]);
+    if let Some(path) = cli.files.get(2..) {
+        eprintln!("Ignoring extra input files: {path:?}");
     }
 
     let debug = Debug {

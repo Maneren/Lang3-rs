@@ -3,8 +3,10 @@ use std::fmt;
 use logos::Logos;
 
 fn extract_string<'input>(lex: &logos::Lexer<'input, Token<'input>>) -> &'input str {
-    let slice = lex.slice();
-    &slice[1..slice.len() - 1]
+    lex.slice()
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or_default()
 }
 
 #[derive(Logos, Debug, Clone, Copy, PartialEq)]
@@ -126,9 +128,9 @@ pub enum Token<'input> {
     CaretEqual,
 
     // Literals
-    #[regex("[0-9]+", |lex| lex.slice().parse::<i64>().unwrap())]
+    #[regex("[0-9]+", |lex| lex.slice().parse::<i64>().expect("Regex ensures valid integer"))]
     Number(i64),
-    #[regex("[0-9]+\\.[0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
+    #[regex("[0-9]+\\.[0-9]+", |lex| lex.slice().parse::<f64>().expect("Regex ensures valid float"))]
     Float(f64),
     #[regex(r#""[^"\\]*(\\.[^"\\]*)*""#, extract_string)]
     Str(&'input str),

@@ -207,7 +207,7 @@ fn repeat_str(s: &str, n: i64) -> String {
     if n <= 0 {
         String::new()
     } else {
-        s.repeat(n as usize)
+        s.repeat(usize::try_from(n).unwrap_or(0))
     }
 }
 
@@ -256,7 +256,12 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
         (Resolved::Num(pa), Resolved::Num(pb)) => {
             let result = match (pa, pb) {
                 (Primitive::Integer(a), Primitive::Integer(b)) => {
-                    Primitive::Integer(a.wrapping_pow(b as u32))
+                    let Ok(exp) = u32::try_from(b) else {
+                        return Err(RuntimeError::value(format!(
+                            "exponent must be a non-negative 32-bit integer, got {b}"
+                        )));
+                    };
+                    Primitive::Integer(a.wrapping_pow(exp))
                 },
                 (Primitive::Double(a), Primitive::Double(b)) => Primitive::Double(a.powf(b)),
                 (Primitive::Integer(a), Primitive::Double(b)) => {
@@ -319,25 +324,21 @@ pub fn index(
     index: &StackValue,
     heap: &mut Heap,
 ) -> Result<StackValue, RuntimeError> {
-    let idx = integer_index(index, heap)?;
-    if idx < 0 {
+    let Ok(i) = usize::try_from(integer_index(index, heap)?) else {
         return Err(RuntimeError::value("index out of bounds"));
-    }
-    let i = idx as usize;
+    };
     match resolve(container, heap) {
         Resolved::Str(s) => {
             let chars: Vec<char> = s.chars().collect();
-            if i >= chars.len() {
+            let Some(c) = chars.get(i) else {
                 return Err(RuntimeError::value("index out of bounds"));
-            }
-            Ok(heap.alloc_string(chars[i].to_string()))
+            };
+            Ok(heap.alloc_string(c.to_string()))
         },
-        Resolved::Vec(v) => {
-            if i >= v.len() {
-                return Err(RuntimeError::value("index out of bounds"));
-            }
-            Ok(v[i])
-        },
+        Resolved::Vec(v) => v
+            .get(i)
+            .copied()
+            .ok_or_else(|| RuntimeError::value("index out of bounds")),
         Resolved::Num(p) => {
             let type_name = match p {
                 Primitive::Integer(_) => "int",
@@ -359,25 +360,19 @@ pub fn index_mut<'a>(
     index: &StackValue,
     heap: &'a mut Heap,
 ) -> Result<&'a mut StackValue, RuntimeError> {
-    let idx = integer_index(index, heap)?;
+    let Ok(i) = usize::try_from(integer_index(index, heap)?) else {
+        return Err(RuntimeError::value("index out of bounds"));
+    };
     let key = heap_key(container)?;
 
-    let cell = heap
-        .cells
-        .get_mut(key)
-        .ok_or_else(|| RuntimeError::value("invalid heap reference"))?;
-    let v = cell
-        .value
-        .as_mut_vector()
-        .ok_or_else(|| RuntimeError::type_error("cannot index non-vector type"))?;
-    if idx < 0 {
-        return Err(RuntimeError::value("index out of bounds"));
-    }
-    let i = idx as usize;
-    if i >= v.len() {
-        return Err(RuntimeError::value("index out of bounds"));
-    }
-    Ok(&mut v[i])
+    let Some(cell) = heap.cells.get_mut(key) else {
+        return Err(RuntimeError::value("invalid heap reference"));
+    };
+    let Some(v) = cell.value.as_mut_vector() else {
+        return Err(RuntimeError::type_error("cannot index non-vector type"));
+    };
+    v.get_mut(i)
+        .ok_or_else(|| RuntimeError::value("index out of bounds"))
 }
 
 #[must_use]

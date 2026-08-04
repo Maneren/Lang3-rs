@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::Logos as _;
 
 use crate::token::Token;
 

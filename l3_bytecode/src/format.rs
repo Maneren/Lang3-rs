@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Arguments, Display, Write as _};
 
 use crate::{Instruction, ProgramBytecode};
 
@@ -6,22 +6,27 @@ const OP_WIDTH: usize = 10;
 const OPERAND_WIDTH: usize = 4;
 const HEADER_WIDTH: usize = 7; // "XXXX | " = 7 chars
 
+fn append(out: &mut String, args: Arguments<'_>) {
+    out.write_fmt(args)
+        .expect("Writing to string should not fail.");
+}
+
 #[must_use]
 pub fn format_bytecode(program: &ProgramBytecode) -> String {
     let mut out = String::new();
     for (chunk_id, chunk) in program.chunks.iter().enumerate() {
-        writeln!(out, "== Chunk {chunk_id} ==").unwrap();
+        append(&mut out, format_args!("== Chunk {chunk_id} ==\n"));
         for (offset, instruction) in chunk.code.iter().enumerate() {
             write_header(&mut out, offset);
             format_instruction(instruction, offset, program, &mut out);
-            writeln!(out).unwrap();
+            out.push('\n');
         }
     }
     out
 }
 
 fn write_header(out: &mut String, offset: usize) {
-    write!(out, "{offset:04} | ").unwrap();
+    append(out, format_args!("{offset:04} | "));
 }
 
 fn write_op(out: &mut String, name: &str) {
@@ -29,15 +34,25 @@ fn write_op(out: &mut String, name: &str) {
 }
 
 fn pad_op(out: &mut String, name: &str) {
-    write!(out, "{name:<OP_WIDTH$}").unwrap();
+    append(out, format_args!("{name:<OP_WIDTH$}"));
 }
 
 fn write_operand(out: &mut String, val: impl Display) {
-    write!(out, " {val:>OPERAND_WIDTH$}").unwrap();
+    append(out, format_args!(" {val:>OPERAND_WIDTH$}"));
 }
 
-fn write_value(out: &mut String, cell: &l3_runtime::HeapCell) {
-    write!(out, " ({})", cell.value).unwrap();
+fn write_value(out: &mut String, cell: Option<&l3_runtime::HeapCell>) {
+    match cell {
+        Some(c) => append(out, format_args!(" ({})", c.value)),
+        None => out.push_str(" ?"),
+    }
+}
+
+fn write_compare(out: &mut String, name: &str, keep_rhs: bool) {
+    write_op(out, name);
+    if keep_rhs {
+        out.push_str(" keep rhs");
+    }
 }
 
 fn format_instruction(
@@ -100,47 +115,40 @@ fn format_instruction(
         Instruction::Constant { index } => {
             pad_op(out, "CONSTANT");
             write_operand(out, index);
-            write_value(out, &program.constants[*index]);
+            write_value(out, program.constants.get(*index));
         },
 
         // Named global
-        Instruction::GetGlobal { name_index } | Instruction::SetGlobal { name_index } => {
-            let name = match inst {
-                Instruction::GetGlobal { .. } => "GET_GLOBAL",
-                Instruction::SetGlobal { .. } => "SET_GLOBAL",
-                _ => unreachable!(),
-            };
-            pad_op(out, name);
+        Instruction::GetGlobal { name_index } => {
+            pad_op(out, "GET_GLOBAL");
             write_operand(out, name_index);
-            write!(
+            append(
                 out,
-                " '{}'",
-                display_constant(&program.constants[*name_index])
-            )
-            .unwrap();
+                format_args!(
+                    " '{}'",
+                    display_constant(program.constants.get(*name_index))
+                ),
+            );
+        },
+        Instruction::SetGlobal { name_index } => {
+            pad_op(out, "SET_GLOBAL");
+            write_operand(out, name_index);
+            append(
+                out,
+                format_args!(
+                    " '{}'",
+                    display_constant(program.constants.get(*name_index))
+                ),
+            );
         },
 
         // Comparisons with optional keep_rhs suffix
-        Instruction::Equal { keep_rhs }
-        | Instruction::NotEqual { keep_rhs }
-        | Instruction::Greater { keep_rhs }
-        | Instruction::GreaterEqual { keep_rhs }
-        | Instruction::Less { keep_rhs }
-        | Instruction::LessEqual { keep_rhs } => {
-            let name = match inst {
-                Instruction::Equal { .. } => "EQUAL",
-                Instruction::NotEqual { .. } => "NOT_EQUAL",
-                Instruction::Greater { .. } => "GREATER",
-                Instruction::GreaterEqual { .. } => "GREATER_EQUAL",
-                Instruction::Less { .. } => "LESS",
-                Instruction::LessEqual { .. } => "LESS_EQUAL",
-                _ => unreachable!(),
-            };
-            write_op(out, name);
-            if *keep_rhs {
-                write!(out, " keep rhs").unwrap();
-            }
-        },
+        Instruction::Equal { keep_rhs } => write_compare(out, "EQUAL", *keep_rhs),
+        Instruction::NotEqual { keep_rhs } => write_compare(out, "NOT_EQUAL", *keep_rhs),
+        Instruction::Greater { keep_rhs } => write_compare(out, "GREATER", *keep_rhs),
+        Instruction::GreaterEqual { keep_rhs } => write_compare(out, "GREATER_EQUAL", *keep_rhs),
+        Instruction::Less { keep_rhs } => write_compare(out, "LESS", *keep_rhs),
+        Instruction::LessEqual { keep_rhs } => write_compare(out, "LESS_EQUAL", *keep_rhs),
 
         // Call
         Instruction::Call {
@@ -149,7 +157,7 @@ fn format_instruction(
         } => {
             pad_op(out, "CALL");
             write_operand(out, arg_count);
-            write!(out, " {keep_return_value}").unwrap();
+            append(out, format_args!(" {keep_return_value}"));
         },
 
         // For loop
@@ -161,14 +169,14 @@ fn format_instruction(
             step_index,
         } => {
             pad_op(out, "FOR_LOOP");
-            write!(out, " ctrl={control_index:>OPERAND_WIDTH$}").unwrap();
-            write!(out, " lim={limit_index:>OPERAND_WIDTH$}").unwrap();
-            write!(out, " body={body_offset:>OPERAND_WIDTH$}").unwrap();
+            append(out, format_args!(" ctrl={control_index:>OPERAND_WIDTH$}"));
+            append(out, format_args!(" lim={limit_index:>OPERAND_WIDTH$}"));
+            append(out, format_args!(" body={body_offset:>OPERAND_WIDTH$}"));
             let cmp = if *inclusive { "LE" } else { "LT" };
-            write!(out, " {cmp}").unwrap();
+            append(out, format_args!(" {cmp}"));
             match step_index {
-                Some(si) => write!(out, " step={si:>OPERAND_WIDTH$}").unwrap(),
-                None => write!(out, " step=const1").unwrap(),
+                Some(si) => append(out, format_args!(" step={si:>OPERAND_WIDTH$}")),
+                None => out.push_str(" step=const1"),
             }
         },
 
@@ -181,15 +189,15 @@ fn format_instruction(
         } => {
             pad_op(out, "JUMP_IF");
             write_operand(out, jump_offset);
-            write!(out, " {expected}").unwrap();
+            append(out, format_args!(" {expected}"));
             if *keep_jump || *keep_stay {
-                write!(out, " keep after").unwrap();
+                out.push_str(" keep after");
             }
             if *keep_jump {
-                write!(out, " jump").unwrap();
+                out.push_str(" jump");
             }
             if *keep_stay {
-                write!(out, " stay").unwrap();
+                out.push_str(" stay");
             }
         },
 
@@ -200,30 +208,28 @@ fn format_instruction(
         } => {
             pad_op(out, "CLOSURE");
             write_operand(out, function_index);
-            write!(
+            append(
                 out,
-                " ({})",
-                display_constant(&program.constants[*function_index])
-            )
-            .unwrap();
+                format_args!(
+                    " ({})",
+                    display_constant(program.constants.get(*function_index))
+                ),
+            );
             let continuation_indent = HEADER_WIDTH + OP_WIDTH + 1;
             for uv in upvalues {
                 let kind = if uv.is_local { "local" } else { "upvalue" };
-                writeln!(out).unwrap();
-                write!(out, "{offset:04} | ").unwrap();
-                write!(
+                out.push('\n');
+                append(out, format_args!("{offset:04} | "));
+                append(
                     out,
-                    "{:<width$}",
-                    "",
-                    width = continuation_indent - HEADER_WIDTH
-                )
-                .unwrap();
-                write!(out, "{kind} {}", uv.index).unwrap();
+                    format_args!("{:<width$}", "", width = continuation_indent - HEADER_WIDTH),
+                );
+                append(out, format_args!("{kind} {}", uv.index));
             }
         },
     }
 }
 
-fn display_constant(cell: &l3_runtime::HeapCell) -> String {
-    format!("{}", cell.value)
+fn display_constant(cell: Option<&l3_runtime::HeapCell>) -> String {
+    cell.map_or_else(|| "?".to_string(), |c| format!("{}", c.value))
 }

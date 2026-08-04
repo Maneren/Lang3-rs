@@ -542,7 +542,10 @@ pub struct RangeForLoop {
 }
 
 impl RangeForLoop {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "mirrors the AST node's field list"
+    )]
     pub fn new(
         variable: Identifier,
         start: Expression,
