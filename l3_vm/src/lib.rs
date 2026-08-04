@@ -488,6 +488,11 @@ impl<'a> BytecodeVM<'a> {
         self.heap.sweep();
     }
 
+    #[allow(
+        clippy::inline_always,
+        reason = "It inlines just the check and helps tremendously"
+    )]
+    #[inline(always)]
     fn maybe_gc(&mut self) {
         if self.heap.added_since_last_sweep >= self.heap.next_gc_threshold {
             self.run_gc();
