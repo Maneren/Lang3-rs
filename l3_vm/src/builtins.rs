@@ -6,6 +6,7 @@ use std::{
 };
 
 use l3_runtime::*;
+use rand::Rng as _;
 
 type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>>;
 
@@ -307,20 +308,14 @@ fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
 }
 
 fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
-    heap.rng_state = heap
-        .rng_state
-        .wrapping_mul(6_364_136_223_846_793_005)
-        .wrapping_add(1_442_695_040_888_963_407);
-    let val = heap.rng_state;
-    let limit = args.first().map_or(Ok(u64::MAX), |a| match int_val(a) {
-        Some(i) if i > 0 => Ok(u64::try_from(i).unwrap_or(u64::MAX)),
+    let limit = args.first().map_or(Ok(i64::MAX), |a| match int_val(a) {
+        Some(i) if i > 0 => Ok(i),
         _ => Err(RuntimeError::type_error(
             "random requires a positive integer argument",
         )),
     })?;
-    Ok(StackValue::Primitive(Primitive::Integer(
-        (val % limit) as i64,
-    )))
+    let val = heap.rng.random_range(0..limit);
+    Ok(StackValue::Primitive(Primitive::Integer(val)))
 }
 
 fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {

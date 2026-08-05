@@ -3,6 +3,7 @@ use std::{
     io::{self, BufRead, BufReader, LineWriter, Read, Write},
 };
 
+use rand::{SeedableRng as _, rngs::StdRng};
 use slotmap::{DefaultKey, SlotMap};
 
 use crate::{function::Function, heap_data::HeapData, stack_value::StackValue};
@@ -99,7 +100,7 @@ pub struct Heap<'a> {
     pub sweep_count: usize,
     pub input: Box<dyn BufRead + 'a>,
     pub output: Box<dyn Write + 'a>,
-    pub rng_state: u64,
+    pub rng: StdRng,
 }
 
 impl<'a> Heap<'a> {
@@ -112,7 +113,7 @@ impl<'a> Heap<'a> {
             sweep_count: 0,
             input: Box::new(BufReader::new(reader)),
             output: Box::new(LineWriter::new(writer)),
-            rng_state: 42,
+            rng: StdRng::seed_from_u64(42),
         }
     }
 
