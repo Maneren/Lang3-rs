@@ -1,9 +1,9 @@
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
-    ComparisonOperator, Declaration, Expression, ForLoop, FunctionCall, IfExpression, IfStatement,
-    LastStatement, Literal, LogicalExpression, LogicalOperator, NameAssignment, NamedFunction,
-    OperatorAssignment, Program, RangeForLoop, RangeOperator, Statement, UnaryExpression,
-    UnaryOperator, Variable, While,
+    ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfExpression,
+    IfStatement, LastStatement, Literal, LogicalExpression, LogicalOperator, NameAssignment,
+    NamedFunction, OperatorAssignment, Program, RangeForLoop, RangeOperator, Statement,
+    UnaryExpression, UnaryOperator, Variable, While,
 };
 use l3_bytecode::{Chunk, Instruction, ProgramBytecode, UpvalueDesc};
 use l3_location::Location;
@@ -14,6 +14,7 @@ pub struct Compiler {
     contexts: Vec<Context>,
     loop_contexts: Vec<LoopContext>,
     synthetic_counter: usize,
+    location_stack: Vec<Location>,
 }
 
 struct Local {
@@ -49,15 +50,33 @@ impl Compiler {
             contexts: Vec::new(),
             loop_contexts: Vec::new(),
             synthetic_counter: 0,
+            location_stack: Vec::new(),
         }
     }
 
     pub fn compile(&mut self, ast: &Program) -> Result<&ProgramBytecode, CompileError> {
         self.push_context();
         self.compile_block(ast)?;
-        self.emit(Instruction::Return, Location::default());
+        self.emit(Instruction::Return);
         Self::deduplicate_constants();
         Ok(&self.program)
+    }
+
+    // -----------------------------------------------------------------------
+    // Instruction emission with source locations
+    // -----------------------------------------------------------------------
+
+    fn current_location(&self) -> Location {
+        self.location_stack.last().cloned().unwrap_or_default()
+    }
+
+    /// Run `f` with `loc` as the innermost source location. Mirrors the C++
+    /// `LocationScope` RAII guard: every `emit` inside inherits this location.
+    fn with_location<T>(&mut self, loc: &Location, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.location_stack.push(loc.clone());
+        let result = f(self);
+        self.location_stack.pop();
+        result
     }
 
     fn push_context(&mut self) -> usize {
@@ -96,7 +115,8 @@ impl Compiler {
             .expect("context references a chunk pushed during compilation")
     }
 
-    fn emit(&mut self, inst: Instruction, loc: Location) {
+    fn emit(&mut self, inst: Instruction) {
+        let loc = self.current_location();
         self.current_chunk().write(inst, loc);
     }
 
@@ -117,7 +137,7 @@ impl Compiler {
             }
         }
         if pop_count > 0 {
-            self.emit(Instruction::Pop { count: pop_count }, Location::default());
+            self.emit(Instruction::Pop { count: pop_count });
         }
     }
 
@@ -223,6 +243,12 @@ impl Compiler {
     // -----------------------------------------------------------------------
 
     fn compile_statement(&mut self, stmt: &Statement) -> Result<(), CompileError> {
+        self.with_location(statement_location(stmt), |c| {
+            c.compile_statement_inner(stmt)
+        })
+    }
+
+    fn compile_statement_inner(&mut self, stmt: &Statement) -> Result<(), CompileError> {
         match stmt {
             Statement::Declaration(d) => self.compile_declaration(d)?,
             Statement::FunctionCall(fc) => self.compile_fcall(fc, true)?,
@@ -242,10 +268,7 @@ impl Compiler {
             self.compile_expression(expr)?;
         } else {
             let nil_idx = self.make_constant(HeapData::Nil);
-            self.emit(
-                Instruction::Constant { index: nil_idx },
-                Location::default(),
-            );
+            self.emit(Instruction::Constant { index: nil_idx });
         }
         for name in &decl.names {
             self.add_local(&name.name);
@@ -261,28 +284,38 @@ impl Compiler {
         self.compile_fcall_expr(fcall, !pop_result)
     }
 
+    fn compile_function_body(
+        &mut self,
+        body: &FunctionBody,
+    ) -> Result<(usize, Vec<UpvalueDesc>), CompileError> {
+        self.with_location(&body.location, |c| {
+            let chunk_id = c.push_context();
+            for param in &body.parameters {
+                c.add_local(&param.name);
+            }
+            let ended_with_return =
+                matches!(&body.block.last_statement, Some(LastStatement::Return(_)));
+            c.compile_block(&body.block)?;
+            if !ended_with_return {
+                let nil_idx = c.make_constant(HeapData::Nil);
+                c.emit(Instruction::Constant { index: nil_idx });
+            }
+            c.emit(Instruction::Return);
+            let upvalues = c.current_context().upvalues.clone();
+            c.pop_context();
+            Ok::<_, CompileError>((chunk_id, upvalues))
+        })
+    }
+
     fn compile_named_function(&mut self, nf: &NamedFunction) -> Result<(), CompileError> {
         let is_top_level = self.contexts.len() == 1;
-
-        let nil_idx = self.make_constant(HeapData::Nil);
-        self.emit(
-            Instruction::Constant { index: nil_idx },
-            Location::default(),
-        );
-        self.add_local(&nf.name.name);
-
-        let chunk_id = self.push_context();
         let arity = nf.body.parameters.len();
 
-        for param in &nf.body.parameters {
-            self.add_local(&param.name);
-        }
+        let nil_idx = self.make_constant(HeapData::Nil);
+        self.emit(Instruction::Constant { index: nil_idx });
+        self.add_local(&nf.name.name);
 
-        self.compile_block(&nf.body.block)?;
-        self.emit(Instruction::Return, Location::default());
-
-        let upvalues = self.current_context().upvalues.clone();
-        self.pop_context();
+        let (chunk_id, upvalues) = self.compile_function_body(&nf.body)?;
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id,
@@ -294,37 +327,22 @@ impl Compiler {
         let func_idx = self.make_constant(func_data);
 
         if upvalues.is_empty() {
-            self.emit(
-                Instruction::Constant { index: func_idx },
-                Location::default(),
-            );
+            self.emit(Instruction::Constant { index: func_idx });
         } else {
-            self.emit(
-                Instruction::Closure {
-                    function_index: func_idx,
-                    upvalues,
-                },
-                Location::default(),
-            );
+            self.emit(Instruction::Closure {
+                function_index: func_idx,
+                upvalues,
+            });
         }
 
         let local_idx = self.current_context().locals.len() - 1;
-        self.emit(
-            Instruction::SetLocal { index: local_idx },
-            Location::default(),
-        );
+        self.emit(Instruction::SetLocal { index: local_idx });
         if is_top_level {
             let name_idx = self.make_string_constant(&nf.name.name);
-            self.emit(
-                Instruction::GetLocal { index: local_idx },
-                Location::default(),
-            );
-            self.emit(
-                Instruction::SetGlobal {
-                    name_index: name_idx,
-                },
-                Location::default(),
-            );
+            self.emit(Instruction::GetLocal { index: local_idx });
+            self.emit(Instruction::SetGlobal {
+                name_index: name_idx,
+            });
         }
 
         Ok(())
@@ -336,20 +354,17 @@ impl Compiler {
         // If branch
         self.compile_expression(&if_stmt.base_if.condition)?;
         let else_jump = self.current_chunk().code.len();
-        self.emit(
-            Instruction::JumpIf {
-                offset: 0,
-                expected: false,
-                keep_stay: true,
-                keep_jump: false,
-            },
-            Location::default(),
-        );
-        self.emit(Instruction::Pop { count: 1 }, Location::default());
+        self.emit(Instruction::JumpIf {
+            offset: 0,
+            expected: false,
+            keep_stay: true,
+            keep_jump: false,
+        });
+        self.emit(Instruction::Pop { count: 1 });
 
         self.compile_block(&if_stmt.base_if.block)?;
         let end_jump = self.current_chunk().code.len();
-        self.emit(Instruction::Jump { offset: 0 }, Location::default());
+        self.emit(Instruction::Jump { offset: 0 });
         end_jumps.push(end_jump);
 
         // Patch the else jump
@@ -385,24 +400,18 @@ impl Compiler {
 
         self.compile_expression(&w.condition)?;
         let exit_jump = self.current_chunk().code.len();
-        self.emit(
-            Instruction::JumpIf {
-                offset: 0,
-                expected: false,
-                keep_stay: true,
-                keep_jump: false,
-            },
-            Location::default(),
-        );
-        self.emit(Instruction::Pop { count: 1 }, Location::default());
+        self.emit(Instruction::JumpIf {
+            offset: 0,
+            expected: false,
+            keep_stay: true,
+            keep_jump: false,
+        });
+        self.emit(Instruction::Pop { count: 1 });
 
         self.compile_block(&w.body)?;
 
         // Jump back to condition
-        self.emit(
-            Instruction::Jump { offset: loop_start },
-            Location::default(),
-        );
+        self.emit(Instruction::Jump { offset: loop_start });
 
         // Patch exit jump
         let exit_patch = self.current_chunk().code.len();
@@ -432,9 +441,8 @@ impl Compiler {
     }
 
     fn compile_for_loop(&mut self, fl: &ForLoop) -> Result<(), CompileError> {
-        let loc = Location::default();
         let nil_idx = self.make_constant(HeapData::Nil);
-        self.emit(Instruction::Constant { index: nil_idx }, loc.clone());
+        self.emit(Instruction::Constant { index: nil_idx });
         self.add_local(&fl.variable.name);
         let var_idx = self.current_context().locals.len() - 1;
 
@@ -443,26 +451,20 @@ impl Compiler {
         self.add_local("__collection__");
 
         let zero_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(0)));
-        self.emit(Instruction::Constant { index: zero_idx }, loc.clone());
+        self.emit(Instruction::Constant { index: zero_idx });
         let idx_idx = self.current_context().locals.len();
         self.add_local("__index__");
 
         // Call len(collection)
         let len_name_idx = self.make_string_constant("len");
-        self.emit(
-            Instruction::GetGlobal {
-                name_index: len_name_idx,
-            },
-            loc.clone(),
-        );
-        self.emit(Instruction::GetLocal { index: coll_idx }, loc.clone());
-        self.emit(
-            Instruction::Call {
-                arg_count: 1,
-                keep_return_value: true,
-            },
-            loc.clone(),
-        );
+        self.emit(Instruction::GetGlobal {
+            name_index: len_name_idx,
+        });
+        self.emit(Instruction::GetLocal { index: coll_idx });
+        self.emit(Instruction::Call {
+            arg_count: 1,
+            keep_return_value: true,
+        });
         let len_idx = self.current_context().locals.len();
         self.add_local("__length__");
 
@@ -475,36 +477,33 @@ impl Compiler {
         });
 
         // Loop condition: index < length
-        self.emit(Instruction::GetLocal { index: idx_idx }, loc.clone());
-        self.emit(Instruction::GetLocal { index: len_idx }, loc.clone());
-        self.emit(Instruction::Less { keep_rhs: false }, loc.clone());
+        self.emit(Instruction::GetLocal { index: idx_idx });
+        self.emit(Instruction::GetLocal { index: len_idx });
+        self.emit(Instruction::Less { keep_rhs: false });
         let exit_jump = self.current_chunk().code.len();
-        self.emit(
-            Instruction::JumpIf {
-                offset: 0,
-                expected: false,
-                keep_stay: false,
-                keep_jump: false,
-            },
-            loc.clone(),
-        );
+        self.emit(Instruction::JumpIf {
+            offset: 0,
+            expected: false,
+            keep_stay: false,
+            keep_jump: false,
+        });
 
         // collection[index] → assign to loop variable
-        self.emit(Instruction::GetLocal { index: coll_idx }, loc.clone());
-        self.emit(Instruction::GetLocal { index: idx_idx }, loc.clone());
-        self.emit(Instruction::GetIndex, loc.clone());
-        self.emit(Instruction::SetLocal { index: var_idx }, loc.clone());
+        self.emit(Instruction::GetLocal { index: coll_idx });
+        self.emit(Instruction::GetLocal { index: idx_idx });
+        self.emit(Instruction::GetIndex);
+        self.emit(Instruction::SetLocal { index: var_idx });
 
         self.compile_block(&fl.body)?;
 
         // index++
-        self.emit(Instruction::GetLocal { index: idx_idx }, loc.clone());
+        self.emit(Instruction::GetLocal { index: idx_idx });
         let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
-        self.emit(Instruction::Constant { index: one_idx }, loc.clone());
-        self.emit(Instruction::Add, loc.clone());
-        self.emit(Instruction::SetLocal { index: idx_idx }, loc.clone());
+        self.emit(Instruction::Constant { index: one_idx });
+        self.emit(Instruction::Add);
+        self.emit(Instruction::SetLocal { index: idx_idx });
 
-        self.emit(Instruction::Jump { offset: loop_start }, loc);
+        self.emit(Instruction::Jump { offset: loop_start });
 
         let exit_patch = self.current_chunk().code.len();
         if let Some(Instruction::JumpIf { offset, .. }) =
@@ -532,9 +531,8 @@ impl Compiler {
     }
 
     fn compile_range_for_loop(&mut self, rfl: &RangeForLoop) -> Result<(), CompileError> {
-        let loc = Location::default();
         let nil_idx = self.make_constant(HeapData::Nil);
-        self.emit(Instruction::Constant { index: nil_idx }, loc.clone());
+        self.emit(Instruction::Constant { index: nil_idx });
         self.add_local(&rfl.variable.name);
         let control_idx = self.current_context().locals.len() - 1;
 
@@ -543,10 +541,10 @@ impl Compiler {
             self.compile_expression(step_expr)?;
         } else {
             let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
-            self.emit(Instruction::Constant { index: one_idx }, loc.clone());
+            self.emit(Instruction::Constant { index: one_idx });
         }
-        self.emit(Instruction::Subtract, loc.clone());
-        self.emit(Instruction::SetLocal { index: control_idx }, loc.clone());
+        self.emit(Instruction::Subtract);
+        self.emit(Instruction::SetLocal { index: control_idx });
 
         self.compile_expression(&rfl.end)?;
         let limit_idx = self.current_context().locals.len();
@@ -556,7 +554,7 @@ impl Compiler {
             self.compile_expression(step_expr)?;
         } else {
             let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
-            self.emit(Instruction::Constant { index: one_idx }, loc.clone());
+            self.emit(Instruction::Constant { index: one_idx });
         }
         let step_idx = self.current_context().locals.len();
         self.add_local("__step__");
@@ -569,23 +567,20 @@ impl Compiler {
             body_locals_snapshot,
         });
 
-        self.emit(
-            Instruction::ForLoop {
-                control_index: control_idx,
-                limit_index: limit_idx,
-                body_offset: 0,
-                inclusive: matches!(rfl.range_type, RangeOperator::Inclusive),
-                step_index: Some(step_idx),
-            },
-            loc.clone(),
-        );
+        self.emit(Instruction::ForLoop {
+            control_index: control_idx,
+            limit_index: limit_idx,
+            body_offset: 0,
+            inclusive: matches!(rfl.range_type, RangeOperator::Inclusive),
+            step_index: Some(step_idx),
+        });
 
         let exit_jump_idx = self.current_chunk().code.len();
-        self.emit(Instruction::Jump { offset: 0 }, loc.clone());
+        self.emit(Instruction::Jump { offset: 0 });
 
         let body_start = self.current_chunk().code.len();
         self.compile_block(&rfl.body)?;
-        self.emit(Instruction::Jump { offset: for_idx }, loc);
+        self.emit(Instruction::Jump { offset: for_idx });
 
         if let Some(Instruction::ForLoop { body_offset, .. }) =
             self.current_chunk().code.get_mut(for_idx)
@@ -623,20 +618,14 @@ impl Compiler {
             let name = &name.name;
             match self.resolve_variable(name) {
                 VarType::Local(idx) => {
-                    self.emit(Instruction::SetLocal { index: idx }, Location::default());
+                    self.emit(Instruction::SetLocal { index: idx });
                 },
                 VarType::Upvalue(uv) => {
-                    self.emit(
-                        Instruction::SetUpvalue { index: uv.index },
-                        Location::default(),
-                    );
+                    self.emit(Instruction::SetUpvalue { index: uv.index });
                 },
                 VarType::Global(_) => {
                     let idx = self.make_string_constant(name);
-                    self.emit(
-                        Instruction::SetGlobal { name_index: idx },
-                        Location::default(),
-                    );
+                    self.emit(Instruction::SetGlobal { name_index: idx });
                 },
             }
         }
@@ -651,50 +640,48 @@ impl Compiler {
                 self.compile_expression(&oa.expression)?;
 
                 match oa.op {
-                    AssignmentOperator::Plus => self.emit(Instruction::Add, Location::default()),
+                    AssignmentOperator::Plus => self.emit(Instruction::Add),
                     AssignmentOperator::Minus => {
-                        self.emit(Instruction::Subtract, Location::default());
+                        self.emit(Instruction::Subtract);
                     },
                     AssignmentOperator::Multiply => {
-                        self.emit(Instruction::Multiply, Location::default());
+                        self.emit(Instruction::Multiply);
                     },
                     AssignmentOperator::Divide => {
-                        self.emit(Instruction::Divide, Location::default());
+                        self.emit(Instruction::Divide);
                     },
                     AssignmentOperator::Modulo => {
-                        self.emit(Instruction::Modulo, Location::default());
+                        self.emit(Instruction::Modulo);
                     },
-                    AssignmentOperator::Power => self.emit(Instruction::Power, Location::default()),
+                    AssignmentOperator::Power => self.emit(Instruction::Power),
                     AssignmentOperator::Assign => {
-                        self.emit(Instruction::Pop { count: 1 }, Location::default());
-                        let loc = Location::default();
+                        self.emit(Instruction::Pop { count: 1 });
                         match self.resolve_variable(name) {
                             VarType::Local(idx) => {
-                                self.emit(Instruction::SetLocal { index: idx }, loc);
+                                self.emit(Instruction::SetLocal { index: idx });
                             },
                             VarType::Upvalue(uv) => {
-                                self.emit(Instruction::SetUpvalue { index: uv.index }, loc);
+                                self.emit(Instruction::SetUpvalue { index: uv.index });
                             },
                             VarType::Global(_) => {
                                 let idx = self.make_string_constant(name);
-                                self.emit(Instruction::SetGlobal { name_index: idx }, loc);
+                                self.emit(Instruction::SetGlobal { name_index: idx });
                             },
                         }
                         return Ok(());
                     },
                 }
 
-                let loc = Location::default();
                 match self.resolve_variable(name) {
                     VarType::Local(idx) => {
-                        self.emit(Instruction::SetLocal { index: idx }, loc);
+                        self.emit(Instruction::SetLocal { index: idx });
                     },
                     VarType::Upvalue(uv) => {
-                        self.emit(Instruction::SetUpvalue { index: uv.index }, loc);
+                        self.emit(Instruction::SetUpvalue { index: uv.index });
                     },
                     VarType::Global(_) => {
                         let idx = self.make_string_constant(name);
-                        self.emit(Instruction::SetGlobal { name_index: idx }, loc);
+                        self.emit(Instruction::SetGlobal { name_index: idx });
                     },
                 }
                 Ok(())
@@ -713,17 +700,17 @@ impl Compiler {
                     AssignmentOperator::Assign => None,
                 };
                 if let Some(op) = compound {
-                    self.emit(Instruction::Duplicate { index: 1 }, Location::default());
-                    self.emit(Instruction::Duplicate { index: 1 }, Location::default());
-                    self.emit(Instruction::GetIndex, Location::default());
+                    self.emit(Instruction::Duplicate { index: 1 });
+                    self.emit(Instruction::Duplicate { index: 1 });
+                    self.emit(Instruction::GetIndex);
                     self.compile_expression(&oa.expression)?;
-                    self.emit(op, Location::default());
+                    self.emit(op);
                 } else {
                     self.compile_expression(&oa.expression)?;
                 }
 
-                self.emit(Instruction::SetIndex, Location::default());
-                self.emit(Instruction::Pop { count: 1 }, Location::default());
+                self.emit(Instruction::SetIndex);
+                self.emit(Instruction::Pop { count: 1 });
                 Ok(())
             },
         }
@@ -734,24 +721,27 @@ impl Compiler {
     // -----------------------------------------------------------------------
 
     fn compile_last_statement(&mut self, last: &LastStatement) -> Result<(), CompileError> {
+        self.with_location(last_statement_location(last), |c| {
+            c.compile_last_statement_inner(last)
+        })
+    }
+
+    fn compile_last_statement_inner(&mut self, last: &LastStatement) -> Result<(), CompileError> {
         match last {
             LastStatement::Return(ret) => {
                 if let Some(ref expr) = ret.expression {
                     self.compile_expression(expr)?;
                 } else {
                     let nil_idx = self.make_constant(HeapData::Nil);
-                    self.emit(
-                        Instruction::Constant { index: nil_idx },
-                        Location::default(),
-                    );
+                    self.emit(Instruction::Constant { index: nil_idx });
                 }
                 if self.contexts.len() > 1 {
-                    self.emit(Instruction::Return, Location::default());
+                    self.emit(Instruction::Return);
                 }
             },
             LastStatement::Break(_) => {
                 let jump = self.current_chunk().code.len();
-                self.emit(Instruction::Jump { offset: 0 }, Location::default());
+                self.emit(Instruction::Jump { offset: 0 });
                 if let Some(lc) = self.loop_contexts.last_mut() {
                     lc.break_jumps.push(jump);
                 }
@@ -760,11 +750,11 @@ impl Compiler {
                 if let Some(lc) = self.loop_contexts.last() {
                     let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
                     if body_locals > 0 {
-                        self.emit(Instruction::Pop { count: body_locals }, Location::default());
+                        self.emit(Instruction::Pop { count: body_locals });
                     }
                 }
                 let jump = self.current_chunk().code.len();
-                self.emit(Instruction::Jump { offset: 0 }, Location::default());
+                self.emit(Instruction::Jump { offset: 0 });
                 if let Some(lc) = self.loop_contexts.last_mut() {
                     lc.continue_jumps.push(jump);
                 }
@@ -778,6 +768,12 @@ impl Compiler {
     // -----------------------------------------------------------------------
 
     fn compile_expression(&mut self, expr: &Expression) -> Result<(), CompileError> {
+        self.with_location(expression_location(expr), |c| {
+            c.compile_expression_inner(expr)
+        })
+    }
+
+    fn compile_expression_inner(&mut self, expr: &Expression) -> Result<(), CompileError> {
         match expr {
             Expression::Literal(lit) => self.compile_literal(lit),
             Expression::Variable(var) => self.compile_variable(var),
@@ -802,17 +798,14 @@ impl Compiler {
                 for elem in &arr.elements {
                     self.compile_expression(elem)?;
                 }
-                self.emit(
-                    Instruction::MakeArray {
-                        count: arr.elements.len(),
-                    },
-                    Location::default(),
-                );
+                self.emit(Instruction::MakeArray {
+                    count: arr.elements.len(),
+                });
                 return Ok(());
             },
         };
         let idx = self.make_constant(heap_data);
-        self.emit(Instruction::Constant { index: idx }, Location::default());
+        self.emit(Instruction::Constant { index: idx });
         Ok(())
     }
 
@@ -820,26 +813,20 @@ impl Compiler {
         match var {
             Variable::Identifier(id) => match self.resolve_variable(&id.name) {
                 VarType::Local(idx) => {
-                    self.emit(Instruction::GetLocal { index: idx }, Location::default());
+                    self.emit(Instruction::GetLocal { index: idx });
                 },
                 VarType::Upvalue(uv) => {
-                    self.emit(
-                        Instruction::GetUpvalue { index: uv.index },
-                        Location::default(),
-                    );
+                    self.emit(Instruction::GetUpvalue { index: uv.index });
                 },
                 VarType::Global(name) => {
                     let idx = self.make_string_constant(&name);
-                    self.emit(
-                        Instruction::GetGlobal { name_index: idx },
-                        Location::default(),
-                    );
+                    self.emit(Instruction::GetGlobal { name_index: idx });
                 },
             },
             Variable::IndexExpression(ie) => {
                 self.compile_variable(&ie.base)?;
                 self.compile_expression(&ie.index)?;
-                self.emit(Instruction::GetIndex, Location::default());
+                self.emit(Instruction::GetIndex);
             },
         }
         Ok(())
@@ -852,22 +839,16 @@ impl Compiler {
     ) -> Result<(), CompileError> {
         match self.resolve_variable(&fc.name.name) {
             VarType::Local(idx) => {
-                self.emit(Instruction::GetLocal { index: idx }, Location::default());
+                self.emit(Instruction::GetLocal { index: idx });
             },
             VarType::Upvalue(uv) => {
-                self.emit(
-                    Instruction::GetUpvalue { index: uv.index },
-                    Location::default(),
-                );
+                self.emit(Instruction::GetUpvalue { index: uv.index });
             },
             VarType::Global(_) => {
                 let name_idx = self.make_string_constant(&fc.name.name);
-                self.emit(
-                    Instruction::GetGlobal {
-                        name_index: name_idx,
-                    },
-                    Location::default(),
-                );
+                self.emit(Instruction::GetGlobal {
+                    name_index: name_idx,
+                });
             },
         }
 
@@ -875,20 +856,17 @@ impl Compiler {
             self.compile_expression(arg)?;
         }
 
-        self.emit(
-            Instruction::Call {
-                arg_count: fc.arguments.len(),
-                keep_return_value,
-            },
-            Location::default(),
-        );
+        self.emit(Instruction::Call {
+            arg_count: fc.arguments.len(),
+            keep_return_value,
+        });
         Ok(())
     }
 
     fn compile_binary(&mut self, be: &BinaryExpression) -> Result<(), CompileError> {
         if let Some(folded) = self.try_fold_binary(be) {
             let idx = self.make_constant(folded);
-            self.emit(Instruction::Constant { index: idx }, Location::default());
+            self.emit(Instruction::Constant { index: idx });
             return Ok(());
         }
         self.compile_expression(&be.lhs)?;
@@ -901,7 +879,7 @@ impl Compiler {
             BinaryOperator::Modulo => Instruction::Modulo,
             BinaryOperator::Power => Instruction::Power,
         };
-        self.emit(inst, Location::default());
+        self.emit(inst);
         Ok(())
     }
 
@@ -980,7 +958,7 @@ impl Compiler {
     fn compile_unary(&mut self, ue: &UnaryExpression) -> Result<(), CompileError> {
         if let Some(folded) = self.try_fold_unary(ue) {
             let idx = self.make_constant(folded);
-            self.emit(Instruction::Constant { index: idx }, Location::default());
+            self.emit(Instruction::Constant { index: idx });
             return Ok(());
         }
         self.compile_expression(&ue.expression)?;
@@ -991,7 +969,7 @@ impl Compiler {
                 return Ok(());
             },
         };
-        self.emit(inst, Location::default());
+        self.emit(inst);
         Ok(())
     }
 
@@ -1002,15 +980,12 @@ impl Compiler {
             LogicalOperator::And => {
                 // Short-circuit: if lhs is falsy, keep it as result and jump past rhs
                 let jump = self.current_chunk().code.len();
-                self.emit(
-                    Instruction::JumpIf {
-                        offset: 0,
-                        expected: false,
-                        keep_stay: false,
-                        keep_jump: true,
-                    },
-                    Location::default(),
-                );
+                self.emit(Instruction::JumpIf {
+                    offset: 0,
+                    expected: false,
+                    keep_stay: false,
+                    keep_jump: true,
+                });
                 self.compile_expression(&le.rhs)?;
                 let patch = self.current_chunk().code.len();
                 if let Some(Instruction::JumpIf { offset, .. }) =
@@ -1022,15 +997,12 @@ impl Compiler {
             LogicalOperator::Or => {
                 // Short-circuit: if lhs is truthy, keep it as result and jump past rhs
                 let jump = self.current_chunk().code.len();
-                self.emit(
-                    Instruction::JumpIf {
-                        offset: 0,
-                        expected: true,
-                        keep_stay: false,
-                        keep_jump: true,
-                    },
-                    Location::default(),
-                );
+                self.emit(Instruction::JumpIf {
+                    offset: 0,
+                    expected: true,
+                    keep_stay: false,
+                    keep_jump: true,
+                });
                 self.compile_expression(&le.rhs)?;
                 let patch = self.current_chunk().code.len();
                 if let Some(Instruction::JumpIf { offset, .. }) =
@@ -1054,25 +1026,22 @@ impl Compiler {
             let is_last = i == len - 1;
 
             self.compile_expression(rhs)?;
-            self.emit(match_comparison_op(*op, !is_last), Location::default());
+            self.emit(match_comparison_op(*op, !is_last));
 
             if !is_last {
                 let jump = self.current_chunk().code.len();
-                self.emit(
-                    Instruction::JumpIf {
-                        offset: 0,
-                        expected: false,
-                        keep_stay: false,
-                        keep_jump: true,
-                    },
-                    Location::default(),
-                );
+                self.emit(Instruction::JumpIf {
+                    offset: 0,
+                    expected: false,
+                    keep_stay: false,
+                    keep_jump: true,
+                });
                 false_jumps.push(jump);
             }
         }
 
         let end_jump = self.current_chunk().code.len();
-        self.emit(Instruction::Jump { offset: 0 }, Location::default());
+        self.emit(Instruction::Jump { offset: 0 });
 
         let cleanup = self.current_chunk().code.len();
         for jump in &false_jumps {
@@ -1082,12 +1051,9 @@ impl Compiler {
                 *offset = cleanup;
             }
         }
-        self.emit(Instruction::Pop { count: 2 }, Location::default());
+        self.emit(Instruction::Pop { count: 2 });
         let false_idx = self.make_constant(HeapData::Primitive(Primitive::Bool(false)));
-        self.emit(
-            Instruction::Constant { index: false_idx },
-            Location::default(),
-        );
+        self.emit(Instruction::Constant { index: false_idx });
 
         let end = self.current_chunk().code.len();
         if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(end_jump) {
@@ -1100,20 +1066,17 @@ impl Compiler {
     fn compile_if_expr(&mut self, ife: &IfExpression) -> Result<(), CompileError> {
         self.compile_expression(&ife.base_if.condition)?;
         let else_jump = self.current_chunk().code.len();
-        self.emit(
-            Instruction::JumpIf {
-                offset: 0,
-                expected: false,
-                keep_stay: true,
-                keep_jump: false,
-            },
-            Location::default(),
-        );
-        self.emit(Instruction::Pop { count: 1 }, Location::default());
+        self.emit(Instruction::JumpIf {
+            offset: 0,
+            expected: false,
+            keep_stay: true,
+            keep_jump: false,
+        });
+        self.emit(Instruction::Pop { count: 1 });
 
         self.compile_block(&ife.base_if.block)?;
         let end_jump = self.current_chunk().code.len();
-        self.emit(Instruction::Jump { offset: 0 }, Location::default());
+        self.emit(Instruction::Jump { offset: 0 });
 
         let else_patch = self.current_chunk().code.len();
         if let Some(Instruction::JumpIf { offset, .. }) =
@@ -1133,20 +1096,11 @@ impl Compiler {
     }
 
     fn compile_anon_fn(&mut self, af: &AnonymousFunction) -> Result<(), CompileError> {
-        let chunk_id = self.push_context();
         let arity = af.body.parameters.len();
         let name = format!("<anon_{}>", self.synthetic_counter);
         self.synthetic_counter += 1;
 
-        for param in &af.body.parameters {
-            self.add_local(&param.name);
-        }
-
-        self.compile_block(&af.body.block)?;
-        self.emit(Instruction::Return, Location::default());
-
-        let upvalues = self.current_context().upvalues.clone();
-        self.pop_context();
+        let (chunk_id, upvalues) = self.compile_function_body(&af.body)?;
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id,
@@ -1158,18 +1112,12 @@ impl Compiler {
         let func_idx = self.make_constant(func_data);
 
         if upvalues.is_empty() {
-            self.emit(
-                Instruction::Constant { index: func_idx },
-                Location::default(),
-            );
+            self.emit(Instruction::Constant { index: func_idx });
         } else {
-            self.emit(
-                Instruction::Closure {
-                    function_index: func_idx,
-                    upvalues,
-                },
-                Location::default(),
-            );
+            self.emit(Instruction::Closure {
+                function_index: func_idx,
+                upvalues,
+            });
         }
 
         Ok(())
@@ -1177,6 +1125,42 @@ impl Compiler {
 
     const fn deduplicate_constants() {
         // For MVP, skip deduplication
+    }
+}
+
+const fn statement_location(stmt: &Statement) -> &Location {
+    match stmt {
+        Statement::Declaration(d) => &d.location,
+        Statement::ForLoop(fl) => &fl.location,
+        Statement::FunctionCall(fc) => &fc.location,
+        Statement::IfStatement(is) => &is.location,
+        Statement::NameAssignment(na) => &na.location,
+        Statement::NamedFunction(nf) => &nf.location,
+        Statement::OperatorAssignment(oa) => &oa.location,
+        Statement::RangeForLoop(rfl) => &rfl.location,
+        Statement::While(w) => &w.location,
+    }
+}
+
+const fn expression_location(expr: &Expression) -> &Location {
+    match expr {
+        Expression::AnonymousFunction(af) => &af.location,
+        Expression::BinaryExpression(be) => &be.location,
+        Expression::Comparison(c) => &c.location,
+        Expression::FunctionCall(fc) => &fc.location,
+        Expression::IfExpression(ife) => &ife.location,
+        Expression::Literal(lit) => lit.location(),
+        Expression::LogicalExpression(le) => &le.location,
+        Expression::UnaryExpression(ue) => &ue.location,
+        Expression::Variable(var) => var.location(),
+    }
+}
+
+const fn last_statement_location(last: &LastStatement) -> &Location {
+    match last {
+        LastStatement::Return(r) => &r.location,
+        LastStatement::Break(b) => &b.location,
+        LastStatement::Continue(c) => &c.location,
     }
 }
 

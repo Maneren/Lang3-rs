@@ -1,2 +1,3 @@
 4
 TypeError: cannot index a int value
+  at tests/snapshot/inputs/indexing_nested_error.l3:5.9-24

@@ -3,3 +3,4 @@
 x
 z
 ValueError: index out of bounds
+  at tests/snapshot/inputs/indexing_bounds.l3:10.9-16

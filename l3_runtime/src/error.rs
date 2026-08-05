@@ -9,111 +9,118 @@ pub struct StacktraceFrame {
 }
 
 #[derive(Debug, Clone)]
-pub enum RuntimeError {
-    UnsupportedOperation {
-        message: String,
-        location: Option<Location>,
-    },
-    ValueError {
-        message: String,
-        location: Option<Location>,
-    },
-    TypeError {
-        message: String,
-        location: Option<Location>,
-    },
-    NameError {
-        message: String,
-        location: Option<Location>,
-    },
-    UndefinedVariable {
-        message: String,
-        location: Option<Location>,
-    },
-    Internal {
-        message: String,
-        location: Option<Location>,
-    },
+enum RuntimeErrorKind {
+    UnsupportedOperation { message: String },
+    ValueError { message: String },
+    TypeError { message: String },
+    NameError { message: String },
+    UndefinedVariable { message: String },
+    Internal { message: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct RuntimeError {
+    kind: RuntimeErrorKind,
+    location: Option<Box<Location>>,
+    stacktrace: Vec<StacktraceFrame>,
 }
 
 impl RuntimeError {
-    pub fn unsupported(msg: impl Into<String>) -> Self {
-        Self::UnsupportedOperation {
-            message: msg.into(),
+    const fn new(kind: RuntimeErrorKind) -> Self {
+        Self {
+            kind,
             location: None,
+            stacktrace: Vec::new(),
         }
+    }
+
+    pub fn unsupported(msg: impl Into<String>) -> Self {
+        Self::new(RuntimeErrorKind::UnsupportedOperation {
+            message: msg.into(),
+        })
     }
     pub fn value(msg: impl Into<String>) -> Self {
-        Self::ValueError {
+        Self::new(RuntimeErrorKind::ValueError {
             message: msg.into(),
-            location: None,
-        }
+        })
     }
     pub fn type_error(msg: impl Into<String>) -> Self {
-        Self::TypeError {
+        Self::new(RuntimeErrorKind::TypeError {
             message: msg.into(),
-            location: None,
-        }
+        })
     }
     pub fn name(msg: impl Into<String>) -> Self {
-        Self::NameError {
+        Self::new(RuntimeErrorKind::NameError {
             message: msg.into(),
-            location: None,
-        }
+        })
     }
     pub fn undefined(msg: impl Into<String>) -> Self {
-        Self::UndefinedVariable {
+        Self::new(RuntimeErrorKind::UndefinedVariable {
             message: msg.into(),
-            location: None,
-        }
+        })
     }
     pub fn generic(msg: impl Into<String>) -> Self {
-        Self::Internal {
+        Self::new(RuntimeErrorKind::Internal {
             message: msg.into(),
-            location: None,
-        }
+        })
     }
 
     #[must_use]
     pub fn with_location(mut self, loc: Location) -> Self {
-        match &mut self {
-            Self::UnsupportedOperation { location: l, .. }
-            | Self::ValueError { location: l, .. }
-            | Self::TypeError { location: l, .. }
-            | Self::NameError { location: l, .. }
-            | Self::UndefinedVariable { location: l, .. }
-            | Self::Internal { location: l, .. } => *l = Some(loc),
-        }
+        self.location = Some(Box::new(loc));
         self
     }
 
     #[must_use]
+    pub fn location(&self) -> Option<&Location> {
+        self.location.as_deref()
+    }
+
+    pub fn set_stacktrace(&mut self, stacktrace: Vec<StacktraceFrame>) {
+        self.stacktrace = stacktrace;
+    }
+
+    #[must_use]
     pub fn message(&self) -> &str {
-        match self {
-            Self::UnsupportedOperation { message: m, .. }
-            | Self::ValueError { message: m, .. }
-            | Self::TypeError { message: m, .. }
-            | Self::NameError { message: m, .. }
-            | Self::UndefinedVariable { message: m, .. }
-            | Self::Internal { message: m, .. } => m,
+        match &self.kind {
+            RuntimeErrorKind::UnsupportedOperation { message: m }
+            | RuntimeErrorKind::ValueError { message: m }
+            | RuntimeErrorKind::TypeError { message: m }
+            | RuntimeErrorKind::NameError { message: m }
+            | RuntimeErrorKind::UndefinedVariable { message: m }
+            | RuntimeErrorKind::Internal { message: m } => m,
+        }
+    }
+
+    const fn type_name(&self) -> &'static str {
+        match &self.kind {
+            RuntimeErrorKind::UnsupportedOperation { .. } => "UnsupportedOperation",
+            RuntimeErrorKind::ValueError { .. } => "ValueError",
+            RuntimeErrorKind::TypeError { .. } => "TypeError",
+            RuntimeErrorKind::NameError { .. } => "NameError",
+            RuntimeErrorKind::UndefinedVariable { .. } => "UndefinedVariable",
+            RuntimeErrorKind::Internal { .. } => "RuntimeError",
         }
     }
 }
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnsupportedOperation { message, .. } => {
-                write!(f, "UnsupportedOperation: {message}")
-            },
-            Self::ValueError { message, .. } => write!(f, "ValueError: {message}"),
-            Self::TypeError { message, .. } => write!(f, "TypeError: {message}"),
-            Self::NameError { message, .. } => write!(f, "NameError: {message}"),
-            Self::UndefinedVariable { message, .. } => {
-                write!(f, "UndefinedVariable: {message}")
-            },
-            Self::Internal { message, .. } => write!(f, "RuntimeError: {message}"),
+        write!(f, "{}: {}", self.type_name(), self.message())?;
+        if let Some(ref loc) = self.location {
+            write!(f, "\n  at {loc}")?;
         }
+        if !self.stacktrace.is_empty() {
+            write!(f, "\nstacktrace:")?;
+            for frame in self.stacktrace.iter().rev() {
+                write!(
+                    f,
+                    "\n  in {} called at {}",
+                    frame.function_name, frame.call_location
+                )?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -121,10 +128,9 @@ impl Error for RuntimeError {}
 
 impl From<IoError> for RuntimeError {
     fn from(err: IoError) -> Self {
-        Self::Internal {
+        Self::new(RuntimeErrorKind::Internal {
             message: err.to_string(),
-            location: None,
-        }
+        })
     }
 }
 

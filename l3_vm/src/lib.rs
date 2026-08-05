@@ -32,6 +32,7 @@ struct CallFrame {
     ip: usize,
     frame_pointer: usize,
     closure_info: Option<(BytecodeFunction, StackValue)>,
+    call_location: Option<Location>,
     upvalues: Vec<Rc<RefCell<UpvalueCell>>>,
     captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>>,
     discard_return: bool,
@@ -88,12 +89,64 @@ impl<'a> BytecodeVM<'a> {
             ip: 0,
             frame_pointer: 0,
             closure_info: None,
+            call_location: None,
             upvalues: Vec::new(),
             captured_locals: HashMap::new(),
             discard_return: false,
         };
         self.frames.push(frame);
 
+        let result = self.execute_loop(chunks, constants, debug);
+
+        if let Err(mut err) = result {
+            if err.location().is_none() {
+                let loc = self.current_instruction_location(chunks);
+                err = err.with_location(loc);
+            }
+            err.set_stacktrace(self.build_stacktrace());
+            return Err(err);
+        }
+
+        self.constant_keys.clear();
+        Ok(())
+    }
+
+    /// The instruction currently being executed is the one at `frame.ip`, which
+    /// `execute_loop` keeps synced with the dispatch index.
+    fn current_instruction_location(&self, chunks: &[Chunk]) -> Location {
+        let Some(frame) = self.frames.last() else {
+            return Location::default();
+        };
+        chunks
+            .get(frame.chunk_id)
+            .and_then(|chunk| chunk.locations.get(frame.ip))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn build_stacktrace(&self) -> Vec<StacktraceFrame> {
+        self.frames
+            .iter()
+            .filter_map(|frame| {
+                let call_location = frame.call_location.as_ref()?;
+                let function_name = frame
+                    .closure_info
+                    .as_ref()
+                    .map_or_else(|| "<toplevel>".to_string(), |(bc, _)| bc.name.clone());
+                Some(StacktraceFrame {
+                    function_name,
+                    call_location: call_location.clone(),
+                })
+            })
+            .collect()
+    }
+
+    fn execute_loop(
+        &mut self,
+        chunks: &[Chunk],
+        constants: &[l3_runtime::HeapCell],
+        debug: bool,
+    ) -> Result<(), RuntimeError> {
         while let Some(frame) = self.frames.last() {
             let (mut ip, chunk_id) = (frame.ip, frame.chunk_id);
             let code = &chunks
@@ -604,6 +657,7 @@ impl<'a> BytecodeVM<'a> {
         base: usize,
         arg_count: usize,
         keep_return_value: bool,
+        call_location: &Location,
     ) -> Result<StackValue, RuntimeError> {
         let func_key = match &func {
             StackValue::Heap(key) => *key,
@@ -665,6 +719,7 @@ impl<'a> BytecodeVM<'a> {
             ip: 0,
             frame_pointer,
             closure_info: Some((*bc.clone(), func)),
+            call_location: Some(call_location.clone()),
             upvalues: bc.captured_upvalues.clone(),
             captured_locals: HashMap::new(),
             discard_return: !keep_return_value,

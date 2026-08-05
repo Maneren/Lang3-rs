@@ -1,2 +1,3 @@
 1
 ValueError: index out of bounds
+  at tests/snapshot/inputs/indexing_negative.l3:5.9-19
