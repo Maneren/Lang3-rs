@@ -24,4 +24,5 @@
 0002 | GET_LOCAL     2
 0003 | SET_INDEX
 0004 | POP           1
-0005 | RETURN
+0005 | CONSTANT      0 (nil)
+0006 | RETURN

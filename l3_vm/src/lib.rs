@@ -75,6 +75,7 @@ impl<'a> BytecodeVM<'a> {
     pub fn execute(&mut self, program: &ProgramBytecode) -> Result<(), RuntimeError> {
         let debug = self.debug;
         let chunks = &program.chunks;
+        let constants = &program.constants;
 
         // Pre-insert all program constants into the heap so the Constant
         // dispatch can use a cached slotmap key instead of a linear scan.
@@ -155,28 +156,39 @@ impl<'a> BytecodeVM<'a> {
                 .code;
 
             while let Some(instruction) = code.get(ip) {
+                self.frames
+                    .last_mut()
+                    .expect("execution continues only while a frame exists")
+                    .ip = ip;
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
                 ip += 1;
 
                 match instruction {
                     Instruction::Return => {
-                        let return_value = self.stack.pop().unwrap_or(StackValue::Nil);
-                        debug_println!(debug, "    RETURN value={:?}", return_value);
-                        let fp = self.frames.last().map_or(0, |f| f.frame_pointer);
-                        let discard = self.frames.last().is_some_and(|f| f.discard_return);
+                        let (fp, discard) = {
+                            let frame = self
+                                .frames
+                                .last()
+                                .expect("execution continues only while a frame exists");
+                            (frame.frame_pointer, frame.discard_return)
+                        };
                         self.frames.pop();
                         if !self.frames.is_empty() {
+                            let return_value = self.stack.pop().expect(
+                                "the compiler pushes a return value before every Return inside a \
+                                 function",
+                            );
+                            debug_println!(debug, "    RETURN value={:?}", return_value);
                             self.stack.truncate(fp - 1);
-                        }
-                        if !discard {
-                            self.stack.push(return_value);
+                            if !discard {
+                                self.stack.push(return_value);
+                            }
                         }
                         self.maybe_gc();
                         break;
                     },
                     Instruction::Constant { index } => {
-                        let val = &program
-                            .constants
+                        let val = &constants
                             .get(*index)
                             .expect("constant index emitted by the compiler is valid");
                         let sv = match &val.value {
@@ -194,16 +206,26 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Pop { count } => {
                         debug_println!(debug, "    POP {}", count);
-                        for _ in 0..*count {
-                            self.stack.pop();
-                        }
+                        let Some(remaining) = self.stack.len().checked_sub(*count) else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        self.stack.truncate(remaining);
                     },
                     Instruction::Duplicate { index } => {
-                        let idx = self.stack.len() - 1 - index;
+                        let Some(idx) = self
+                            .stack
+                            .len()
+                            .checked_sub(*index)
+                            .and_then(|n| n.checked_sub(1))
+                        else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         debug_println!(debug, "    DUPLICATE({}) stack[len-1-{}]", index, index);
-                        if let Some(sv) = self.stack.get(idx) {
-                            self.stack.push(*sv);
-                        }
+                        let &val = self
+                            .stack
+                            .get(idx)
+                            .expect("duplicate source is a valid stack index");
+                        self.stack.push(val);
                     },
                     Instruction::Add => {
                         debug_println!(debug, "    ADD");
@@ -231,72 +253,70 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Negate => {
                         debug_println!(debug, "    NEGATE");
-                        let Some(a) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let a = Self::pop_value(&mut self.stack)?;
                         let result = negative(&a, &self.heap)?;
                         self.stack.push(result);
                     },
                     Instruction::Not => {
                         debug_println!(debug, "    NOT");
-                        let Some(a) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let a = Self::pop_value(&mut self.stack)?;
                         self.stack.push(not_op(&a, &self.heap));
                     },
                     Instruction::Equal { keep_rhs } => {
                         debug_println!(debug, "    EQ keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(Ordering::Equal), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Equal), *keep_rhs)?;
                     },
                     Instruction::NotEqual { keep_rhs } => {
                         debug_println!(debug, "    NE keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c != Some(Ordering::Equal), *keep_rhs);
+                        self.compare_op(|c| c != Some(Ordering::Equal), *keep_rhs)?;
                     },
                     Instruction::Less { keep_rhs } => {
                         debug_println!(debug, "    LT keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(Ordering::Less), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Less), *keep_rhs)?;
                     },
                     Instruction::LessEqual { keep_rhs } => {
                         debug_println!(debug, "    LE keep_rhs={}", keep_rhs);
                         self.compare_op(
                             |c| matches!(c, Some(Ordering::Less | Ordering::Equal)),
                             *keep_rhs,
-                        );
+                        )?;
                     },
                     Instruction::Greater { keep_rhs } => {
                         debug_println!(debug, "    GT keep_rhs={}", keep_rhs);
-                        self.compare_op(|c| c == Some(Ordering::Greater), *keep_rhs);
+                        self.compare_op(|c| c == Some(Ordering::Greater), *keep_rhs)?;
                     },
                     Instruction::GreaterEqual { keep_rhs } => {
                         debug_println!(debug, "    GE keep_rhs={}", keep_rhs);
                         self.compare_op(
                             |c| matches!(c, Some(Ordering::Greater | Ordering::Equal)),
                             *keep_rhs,
-                        );
+                        )?;
                     },
                     Instruction::GetGlobal { name_index } => {
-                        let name = &program
-                            .constants
+                        let name = &constants
                             .get(*name_index)
                             .expect("global name constant emitted by the compiler is valid");
-                        if let HeapData::String(s) = &name.value {
-                            debug_println!(debug, "    GET_GLOBAL {}", s);
-                            if let Some(&val) = self.global_symbols.get(s) {
-                                self.stack.push(val);
-                            } else {
-                                return Err(RuntimeError::undefined(s));
-                            }
+                        let name_str = name
+                            .value
+                            .as_string()
+                            .expect("global name constants emitted by the compiler are strings");
+                        debug_println!(debug, "    GET_GLOBAL {}", name_str);
+                        if let Some(&val) = self.global_symbols.get(name_str) {
+                            self.stack.push(val);
+                        } else {
+                            return Err(RuntimeError::undefined(name_str));
                         }
                     },
                     Instruction::SetGlobal { name_index } => {
-                        let name = &program
-                            .constants
+                        let name = &constants
                             .get(*name_index)
                             .expect("global name constant emitted by the compiler is valid");
-                        let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
-                        let Some(val) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let name_str = name
+                            .value
+                            .as_string()
+                            .expect("global name constants emitted by the compiler are strings")
+                            .to_string();
+                        let val = Self::pop_value(&mut self.stack)?;
                         debug_println!(debug, "    SET_GLOBAL {} = {:?}", name_str, val);
                         self.global_symbols.insert(name_str, val);
                     },
@@ -317,9 +337,7 @@ impl<'a> BytecodeVM<'a> {
                             .last()
                             .expect("execution continues only while a frame exists")
                             .frame_pointer;
-                        let Some(val) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let val = Self::pop_value(&mut self.stack)?;
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
                         let _old = mem::replace(
                             self.stack
@@ -422,9 +440,7 @@ impl<'a> BytecodeVM<'a> {
                         keep_stay,
                         keep_jump,
                     } => {
-                        let Some(cond) = self.stack.last() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let cond = Self::top_value(&self.stack)?;
                         let truthy = cond.is_truthy(&self.heap);
                         let should_jump = truthy == *expected;
                         debug_println!(
@@ -447,8 +463,18 @@ impl<'a> BytecodeVM<'a> {
                         arg_count,
                         keep_return_value,
                     } => {
-                        let base = self.stack.len() - 1 - arg_count;
-                        let func_sv = *self.stack.get(base).expect("call base is within the stack");
+                        let Some(base) = self
+                            .stack
+                            .len()
+                            .checked_sub(*arg_count)
+                            .and_then(|n| n.checked_sub(1))
+                        else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let func_sv = *self
+                            .stack
+                            .get(base)
+                            .expect("call base is a valid stack index");
                         debug_println!(
                             debug,
                             "    CALL argc={} keep_ret={} func={:?}",
@@ -457,12 +483,18 @@ impl<'a> BytecodeVM<'a> {
                             func_sv
                         );
                         let frame_count = self.frames.len();
+                        let call_location = self.current_instruction_location(chunks);
                         self.frames
                             .last_mut()
                             .expect("execution continues only while a frame exists")
                             .ip = ip;
-                        let result =
-                            self.call_function(func_sv, base, *arg_count, *keep_return_value)?;
+                        let result = self.call_function(
+                            func_sv,
+                            base,
+                            *arg_count,
+                            *keep_return_value,
+                            &call_location,
+                        )?;
                         if *keep_return_value && self.frames.len() <= frame_count {
                             self.stack.push(result);
                         }
@@ -473,32 +505,24 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::MakeArray { count } => {
                         debug_println!(debug, "    MAKE_ARRAY {}", count);
-                        let start = self.stack.len() - count;
+                        let Some(start) = self.stack.len().checked_sub(*count) else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
                         let elements: Vec<StackValue> = self.stack.drain(start..).collect();
                         let sv = self.heap.alloc_vector(elements);
                         self.stack.push(sv);
                     },
                     Instruction::GetIndex => {
                         debug_println!(debug, "    GET_INDEX");
-                        let Some(idx) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
-                        let Some(container) = self.stack.last_mut() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let idx = Self::pop_value(&mut self.stack)?;
+                        let container = Self::top_value_mut(&mut self.stack)?;
                         *container = index(container, &idx, &mut self.heap)?;
                     },
                     Instruction::SetIndex => {
                         debug_println!(debug, "    SET_INDEX");
-                        let Some(val) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
-                        let Some(idx) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
-                        let Some(container) = self.stack.last_mut() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let val = Self::pop_value(&mut self.stack)?;
+                        let idx = Self::pop_value(&mut self.stack)?;
+                        let container = Self::top_value_mut(&mut self.stack)?;
                         *index_mut(container, &idx, &mut self.heap)? = val;
                     },
                     Instruction::Closure {
@@ -580,9 +604,7 @@ impl<'a> BytecodeVM<'a> {
                         }
                     },
                     Instruction::SetUpvalue { index } => {
-                        let Some(val) = self.stack.pop() else {
-                            return Err(RuntimeError::generic("stack underflow"));
-                        };
+                        let val = Self::pop_value(&mut self.stack)?;
                         debug_println!(debug, "    SET_UPVALUE {} val={:?}", index, val);
                         if let Ok(mut cell) = self
                             .frames
@@ -602,7 +624,6 @@ impl<'a> BytecodeVM<'a> {
             }
         }
 
-        self.constant_keys.clear();
         Ok(())
     }
 
@@ -729,46 +750,52 @@ impl<'a> BytecodeVM<'a> {
         Ok(StackValue::Nil)
     }
 
+    fn pop_value(stack: &mut Vec<StackValue>) -> Result<StackValue, RuntimeError> {
+        stack
+            .pop()
+            .ok_or_else(|| RuntimeError::generic("stack underflow"))
+    }
+
+    fn top_value(stack: &[StackValue]) -> Result<&StackValue, RuntimeError> {
+        stack
+            .last()
+            .ok_or_else(|| RuntimeError::generic("stack underflow"))
+    }
+
+    fn top_value_mut(stack: &mut [StackValue]) -> Result<&mut StackValue, RuntimeError> {
+        stack
+            .last_mut()
+            .ok_or_else(|| RuntimeError::generic("stack underflow"))
+    }
+
     fn binary_op<F>(&mut self, f: F) -> Result<(), RuntimeError>
     where
         F: Fn(&StackValue, &StackValue, &mut Heap) -> Result<StackValue, RuntimeError>,
     {
-        let Some(b) = self.stack.pop() else {
-            return Err(RuntimeError::generic("stack underflow"));
-        };
-        let Some(a) = self.stack.last_mut() else {
-            return Err(RuntimeError::generic("stack underflow"));
-        };
+        let b = Self::pop_value(&mut self.stack)?;
+        let a = Self::top_value_mut(&mut self.stack)?;
         let result = f(a, &b, &mut self.heap)?;
         *a = result;
         Ok(())
     }
 
-    fn compare_op<F>(&mut self, pred: F, keep_rhs: bool)
+    fn compare_op<F>(&mut self, pred: F, keep_rhs: bool) -> Result<(), RuntimeError>
     where
         F: Fn(Option<Ordering>) -> bool,
     {
-        let b = self.stack.pop().unwrap_or(StackValue::Nil);
+        let b = Self::pop_value(&mut self.stack)?;
         if keep_rhs {
-            let a = self.stack.pop().unwrap_or(StackValue::Nil);
+            let a = Self::pop_value(&mut self.stack)?;
             let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
             self.stack.push(b);
             self.stack.push(result);
         } else {
-            let result = match self.stack.last() {
-                Some(a) => StackValue::Primitive(Primitive::Bool(pred(compare(a, &b, &self.heap)))),
-                None => StackValue::Primitive(Primitive::Bool(pred(compare(
-                    &StackValue::Nil,
-                    &b,
-                    &self.heap,
-                )))),
-            };
-            if let Some(top) = self.stack.last_mut() {
-                *top = result;
-            } else {
-                self.stack.push(result);
-            }
+            let a = Self::top_value(&self.stack)?;
+            let result = StackValue::Primitive(Primitive::Bool(pred(compare(a, &b, &self.heap))));
+            let top = Self::top_value_mut(&mut self.stack)?;
+            *top = result;
         }
+        Ok(())
     }
 }
 

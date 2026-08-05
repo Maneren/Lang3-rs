@@ -251,8 +251,10 @@ fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
     Ok(heap.alloc_vector(vec))
 }
 
-fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> StackValue {
-    args.first().copied().unwrap_or(StackValue::Nil)
+fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+    args.first()
+        .copied()
+        .ok_or_else(|| RuntimeError::type_error("id requires an argument"))
 }
 
 fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
@@ -386,7 +388,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("drop", wrap(builtin_drop)),
         ("take", wrap(builtin_take)),
         ("range", wrap(builtin_range)),
-        ("id", wrap_infallible(builtin_id)),
+        ("id", wrap(builtin_id)),
         ("map", wrap(builtin_map)),
         ("count", wrap(builtin_count)),
         ("random", wrap(builtin_random)),
