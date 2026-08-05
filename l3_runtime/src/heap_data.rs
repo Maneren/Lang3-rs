@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt};
 use slotmap::DefaultKey;
 
 use crate::{
-    error::RuntimeError,
+    error::{RuntimeError, RuntimeResult},
     function::Function,
     heap::Heap,
     primitive::{Primitive, compare_primitives},
@@ -178,12 +178,12 @@ fn resolve<'a>(sv: &'a StackValue, heap: &'a Heap) -> Resolved<'a> {
     }
 }
 
-fn numeric_result(r: Result<Primitive, &'static str>) -> Result<StackValue, RuntimeError> {
+fn numeric_result(r: Result<Primitive, &'static str>) -> RuntimeResult<StackValue> {
     r.map(StackValue::Primitive)
         .map_err(RuntimeError::type_error)
 }
 
-pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa + pb),
         (Resolved::Str(sa), Resolved::Str(sb)) => Ok(heap.alloc_string(format!("{sa}{sb}"))),
@@ -196,7 +196,7 @@ pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
     }
 }
 
-pub fn sub(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn sub(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa - pb),
         _ => Err(RuntimeError::type_error("unsupported operand types for -")),
@@ -223,7 +223,7 @@ fn repeat_vec(v: &[StackValue], n: i64) -> Vec<StackValue> {
     }
 }
 
-pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa * pb),
         (Resolved::Num(Primitive::Integer(n)), Resolved::Str(s))
@@ -237,21 +237,21 @@ pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue
     }
 }
 
-pub fn div(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn div(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa / pb),
         _ => Err(RuntimeError::type_error("unsupported operand types for /")),
     }
 }
 
-pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa % pb),
         _ => Err(RuntimeError::type_error("unsupported operand types for %")),
     }
 }
 
-pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => {
             let result = match (pa, pb) {
@@ -289,7 +289,7 @@ pub fn compare(a: &StackValue, b: &StackValue, _heap: &Heap) -> Option<Ordering>
     }
 }
 
-pub fn negative(a: &StackValue, heap: &Heap) -> Result<StackValue, RuntimeError> {
+pub fn negative(a: &StackValue, heap: &Heap) -> RuntimeResult<StackValue> {
     match resolve(a, heap) {
         Resolved::Num(p) => Ok(StackValue::Primitive(-p)),
         _ => Err(RuntimeError::type_error(
@@ -303,7 +303,7 @@ pub fn not_op(a: &StackValue, heap: &Heap) -> StackValue {
     StackValue::Primitive(Primitive::Bool(!a.is_truthy(heap)))
 }
 
-fn integer_index(sv: &StackValue, heap: &Heap) -> Result<i64, RuntimeError> {
+fn integer_index(sv: &StackValue, heap: &Heap) -> RuntimeResult<i64> {
     match resolve(sv, heap) {
         Resolved::Num(Primitive::Integer(i)) => Ok(i),
         _ => Err(RuntimeError::type_error(
@@ -312,7 +312,7 @@ fn integer_index(sv: &StackValue, heap: &Heap) -> Result<i64, RuntimeError> {
     }
 }
 
-fn heap_key(container: &StackValue) -> Result<DefaultKey, RuntimeError> {
+fn heap_key(container: &StackValue) -> RuntimeResult<DefaultKey> {
     match container {
         StackValue::Heap(key) => Ok(*key),
         _ => Err(RuntimeError::type_error("cannot index non-container type")),
@@ -323,7 +323,7 @@ pub fn index(
     container: &StackValue,
     index: &StackValue,
     heap: &mut Heap,
-) -> Result<StackValue, RuntimeError> {
+) -> RuntimeResult<StackValue> {
     let Ok(i) = usize::try_from(integer_index(index, heap)?) else {
         return Err(RuntimeError::value("index out of bounds"));
     };
@@ -359,7 +359,7 @@ pub fn index_mut<'a>(
     container: &'a mut StackValue,
     index: &StackValue,
     heap: &'a mut Heap,
-) -> Result<&'a mut StackValue, RuntimeError> {
+) -> RuntimeResult<&'a mut StackValue> {
     let Ok(i) = usize::try_from(integer_index(index, heap)?) else {
         return Err(RuntimeError::value("index out of bounds"));
     };

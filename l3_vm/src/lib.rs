@@ -14,6 +14,7 @@ use l3_ast::Identifier;
 use l3_bytecode::*;
 use l3_location::Location;
 use l3_runtime::{
+    error::RuntimeResult,
     heap_data::{add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub},
     *,
 };
@@ -72,7 +73,7 @@ impl<'a> BytecodeVM<'a> {
         vm
     }
 
-    pub fn execute(&mut self, program: &ProgramBytecode) -> Result<(), RuntimeError> {
+    pub fn execute(&mut self, program: &ProgramBytecode) -> RuntimeResult<()> {
         let debug = self.debug;
         let chunks = &program.chunks;
         let constants = &program.constants;
@@ -147,7 +148,7 @@ impl<'a> BytecodeVM<'a> {
         chunks: &[Chunk],
         constants: &[l3_runtime::HeapCell],
         debug: bool,
-    ) -> Result<(), RuntimeError> {
+    ) -> RuntimeResult<()> {
         while let Some(frame) = self.frames.last() {
             let (mut ip, chunk_id) = (frame.ip, frame.chunk_id);
             let code = &chunks
@@ -679,7 +680,7 @@ impl<'a> BytecodeVM<'a> {
         arg_count: usize,
         keep_return_value: bool,
         call_location: &Location,
-    ) -> Result<StackValue, RuntimeError> {
+    ) -> RuntimeResult<StackValue> {
         let func_key = match &func {
             StackValue::Heap(key) => *key,
             _ => return Err(RuntimeError::type_error("cannot call non-function")),
@@ -750,27 +751,27 @@ impl<'a> BytecodeVM<'a> {
         Ok(StackValue::Nil)
     }
 
-    fn pop_value(stack: &mut Vec<StackValue>) -> Result<StackValue, RuntimeError> {
+    fn pop_value(stack: &mut Vec<StackValue>) -> RuntimeResult<StackValue> {
         stack
             .pop()
             .ok_or_else(|| RuntimeError::generic("stack underflow"))
     }
 
-    fn top_value(stack: &[StackValue]) -> Result<&StackValue, RuntimeError> {
+    fn top_value(stack: &[StackValue]) -> RuntimeResult<&StackValue> {
         stack
             .last()
             .ok_or_else(|| RuntimeError::generic("stack underflow"))
     }
 
-    fn top_value_mut(stack: &mut [StackValue]) -> Result<&mut StackValue, RuntimeError> {
+    fn top_value_mut(stack: &mut [StackValue]) -> RuntimeResult<&mut StackValue> {
         stack
             .last_mut()
             .ok_or_else(|| RuntimeError::generic("stack underflow"))
     }
 
-    fn binary_op<F>(&mut self, f: F) -> Result<(), RuntimeError>
+    fn binary_op<F>(&mut self, f: F) -> RuntimeResult<()>
     where
-        F: Fn(&StackValue, &StackValue, &mut Heap) -> Result<StackValue, RuntimeError>,
+        F: Fn(&StackValue, &StackValue, &mut Heap) -> RuntimeResult<StackValue>,
     {
         let b = Self::pop_value(&mut self.stack)?;
         let a = Self::top_value_mut(&mut self.stack)?;
@@ -779,7 +780,7 @@ impl<'a> BytecodeVM<'a> {
         Ok(())
     }
 
-    fn compare_op<F>(&mut self, pred: F, keep_rhs: bool) -> Result<(), RuntimeError>
+    fn compare_op<F>(&mut self, pred: F, keep_rhs: bool) -> RuntimeResult<()>
     where
         F: Fn(Option<Ordering>) -> bool,
     {

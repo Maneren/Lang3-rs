@@ -5,12 +5,12 @@ use std::{
     time::Duration,
 };
 
-use l3_runtime::*;
+use l3_runtime::{error::RuntimeResult, *};
 use rand::Rng as _;
 
-type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>>;
+type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>>;
 
-fn wrap(f: fn(&[StackValue], &mut Heap) -> Result<StackValue, RuntimeError>) -> Builtin {
+fn wrap(f: fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>) -> Builtin {
     Rc::new(f)
 }
 
@@ -18,7 +18,7 @@ fn wrap_infallible(f: fn(&[StackValue], &mut Heap) -> StackValue) -> Builtin {
     Rc::new(move |args, heap| Ok(f(args, heap)))
 }
 
-fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> Result<&'a HeapData, RuntimeError> {
+fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> RuntimeResult<&'a HeapData> {
     match sv {
         StackValue::Heap(key) => heap
             .cells
@@ -36,21 +36,21 @@ const fn int_val(sv: &StackValue) -> Option<i64> {
     }
 }
 
-fn extract_vector(heap: &Heap, sv: &StackValue) -> Result<Vec<StackValue>, RuntimeError> {
+fn extract_vector(heap: &Heap, sv: &StackValue) -> RuntimeResult<Vec<StackValue>> {
     match heap_data(heap, sv)? {
         HeapData::Vector(v) => Ok(v.clone()),
         _ => Err(RuntimeError::type_error("expected a vector")),
     }
 }
 
-fn extract_fn(heap: &Heap, sv: &StackValue) -> Result<HeapData, RuntimeError> {
+fn extract_fn(heap: &Heap, sv: &StackValue) -> RuntimeResult<HeapData> {
     match heap_data(heap, sv)? {
         data @ HeapData::Function(_) => Ok(data.clone()),
         _ => Err(RuntimeError::type_error("expected a function")),
     }
 }
 
-fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> Result<(), RuntimeError> {
+fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> RuntimeResult<()> {
     for (i, arg) in args.iter().enumerate() {
         if i > 0 {
             write!(heap.output, " ")?;
@@ -63,17 +63,17 @@ fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> Result<(
     Ok(())
 }
 
-fn builtin_print(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_print(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     write_output(args, heap, false)?;
     Ok(StackValue::Nil)
 }
 
-fn builtin_println(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_println(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     write_output(args, heap, true)?;
     Ok(StackValue::Nil)
 }
 
-fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let Some(condition) = args.first() else {
         return Err(RuntimeError::type_error(
             "assert requires at least 1 argument",
@@ -91,7 +91,7 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Ru
     Ok(StackValue::Nil)
 }
 
-fn builtin_error(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_error(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let msg = args.first().map_or_else(
         || "error".to_string(),
         |arg0| format_stack_value(arg0, heap),
@@ -146,7 +146,7 @@ fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
     }
 }
 
-fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_head(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("head requires an argument"));
     };
@@ -162,7 +162,7 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
     }
 }
 
-fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("tail requires an argument"));
     };
@@ -182,7 +182,7 @@ fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
     }
 }
 
-fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("drop requires 2 arguments"));
     };
@@ -200,7 +200,7 @@ fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
     }
 }
 
-fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_take(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("take requires 2 arguments"));
     };
@@ -221,7 +221,7 @@ fn builtin_take(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runt
     }
 }
 
-fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_range(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let start = args.first().map_or(Ok(0), |a| {
         int_val(a).ok_or_else(|| RuntimeError::type_error("range requires integer arguments"))
     })?;
@@ -251,13 +251,13 @@ fn builtin_range(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
     Ok(heap.alloc_vector(vec))
 }
 
-fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_id(args: &[StackValue], _heap: &mut Heap) -> RuntimeResult<StackValue> {
     args.first()
         .copied()
         .ok_or_else(|| RuntimeError::type_error("id requires an argument"))
 }
 
-fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_map(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let func_data = extract_fn(
         heap,
         args.first()
@@ -282,7 +282,7 @@ fn builtin_map(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Runti
     }
 }
 
-fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_count(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let func_data = extract_fn(
         heap,
         args.first()
@@ -309,7 +309,7 @@ fn builtin_count(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, Run
     }
 }
 
-fn builtin_random(args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_random(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let limit = args.first().map_or(Ok(i64::MAX), |a| match int_val(a) {
         Some(i) if i > 0 => Ok(i),
         _ => Err(RuntimeError::type_error(
@@ -332,7 +332,7 @@ fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
     heap.alloc_string(line)
 }
 
-fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> RuntimeResult<StackValue> {
     let ms = args.first().map_or(Ok(0), |a| {
         int_val(a)
             .and_then(|i| u64::try_from(i).ok())

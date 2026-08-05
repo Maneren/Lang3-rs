@@ -2,6 +2,8 @@ use std::{error::Error, fmt, io::Error as IoError};
 
 use l3_location::Location;
 
+pub type RuntimeResult<T> = Result<T, Box<RuntimeError>>;
+
 #[derive(Debug, Clone)]
 pub struct StacktraceFrame {
     pub function_name: String,
@@ -34,39 +36,39 @@ impl RuntimeError {
         }
     }
 
-    pub fn unsupported(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::UnsupportedOperation {
+    pub fn unsupported(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::UnsupportedOperation {
             message: msg.into(),
-        })
+        }))
     }
-    pub fn value(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::ValueError {
+    pub fn value(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::ValueError {
             message: msg.into(),
-        })
+        }))
     }
-    pub fn type_error(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::TypeError {
+    pub fn type_error(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::TypeError {
             message: msg.into(),
-        })
+        }))
     }
-    pub fn name(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::NameError {
+    pub fn name(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::NameError {
             message: msg.into(),
-        })
+        }))
     }
-    pub fn undefined(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::UndefinedVariable {
+    pub fn undefined(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::UndefinedVariable {
             message: msg.into(),
-        })
+        }))
     }
-    pub fn generic(msg: impl Into<String>) -> Self {
-        Self::new(RuntimeErrorKind::Internal {
+    pub fn generic(msg: impl Into<String>) -> Box<Self> {
+        Box::new(Self::new(RuntimeErrorKind::Internal {
             message: msg.into(),
-        })
+        }))
     }
 
     #[must_use]
-    pub fn with_location(mut self, loc: Location) -> Self {
+    pub fn with_location(mut self: Box<Self>, loc: Location) -> Box<Self> {
         self.location = Some(loc);
         self
     }
@@ -131,6 +133,14 @@ impl From<IoError> for RuntimeError {
         Self::new(RuntimeErrorKind::Internal {
             message: err.to_string(),
         })
+    }
+}
+
+impl From<IoError> for Box<RuntimeError> {
+    fn from(err: IoError) -> Self {
+        Self::new(RuntimeError::new(RuntimeErrorKind::Internal {
+            message: err.to_string(),
+        }))
     }
 }
 

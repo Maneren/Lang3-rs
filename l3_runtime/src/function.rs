@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, rc::Rc};
 use l3_ast::Identifier;
 
 use crate::{
-    error::RuntimeError,
+    error::RuntimeResult,
     heap::{Heap, UpvalueCell},
     stack_value::StackValue,
 };
@@ -11,7 +11,7 @@ use crate::{
 pub type L3Args = Vec<StackValue>;
 
 pub type BuiltinBody =
-    Rc<dyn for<'h, 'r> Fn(&[StackValue], &'r mut Heap<'h>) -> Result<StackValue, RuntimeError>>;
+    Rc<dyn for<'h, 'r> Fn(&[StackValue], &'r mut Heap<'h>) -> RuntimeResult<StackValue>>;
 
 #[derive(Clone)]
 pub struct BuiltinFunction {
@@ -24,7 +24,7 @@ impl BuiltinFunction {
         Self { name, body }
     }
 
-    pub fn invoke(&self, args: &[StackValue], heap: &mut Heap) -> Result<StackValue, RuntimeError> {
+    pub fn invoke(&self, args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
         (self.body)(args, heap)
     }
 }
