@@ -6,7 +6,7 @@ use std::{
 };
 
 use l3_runtime::{error::RuntimeResult, *};
-use rand::Rng as _;
+use rand::RngExt as _;
 
 type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>>;
 
