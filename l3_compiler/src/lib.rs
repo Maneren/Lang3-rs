@@ -91,22 +91,28 @@ impl Compiler {
         chunk_id
     }
 
+    #[inline]
     fn pop_context(&mut self) {
-        self.contexts.pop();
+        self.contexts
+            .pop()
+            .expect("the context stack shouldn't be empty");
     }
 
+    #[inline]
     fn current_context(&self) -> &Context {
         self.contexts
             .last()
             .expect("a context is always active while compiling")
     }
 
+    #[inline]
     fn current_context_mut(&mut self) -> &mut Context {
         self.contexts
             .last_mut()
             .expect("a context is always active while compiling")
     }
 
+    #[inline]
     fn current_chunk(&mut self) -> &mut Chunk {
         let id = self.current_context().chunk_id;
         self.program
@@ -598,14 +604,20 @@ impl Compiler {
             .loop_contexts
             .pop()
             .expect("loop context was pushed when entering the loop");
+
+        let code = &mut self.current_chunk().code;
         for jump in &lc.break_jumps {
-            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
+            if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
                 *offset = exit_patch;
+            } else {
+                return Err(CompileError::new("Invalid break target"));
             }
         }
         for jump in &lc.continue_jumps {
-            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
+            if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
                 *offset = for_idx;
+            } else {
+                return Err(CompileError::new("Invalid continue target"));
             }
         }
 
