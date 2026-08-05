@@ -1,5 +1,8 @@
+#![allow(clippy::panic_in_result_fn, reason = "test assertions panic by design")]
+
 use std::{
     env,
+    error::Error,
     fs::{self, DirEntry},
     io::{self, BufWriter, Cursor, Write as _},
     path::PathBuf,
@@ -31,27 +34,32 @@ fn should_update() -> bool {
     env::var("L3_UPDATE_SNAPSHOTS").as_deref() == Ok("1")
 }
 
-fn write_expected(name: &str, kind: &str, content: &str) {
+fn write_expected(name: &str, kind: &str, content: &str) -> io::Result<()> {
     let path = expected_path(name, kind);
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(&path, content).unwrap();
+    let Some(parent) = path.parent() else {
+        return Err(io::Error::other("snapshot path has no parent"));
+    };
+    fs::create_dir_all(parent)?;
+    fs::write(&path, content)
 }
 
-fn run_update_or_check_output(name: &str) {
+fn run_update_or_check_output(name: &str) -> Result<(), Box<dyn Error>> {
     let input = input_path(name);
-    let source = fs::read_to_string(&input).unwrap();
-    let output = run_capture(false, &source, input.to_str().unwrap());
+    let source = fs::read_to_string(&input)?;
+    let filename = input.to_str().ok_or("input path is not UTF-8")?;
+    let output = run_capture(false, &source, filename)?;
     if should_update() {
-        write_expected(name, "output", &output);
+        write_expected(name, "output", &output)?;
     } else {
         let expected = expected_text(name, "output");
         let actual: Vec<&str> = output.lines().collect();
         let expected_lines: Vec<&str> = expected.lines().collect();
         compare_output(name, &actual, &expected_lines);
     }
+    Ok(())
 }
 
-fn run_capture(optimized: bool, source: &str, filename: &str) -> String {
+fn run_capture(optimized: bool, source: &str, filename: &str) -> Result<String, Box<dyn Error>> {
     let mut bytes = Vec::new();
     {
         let mut writer = BufWriter::new(&mut bytes);
@@ -61,34 +69,38 @@ fn run_capture(optimized: bool, source: &str, filename: &str) -> String {
         } else {
             l3::run_pipeline(source, filename, &mut writer, &mut reader)
         };
-        result.unwrap();
-        writer.flush().unwrap();
+        result?;
+        writer.flush()?;
     }
-    String::from_utf8(bytes).unwrap()
+    Ok(String::from_utf8(bytes)?)
 }
 
-fn run_update_or_check_ast(name: &str) {
+fn run_update_or_check_ast(name: &str) -> Result<(), Box<dyn Error>> {
     let input = input_path(name);
-    let source = fs::read_to_string(&input).unwrap();
-    let text = l3::format_ast(&source, input.to_str().unwrap()).unwrap();
+    let source = fs::read_to_string(&input)?;
+    let filename = input.to_str().ok_or("input path is not UTF-8")?;
+    let text = l3::format_ast(&source, filename)?;
     if should_update() {
-        write_expected(name, "ast", &text);
+        write_expected(name, "ast", &text)?;
     } else {
         let expected = expected_text(name, "ast");
         compare_text(name, "ast", &text, &expected);
     }
+    Ok(())
 }
 
-fn run_update_or_check_bytecode(name: &str) {
+fn run_update_or_check_bytecode(name: &str) -> Result<(), Box<dyn Error>> {
     let input = input_path(name);
-    let source = fs::read_to_string(&input).unwrap();
-    let text = l3::format_bytecode(&source, input.to_str().unwrap()).unwrap();
+    let source = fs::read_to_string(&input)?;
+    let filename = input.to_str().ok_or("input path is not UTF-8")?;
+    let text = l3::format_bytecode(&source, filename)?;
     if should_update() {
-        write_expected(name, "bytecode", &text);
+        write_expected(name, "bytecode", &text)?;
     } else {
         let expected = expected_text(name, "bytecode");
         compare_text(name, "bytecode", &text, &expected);
     }
+    Ok(())
 }
 
 fn normalize(v: &[String]) -> Vec<String> {
@@ -110,17 +122,19 @@ fn compare_output(name: &str, actual: &[&str], expected: &[&str]) {
 
     let mut i = 0;
     let mut failures = Vec::new();
-    while i < actual.len() && i < expected.len() {
-        if actual[i] != expected[i] {
-            if expected[i].trim_start().starts_with("  at ") {
-                let mut j = i + 1;
-                while j < expected.len() && expected[j].trim_start().starts_with("  at ") {
-                    j += 1;
-                }
-                i = j;
+    while let (Some(a), Some(e)) = (actual.get(i), expected.get(i)) {
+        if a != e {
+            if e.trim_start().starts_with("  at ") {
+                i = (i + 1..expected.len())
+                    .find(|&j| {
+                        !expected
+                            .get(j)
+                            .is_some_and(|line| line.trim_start().starts_with("  at "))
+                    })
+                    .unwrap_or(expected.len());
                 continue;
             }
-            failures.push((i, actual[i].clone(), expected[i].clone()));
+            failures.push((i, a.clone(), e.clone()));
         }
         i += 1;
     }
@@ -165,9 +179,18 @@ fn compare_text(name: &str, kind: &str, actual: &str, expected: &str) {
 macro_rules! snapshot_tests {
     ($($name:ident),* $(,)?) => {
         $(paste::item! {
-            #[test] fn [<snapshot_output_ $name>]() { run_update_or_check_output(stringify!($name)); }
-            #[test] fn [<snapshot_ast_ $name>]() { run_update_or_check_ast(stringify!($name)); }
-            #[test] fn [<snapshot_bytecode_ $name>]() { run_update_or_check_bytecode(stringify!($name)); }
+            #[test] fn [<snapshot_output_ $name>]() -> Result<(), Box<dyn Error>> {
+                run_update_or_check_output(stringify!($name))?;
+                Ok(())
+            }
+            #[test] fn [<snapshot_ast_ $name>]() -> Result<(), Box<dyn Error>> {
+                run_update_or_check_ast(stringify!($name))?;
+                Ok(())
+            }
+            #[test] fn [<snapshot_bytecode_ $name>]() -> Result<(), Box<dyn Error>> {
+                run_update_or_check_bytecode(stringify!($name))?;
+                Ok(())
+            }
         })*
     };
 }
@@ -194,44 +217,48 @@ snapshot_tests! {
 }
 
 #[test]
-fn snapshot_optimized_output_matches_expected() {
-    let mut inputs: Vec<_> = fs::read_dir(snapshot_dir().join("inputs"))
-        .unwrap()
-        .map(Result::unwrap)
+fn snapshot_optimized_output_matches_expected() -> Result<(), Box<dyn Error>> {
+    let mut inputs: Vec<_> = fs::read_dir(snapshot_dir().join("inputs"))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
         .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("l3"))
         .collect();
     inputs.sort_by_key(DirEntry::file_name);
     for entry in inputs {
-        let name = entry
-            .path()
+        let path = entry.path();
+        let name = path
             .file_stem()
-            .unwrap()
+            .ok_or("input file has no stem")?
             .to_str()
-            .unwrap()
+            .ok_or("input file name is not UTF-8")?
             .to_string();
-        let source = fs::read_to_string(entry.path()).unwrap();
-        let actual = run_capture(true, &source, entry.path().to_str().unwrap());
+        let filename = path.to_str().ok_or("input path is not UTF-8")?;
+        let source = fs::read_to_string(&path)?;
+        let actual = run_capture(true, &source, filename)?;
         let actual_lines: Vec<&str> = actual.lines().collect();
         let expected = expected_text(&name, "output");
         let expected_lines: Vec<&str> = expected.lines().collect();
         compare_output(&name, &actual_lines, &expected_lines);
     }
+    Ok(())
 }
 
 #[test]
-fn input_builtin_reads_lines_from_reader() {
+fn input_builtin_reads_lines_from_reader() -> Result<(), Box<dyn Error>> {
     let source = "println(input())\nprintln(input())\nprintln(input())\n";
     let mut output = Vec::new();
     let mut input = Cursor::new("line1\nline2\nline3\n");
-    l3::run_pipeline(source, "<test>", &mut output, &mut input).unwrap();
-    assert_eq!(String::from_utf8(output).unwrap(), "line1\nline2\nline3\n");
+    l3::run_pipeline(source, "<test>", &mut output, &mut input)?;
+    assert_eq!(String::from_utf8(output)?, "line1\nline2\nline3\n");
+    Ok(())
 }
 
 #[test]
-fn input_builtin_strips_crlf() {
+fn input_builtin_strips_crlf() -> Result<(), Box<dyn Error>> {
     let source = "println(input())\n";
     let mut output = Vec::new();
     let mut input = Cursor::new("line1\r\n");
-    l3::run_pipeline(source, "<test>", &mut output, &mut input).unwrap();
-    assert_eq!(String::from_utf8(output).unwrap(), "line1\n");
+    l3::run_pipeline(source, "<test>", &mut output, &mut input)?;
+    assert_eq!(String::from_utf8(output)?, "line1\n");
+    Ok(())
 }

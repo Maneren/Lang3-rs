@@ -76,9 +76,24 @@ impl Compiler {
         self.contexts.pop();
     }
 
+    fn current_context(&self) -> &Context {
+        self.contexts
+            .last()
+            .expect("a context is always active while compiling")
+    }
+
+    fn current_context_mut(&mut self) -> &mut Context {
+        self.contexts
+            .last_mut()
+            .expect("a context is always active while compiling")
+    }
+
     fn current_chunk(&mut self) -> &mut Chunk {
-        let id = self.contexts.last().unwrap().chunk_id;
-        &mut self.program.chunks[id]
+        let id = self.current_context().chunk_id;
+        self.program
+            .chunks
+            .get_mut(id)
+            .expect("context references a chunk pushed during compilation")
     }
 
     fn emit(&mut self, inst: Instruction, loc: Location) {
@@ -86,11 +101,11 @@ impl Compiler {
     }
 
     fn begin_scope(&mut self) {
-        self.contexts.last_mut().unwrap().scope_depth += 1;
+        self.current_context_mut().scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        let ctx = self.contexts.last_mut().unwrap();
+        let ctx = self.current_context_mut();
         ctx.scope_depth -= 1;
         let mut pop_count = 0;
         while let Some(local) = ctx.locals.last() {
@@ -107,7 +122,7 @@ impl Compiler {
     }
 
     fn add_local(&mut self, name: &str) {
-        let ctx = self.contexts.last_mut().unwrap();
+        let ctx = self.current_context_mut();
         ctx.locals.push(Local {
             name: name.to_string(),
             depth: ctx.scope_depth,
@@ -125,7 +140,7 @@ impl Compiler {
     }
 
     fn resolve_upvalue(&mut self, name: &str) -> Option<usize> {
-        let outer_context = self.contexts.get(self.contexts.len() - 2)?;
+        let outer_context = self.contexts.iter().nth_back(1)?;
         // Check if this context already captures the given name from the outer context
         let cur = self.contexts.last()?;
         for (j, existing) in cur.upvalues.iter().enumerate() {
@@ -150,7 +165,7 @@ impl Compiler {
     }
 
     fn add_upvalue(&mut self, is_local: bool, index: usize) -> usize {
-        let ctx = self.contexts.last_mut().unwrap();
+        let ctx = self.current_context_mut();
         let idx = ctx.upvalues.len();
         ctx.upvalues.push(UpvalueDesc { is_local, index });
         idx
@@ -266,7 +281,7 @@ impl Compiler {
         self.compile_block(&nf.body.block)?;
         self.emit(Instruction::Return, Location::default());
 
-        let upvalues = self.contexts.last().unwrap().upvalues.clone();
+        let upvalues = self.current_context().upvalues.clone();
         self.pop_context();
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
@@ -293,7 +308,7 @@ impl Compiler {
             );
         }
 
-        let local_idx = self.contexts.last().unwrap().locals.len() - 1;
+        let local_idx = self.current_context().locals.len() - 1;
         self.emit(
             Instruction::SetLocal { index: local_idx },
             Location::default(),
@@ -339,7 +354,9 @@ impl Compiler {
 
         // Patch the else jump
         let else_patch = self.current_chunk().code.len();
-        if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[else_jump] {
+        if let Some(Instruction::JumpIf { offset, .. }) =
+            self.current_chunk().code.get_mut(else_jump)
+        {
             *offset = else_patch;
         }
 
@@ -350,7 +367,7 @@ impl Compiler {
         // Patch end jumps
         let end_patch = self.current_chunk().code.len();
         for jump in &end_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = end_patch;
             }
         }
@@ -363,7 +380,7 @@ impl Compiler {
         self.loop_contexts.push(LoopContext {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
-            body_locals_snapshot: self.contexts.last().unwrap().locals.len(),
+            body_locals_snapshot: self.current_context().locals.len(),
         });
 
         self.compile_expression(&w.condition)?;
@@ -389,19 +406,24 @@ impl Compiler {
 
         // Patch exit jump
         let exit_patch = self.current_chunk().code.len();
-        if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[exit_jump] {
+        if let Some(Instruction::JumpIf { offset, .. }) =
+            self.current_chunk().code.get_mut(exit_jump)
+        {
             *offset = exit_patch;
         }
 
         // Patch break/continue
-        let lc = self.loop_contexts.pop().unwrap();
+        let lc = self
+            .loop_contexts
+            .pop()
+            .expect("loop context was pushed when entering the loop");
         for jump in &lc.break_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = exit_patch;
             }
         }
         for jump in &lc.continue_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = loop_start;
             }
         }
@@ -414,15 +436,15 @@ impl Compiler {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx }, loc.clone());
         self.add_local(&fl.variable.name);
-        let var_idx = self.contexts.last().unwrap().locals.len() - 1;
+        let var_idx = self.current_context().locals.len() - 1;
 
         self.compile_expression(&fl.collection)?;
-        let coll_idx = self.contexts.last().unwrap().locals.len();
+        let coll_idx = self.current_context().locals.len();
         self.add_local("__collection__");
 
         let zero_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(0)));
         self.emit(Instruction::Constant { index: zero_idx }, loc.clone());
-        let idx_idx = self.contexts.last().unwrap().locals.len();
+        let idx_idx = self.current_context().locals.len();
         self.add_local("__index__");
 
         // Call len(collection)
@@ -441,10 +463,10 @@ impl Compiler {
             },
             loc.clone(),
         );
-        let len_idx = self.contexts.last().unwrap().locals.len();
+        let len_idx = self.current_context().locals.len();
         self.add_local("__length__");
 
-        let body_locals_snapshot = self.contexts.last().unwrap().locals.len();
+        let body_locals_snapshot = self.current_context().locals.len();
         let loop_start = self.current_chunk().code.len();
         self.loop_contexts.push(LoopContext {
             break_jumps: Vec::new(),
@@ -485,18 +507,23 @@ impl Compiler {
         self.emit(Instruction::Jump { offset: loop_start }, loc);
 
         let exit_patch = self.current_chunk().code.len();
-        if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[exit_jump] {
+        if let Some(Instruction::JumpIf { offset, .. }) =
+            self.current_chunk().code.get_mut(exit_jump)
+        {
             *offset = exit_patch;
         }
 
-        let lc = self.loop_contexts.pop().unwrap();
+        let lc = self
+            .loop_contexts
+            .pop()
+            .expect("loop context was pushed when entering the loop");
         for jump in &lc.break_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = exit_patch;
             }
         }
         for jump in &lc.continue_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = loop_start;
             }
         }
@@ -509,7 +536,7 @@ impl Compiler {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx }, loc.clone());
         self.add_local(&rfl.variable.name);
-        let control_idx = self.contexts.last().unwrap().locals.len() - 1;
+        let control_idx = self.current_context().locals.len() - 1;
 
         self.compile_expression(&rfl.start)?;
         if let Some(ref step_expr) = rfl.step {
@@ -522,7 +549,7 @@ impl Compiler {
         self.emit(Instruction::SetLocal { index: control_idx }, loc.clone());
 
         self.compile_expression(&rfl.end)?;
-        let limit_idx = self.contexts.last().unwrap().locals.len();
+        let limit_idx = self.current_context().locals.len();
         self.add_local("__limit__");
 
         if let Some(ref step_expr) = rfl.step {
@@ -531,10 +558,10 @@ impl Compiler {
             let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
             self.emit(Instruction::Constant { index: one_idx }, loc.clone());
         }
-        let step_idx = self.contexts.last().unwrap().locals.len();
+        let step_idx = self.current_context().locals.len();
         self.add_local("__step__");
 
-        let body_locals_snapshot = self.contexts.last().unwrap().locals.len();
+        let body_locals_snapshot = self.current_context().locals.len();
         let for_idx = self.current_chunk().code.len();
         self.loop_contexts.push(LoopContext {
             break_jumps: Vec::new(),
@@ -560,27 +587,29 @@ impl Compiler {
         self.compile_block(&rfl.body)?;
         self.emit(Instruction::Jump { offset: for_idx }, loc);
 
-        if let Instruction::ForLoop {
-            ref mut body_offset,
-            ..
-        } = self.current_chunk().code[for_idx]
+        if let Some(Instruction::ForLoop { body_offset, .. }) =
+            self.current_chunk().code.get_mut(for_idx)
         {
             *body_offset = body_start;
         }
 
         let exit_patch = self.current_chunk().code.len();
-        if let Instruction::Jump { ref mut offset } = self.current_chunk().code[exit_jump_idx] {
+        if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(exit_jump_idx)
+        {
             *offset = exit_patch;
         }
 
-        let lc = self.loop_contexts.pop().unwrap();
+        let lc = self
+            .loop_contexts
+            .pop()
+            .expect("loop context was pushed when entering the loop");
         for jump in &lc.break_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = exit_patch;
             }
         }
         for jump in &lc.continue_jumps {
-            if let Instruction::Jump { ref mut offset } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
                 *offset = for_idx;
             }
         }
@@ -590,8 +619,8 @@ impl Compiler {
 
     fn compile_name_assign(&mut self, na: &NameAssignment) -> Result<(), CompileError> {
         self.compile_expression(&na.expression)?;
-        if na.names.len() == 1 {
-            let name = &na.names[0].name;
+        if let Some(name) = na.names.first() {
+            let name = &name.name;
             match self.resolve_variable(name) {
                 VarType::Local(idx) => {
                     self.emit(Instruction::SetLocal { index: idx }, Location::default());
@@ -729,8 +758,7 @@ impl Compiler {
             },
             LastStatement::Continue(_) => {
                 if let Some(lc) = self.loop_contexts.last() {
-                    let body_locals =
-                        self.contexts.last().unwrap().locals.len() - lc.body_locals_snapshot;
+                    let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
                     if body_locals > 0 {
                         self.emit(Instruction::Pop { count: body_locals }, Location::default());
                     }
@@ -985,7 +1013,8 @@ impl Compiler {
                 );
                 self.compile_expression(&le.rhs)?;
                 let patch = self.current_chunk().code.len();
-                if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[jump]
+                if let Some(Instruction::JumpIf { offset, .. }) =
+                    self.current_chunk().code.get_mut(jump)
                 {
                     *offset = patch;
                 }
@@ -1004,7 +1033,8 @@ impl Compiler {
                 );
                 self.compile_expression(&le.rhs)?;
                 let patch = self.current_chunk().code.len();
-                if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[jump]
+                if let Some(Instruction::JumpIf { offset, .. }) =
+                    self.current_chunk().code.get_mut(jump)
                 {
                     *offset = patch;
                 }
@@ -1046,7 +1076,9 @@ impl Compiler {
 
         let cleanup = self.current_chunk().code.len();
         for jump in &false_jumps {
-            if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[*jump] {
+            if let Some(Instruction::JumpIf { offset, .. }) =
+                self.current_chunk().code.get_mut(*jump)
+            {
                 *offset = cleanup;
             }
         }
@@ -1058,7 +1090,7 @@ impl Compiler {
         );
 
         let end = self.current_chunk().code.len();
-        if let Instruction::Jump { ref mut offset } = self.current_chunk().code[end_jump] {
+        if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(end_jump) {
             *offset = end;
         }
 
@@ -1084,14 +1116,16 @@ impl Compiler {
         self.emit(Instruction::Jump { offset: 0 }, Location::default());
 
         let else_patch = self.current_chunk().code.len();
-        if let Instruction::JumpIf { ref mut offset, .. } = self.current_chunk().code[else_jump] {
+        if let Some(Instruction::JumpIf { offset, .. }) =
+            self.current_chunk().code.get_mut(else_jump)
+        {
             *offset = else_patch;
         }
 
         self.compile_block(&ife.else_block)?;
 
         let end_patch = self.current_chunk().code.len();
-        if let Instruction::Jump { ref mut offset } = self.current_chunk().code[end_jump] {
+        if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(end_jump) {
             *offset = end_patch;
         }
 
@@ -1111,7 +1145,7 @@ impl Compiler {
         self.compile_block(&af.body.block)?;
         self.emit(Instruction::Return, Location::default());
 
-        let upvalues = self.contexts.last().unwrap().upvalues.clone();
+        let upvalues = self.current_context().upvalues.clone();
         self.pop_context();
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {

@@ -96,7 +96,10 @@ impl<'a> BytecodeVM<'a> {
 
         while let Some(frame) = self.frames.last() {
             let (mut ip, chunk_id) = (frame.ip, frame.chunk_id);
-            let code = &chunks[chunk_id].code;
+            let code = &chunks
+                .get(chunk_id)
+                .expect("frames only reference chunks known to the program")
+                .code;
 
             while let Some(instruction) = code.get(ip) {
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
@@ -119,11 +122,19 @@ impl<'a> BytecodeVM<'a> {
                         break;
                     },
                     Instruction::Constant { index } => {
-                        let val = &program.constants[*index];
+                        let val = &program
+                            .constants
+                            .get(*index)
+                            .expect("constant index emitted by the compiler is valid");
                         let sv = match &val.value {
                             HeapData::Nil => StackValue::Nil,
                             HeapData::Primitive(p) => StackValue::Primitive(*p),
-                            _ => StackValue::Heap(self.constant_keys[*index]),
+                            _ => StackValue::Heap(
+                                *self
+                                    .constant_keys
+                                    .get(*index)
+                                    .expect("constant was pre-inserted into the heap"),
+                            ),
                         };
                         debug_println!(debug, "    CONSTANT({}) -> {:?}", index, sv);
                         self.stack.push(sv);
@@ -211,7 +222,10 @@ impl<'a> BytecodeVM<'a> {
                         );
                     },
                     Instruction::GetGlobal { name_index } => {
-                        let name = &program.constants[*name_index];
+                        let name = &program
+                            .constants
+                            .get(*name_index)
+                            .expect("global name constant emitted by the compiler is valid");
                         if let HeapData::String(s) = &name.value {
                             debug_println!(debug, "    GET_GLOBAL {}", s);
                             if let Some(&val) = self.global_symbols.get(s) {
@@ -222,7 +236,10 @@ impl<'a> BytecodeVM<'a> {
                         }
                     },
                     Instruction::SetGlobal { name_index } => {
-                        let name = &program.constants[*name_index];
+                        let name = &program
+                            .constants
+                            .get(*name_index)
+                            .expect("global name constant emitted by the compiler is valid");
                         let name_str = name.value.as_string().unwrap_or("__unknown__").to_string();
                         let Some(val) = self.stack.pop() else {
                             return Err(RuntimeError::generic("stack underflow"));
@@ -231,24 +248,44 @@ impl<'a> BytecodeVM<'a> {
                         self.global_symbols.insert(name_str, val);
                     },
                     Instruction::GetLocal { index } => {
-                        let fp = self.frames.last().unwrap().frame_pointer;
+                        let fp = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .frame_pointer;
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
                         if let Some(&cell) = self.stack.get(fp + index) {
                             self.stack.push(cell);
                         }
                     },
                     Instruction::SetLocal { index } => {
-                        let fp = self.frames.last().unwrap().frame_pointer;
+                        let fp = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .frame_pointer;
                         let Some(val) = self.stack.pop() else {
                             return Err(RuntimeError::generic("stack underflow"));
                         };
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
-                        let _old = mem::replace(&mut self.stack[fp + index], val);
+                        let _old = mem::replace(
+                            self.stack
+                                .get_mut(fp + index)
+                                .expect("local slot is within the current frame"),
+                            val,
+                        );
 
-                        if let Some(cell) =
-                            self.frames.last_mut().unwrap().captured_locals.get(index)
+                        if let Some(cell) = self
+                            .frames
+                            .last_mut()
+                            .expect("execution continues only while a frame exists")
+                            .captured_locals
+                            .get(index)
                         {
-                            cell.borrow_mut().value = self.stack[fp + index];
+                            cell.borrow_mut().value = *self
+                                .stack
+                                .get(fp + index)
+                                .expect("local slot is within the current frame");
                         }
                     },
                     Instruction::ForLoop {
@@ -258,9 +295,19 @@ impl<'a> BytecodeVM<'a> {
                         inclusive,
                         step_index,
                     } => {
-                        let fp = self.frames.last().unwrap().frame_pointer;
-                        let control = &self.stack[fp + control_index];
-                        let limit = &self.stack[fp + limit_index];
+                        let fp = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .frame_pointer;
+                        let control = self
+                            .stack
+                            .get(fp + control_index)
+                            .expect("for-loop control slot is within the current frame");
+                        let limit = self
+                            .stack
+                            .get(fp + limit_index)
+                            .expect("for-loop limit slot is within the current frame");
 
                         let Some(Primitive::Integer(current)) = control.as_primitive() else {
                             return Err(RuntimeError::type_error(
@@ -274,7 +321,12 @@ impl<'a> BytecodeVM<'a> {
                         };
 
                         let step = if let Some(si) = step_index {
-                            match self.stack[fp + si].as_primitive() {
+                            match self
+                                .stack
+                                .get(fp + si)
+                                .expect("for-loop step slot is within the current frame")
+                                .as_primitive()
+                            {
                                 Some(Primitive::Integer(i)) => i,
                                 _ => 1,
                             }
@@ -283,7 +335,10 @@ impl<'a> BytecodeVM<'a> {
                         };
 
                         let next = current + step;
-                        self.stack[fp + control_index] =
+                        *self
+                            .stack
+                            .get_mut(fp + control_index)
+                            .expect("for-loop control slot is within the current frame") =
                             StackValue::Primitive(Primitive::Integer(next));
 
                         let keep_going = if *inclusive {
@@ -340,7 +395,7 @@ impl<'a> BytecodeVM<'a> {
                         keep_return_value,
                     } => {
                         let base = self.stack.len() - 1 - arg_count;
-                        let func_sv = self.stack[base];
+                        let func_sv = *self.stack.get(base).expect("call base is within the stack");
                         debug_println!(
                             debug,
                             "    CALL argc={} keep_ret={} func={:?}",
@@ -349,7 +404,10 @@ impl<'a> BytecodeVM<'a> {
                             func_sv
                         );
                         let frame_count = self.frames.len();
-                        self.frames.last_mut().unwrap().ip = ip;
+                        self.frames
+                            .last_mut()
+                            .expect("execution continues only while a frame exists")
+                            .ip = ip;
                         let result =
                             self.call_function(func_sv, base, *arg_count, *keep_return_value)?;
                         if *keep_return_value && self.frames.len() <= frame_count {
@@ -400,7 +458,10 @@ impl<'a> BytecodeVM<'a> {
                             function_index,
                             upvalues.len()
                         );
-                        let constant_key = self.constant_keys[*function_index];
+                        let constant_key = *self
+                            .constant_keys
+                            .get(*function_index)
+                            .expect("closure constant was pre-inserted into the heap");
                         let mut bc = match self.heap.cells.get(constant_key) {
                             Some(cell) => match &cell.value {
                                 HeapData::Function(Function::Bytecode(bc)) => bc.clone(),
@@ -418,19 +479,32 @@ impl<'a> BytecodeVM<'a> {
                         };
                         for uv_desc in upvalues {
                             if uv_desc.is_local {
-                                let fp = self.frames.last().unwrap().frame_pointer;
+                                let fp = self
+                                    .frames
+                                    .last()
+                                    .expect("execution continues only while a frame exists")
+                                    .frame_pointer;
                                 let idx = uv_desc.index;
-                                let cell =
-                                    Rc::new(RefCell::new(UpvalueCell::new(self.stack[fp + idx])));
+                                let captured = *self
+                                    .stack
+                                    .get(fp + idx)
+                                    .expect("captured local slot is within the current frame");
+                                let cell = Rc::new(RefCell::new(UpvalueCell::new(captured)));
                                 self.frames
                                     .last_mut()
-                                    .unwrap()
+                                    .expect("execution continues only while a frame exists")
                                     .captured_locals
                                     .insert(idx, cell.clone());
                                 bc.captured_upvalues.push(cell);
                             } else {
-                                let uv =
-                                    self.frames.last().unwrap().upvalues[uv_desc.index].clone();
+                                let uv = self
+                                    .frames
+                                    .last()
+                                    .expect("execution continues only while a frame exists")
+                                    .upvalues
+                                    .get(uv_desc.index)
+                                    .expect("upvalue index is within the captured upvalues")
+                                    .clone();
                                 bc.captured_upvalues.push(uv);
                             }
                         }
@@ -440,7 +514,14 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetUpvalue { index } => {
                         debug_println!(debug, "    GET_UPVALUE {}", index);
-                        if let Ok(cell) = self.frames.last().unwrap().upvalues[*index].try_borrow()
+                        if let Ok(cell) = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .upvalues
+                            .get(*index)
+                            .expect("upvalue index is within the captured upvalues")
+                            .try_borrow()
                         {
                             self.stack.push(cell.value);
                         }
@@ -450,8 +531,14 @@ impl<'a> BytecodeVM<'a> {
                             return Err(RuntimeError::generic("stack underflow"));
                         };
                         debug_println!(debug, "    SET_UPVALUE {} val={:?}", index, val);
-                        if let Ok(mut cell) =
-                            self.frames.last().unwrap().upvalues[*index].try_borrow_mut()
+                        if let Ok(mut cell) = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .upvalues
+                            .get(*index)
+                            .expect("upvalue index is within the captured upvalues")
+                            .try_borrow_mut()
                         {
                             cell.value = val;
                         }

@@ -25,25 +25,28 @@ struct Debug {
     timings: bool,
 }
 
-fn read_input(cli: &Cli) -> (String, String) {
-    let filename = &cli.files.first();
+fn read_stdin() -> (String, String) {
+    let mut source = String::new();
+    if io::stdin().read_to_string(&mut source).is_err() {
+        eprintln!("Error reading from stdin");
+        process::exit(1);
+    }
+    (source, "<stdin>".to_string())
+}
 
-    if filename.is_none_or(|f| f == "-") {
-        let mut source = String::new();
-        if io::stdin().read_to_string(&mut source).is_err() {
-            eprintln!("Error reading from stdin");
+fn read_input(cli: &Cli) -> (String, String) {
+    let Some(filename) = cli.files.first() else {
+        return read_stdin();
+    };
+    if filename == "-" {
+        return read_stdin();
+    }
+    match fs::read_to_string(filename) {
+        Ok(source) => (source, filename.clone()),
+        Err(e) => {
+            eprintln!("Error reading file '{filename}': {e}");
             process::exit(1);
-        }
-        (source, "<stdin>".to_string())
-    } else {
-        let filename = &cli.files[0];
-        match fs::read_to_string(filename) {
-            Ok(source) => (source, filename.clone()),
-            Err(e) => {
-                eprintln!("Error reading file '{filename}': {e}");
-                process::exit(1);
-            },
-        }
+        },
     }
 }
 
@@ -145,8 +148,10 @@ fn main() {
     let mut stdout = io::stdout();
     let mut stdin = io::stdin();
     let mut vm = BytecodeVM::new(&mut stdout, &mut stdin, debug.vm);
-    let result = vm.execute(&bytecode);
-    vm.heap.flush_print();
+    let result = vm
+        .execute(&bytecode)
+        .and_then(|()| Ok(vm.heap.flush_print()?));
+
     if let Err(e) = result {
         eprintln!("{e}");
         process::exit(1);

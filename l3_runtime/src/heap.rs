@@ -1,6 +1,6 @@
 use std::{
     cell::Cell,
-    io::{BufRead, BufReader, LineWriter, Read, Write},
+    io::{self, BufRead, BufReader, LineWriter, Read, Write},
 };
 
 use slotmap::{DefaultKey, SlotMap};
@@ -150,8 +150,8 @@ impl<'a> Heap<'a> {
         erased
     }
 
-    pub fn flush_print(&mut self) {
-        self.output.flush().ok();
+    pub fn flush_print(&mut self) -> Result<(), io::Error> {
+        self.output.flush()
     }
 
     pub fn maybe_gc(&mut self) {

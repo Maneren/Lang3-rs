@@ -1,6 +1,11 @@
-use std::fmt::{Display, Write as _};
+use std::fmt::{Arguments, Display, Write as _};
 
 use crate::*;
+
+fn append(out: &mut String, args: Arguments<'_>) {
+    out.write_fmt(args)
+        .expect("Writing to string should not fail.");
+}
 
 #[must_use]
 pub fn format_ast(program: &Program) -> String {
@@ -26,7 +31,7 @@ impl AstPrinter {
 
     fn line(&self, out: &mut String, text: impl Display) {
         self.indent(out);
-        writeln!(out, "{text}").unwrap();
+        append(out, format_args!("{text}\n"));
     }
 
     fn print_block(&mut self, block: &Block, out: &mut String) {

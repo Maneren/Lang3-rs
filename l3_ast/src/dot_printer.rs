@@ -1,6 +1,11 @@
-use std::fmt::{Display, Write as _};
+use std::fmt::{Arguments, Display, Write as _};
 
 use crate::*;
+
+fn append(out: &mut String, args: Arguments<'_>) {
+    out.write_fmt(args)
+        .expect("Writing to string should not fail.");
+}
 
 #[must_use]
 pub fn format_ast_graph(program: &Program) -> String {
@@ -25,15 +30,18 @@ impl DotPrinter {
     }
 
     fn write_node(out: &mut String, id: usize, label: impl Display) {
-        writeln!(out, "  n{id} [label=\"{label}\"];").unwrap();
+        append(out, format_args!("  n{id} [label=\"{label}\"];\n"));
     }
 
     fn write_edge(out: &mut String, from: usize, to: usize) {
-        writeln!(out, "  n{from} -> n{to};").unwrap();
+        append(out, format_args!("  n{from} -> n{to};\n"));
     }
 
     fn write_edge_labeled(out: &mut String, from: usize, to: usize, label: &str) {
-        writeln!(out, "  n{from} -> n{to} [label=\"{label}\"];").unwrap();
+        append(
+            out,
+            format_args!("  n{from} -> n{to} [label=\"{label}\"];\n"),
+        );
     }
 
     fn write_graph(&mut self, program: &Program, out: &mut String) {

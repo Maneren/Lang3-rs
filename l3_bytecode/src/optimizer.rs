@@ -30,8 +30,13 @@ impl Optimizer {
             let arities = chunk_arities(&program);
             for (ci, chunk_ref) in program.chunks.iter_mut().enumerate() {
                 let chunk = mem::take(chunk_ref);
-                let (optimized, pass_changed) =
-                    optimize_chunk(chunk, &mut program.constants, arities[ci]);
+                let (optimized, pass_changed) = optimize_chunk(
+                    chunk,
+                    &mut program.constants,
+                    *arities
+                        .get(ci)
+                        .expect("arities is aligned with program chunks"),
+                );
                 *chunk_ref = optimized;
                 changed |= pass_changed;
             }
@@ -50,9 +55,9 @@ fn chunk_arities(program: &ProgramBytecode) -> Vec<usize> {
     let mut arities = vec![0; program.chunks.len()];
     for cell in &program.constants {
         if let HeapData::Function(Function::Bytecode(bc)) = &cell.value
-            && bc.id < arities.len()
+            && let Some(slot) = arities.get_mut(bc.id)
         {
-            arities[bc.id] = bc.arity;
+            *slot = bc.arity;
         }
     }
     arities
@@ -77,14 +82,16 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
     let len = chunk.code.len();
     let mut reachable = vec![false; len];
     let mut queue = VecDeque::new();
-    if len > 0 {
-        reachable[0] = true;
+    if let Some(first) = reachable.first_mut() {
+        *first = true;
         queue.push_back(0);
     }
     while let Some(i) = queue.pop_front() {
         for succ in successors(&chunk.code, i) {
-            if succ < len && !reachable[succ] {
-                reachable[succ] = true;
+            if let Some(reached) = reachable.get_mut(succ)
+                && !*reached
+            {
+                *reached = true;
                 queue.push_back(succ);
             }
         }
@@ -97,13 +104,18 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
     let mut new_code = Vec::with_capacity(len);
     let mut new_locations = Vec::with_capacity(len);
     let mut old_to_new = vec![0; len];
-    for i in 0..len {
-        if reachable[i] {
-            old_to_new[i] = new_code.len();
-            new_code.push(chunk.code[i].clone());
-            new_locations.push(chunk.locations[i].clone());
+    for (i, (reached, (inst, loc))) in reachable
+        .iter()
+        .zip(chunk.code.iter().zip(&chunk.locations))
+        .enumerate()
+    {
+        let slot = old_to_new.get_mut(i).expect("i is within the remap table");
+        if *reached {
+            *slot = new_code.len();
+            new_code.push(inst.clone());
+            new_locations.push(loc.clone());
         } else {
-            old_to_new[i] = new_code.len().saturating_sub(1);
+            *slot = new_code.len().saturating_sub(1);
         }
     }
     for inst in &mut new_code {
@@ -120,7 +132,7 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
 }
 
 fn successors(code: &[Instruction], i: usize) -> Vec<usize> {
-    match &code[i] {
+    match code.get(i).expect("queue holds valid instruction indices") {
         Instruction::Return => Vec::new(),
         Instruction::Jump { offset } => vec![*offset],
         Instruction::JumpIf { offset, .. } => vec![*offset, i + 1],
@@ -131,8 +143,8 @@ fn successors(code: &[Instruction], i: usize) -> Vec<usize> {
 
 fn remap_offsets(instruction: &mut Instruction, old_to_new: &[usize]) {
     let remap = |offset: &mut usize| {
-        if *offset < old_to_new.len() {
-            *offset = old_to_new[*offset];
+        if let Some(mapped) = old_to_new.get(*offset) {
+            *offset = *mapped;
         }
     };
     match instruction {
@@ -164,44 +176,71 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
     let n = blocks.len();
     let mut index_to_block = vec![0; chunk.code.len()];
     for (bi, block) in blocks.iter().enumerate() {
-        index_to_block[block.start..block.end].fill(bi);
+        index_to_block
+            .get_mut(block.start..block.end)
+            .expect("block range is within the code array")
+            .fill(bi);
     }
 
     let mut in_stacks: Vec<Option<Stack>> = vec![None; n];
     let mut queued = vec![false; n];
-    if n > 0 {
-        in_stacks[0] = Some(vec![None; arity]);
-        queued[0] = true;
+    if let Some(first) = in_stacks.first_mut() {
+        *first = Some(vec![None; arity]);
     }
-    let mut queue: VecDeque<usize> = (0..n).filter(|&bi| queued[bi]).collect();
+    if let Some(first) = queued.first_mut() {
+        *first = true;
+    }
+    let mut queue: VecDeque<usize> = queued
+        .iter()
+        .enumerate()
+        .filter_map(|(bi, &q)| q.then_some(bi))
+        .collect();
     while let Some(bi) = queue.pop_front() {
-        queued[bi] = false;
-        let Some(in_stack) = &in_stacks[bi] else {
+        *queued
+            .get_mut(bi)
+            .expect("queued entries hold valid block indices") = false;
+        let Some(in_stack) = in_stacks.get(bi).expect("bi is a valid block index") else {
             continue;
         };
-        let outs = transfer(&chunk.code, &blocks[bi], &index_to_block, in_stack);
+        let outs = transfer(
+            &chunk.code,
+            blocks.get(bi).expect("bi is a valid block index"),
+            &index_to_block,
+            in_stack,
+        );
         for (succ, out) in outs {
-            let merged = match &mut in_stacks[succ] {
-                None => {
-                    in_stacks[succ] = Some(out);
-                    true
-                },
-                Some(dst) => merge_stack(dst, &out),
+            let merged = if let Some(dst) = in_stacks
+                .get_mut(succ)
+                .expect("succ is a valid block index")
+            {
+                merge_stack(dst, &out)
+            } else {
+                *in_stacks
+                    .get_mut(succ)
+                    .expect("succ is a valid block index") = Some(out);
+                true
             };
-            if merged && !queued[succ] {
-                queued[succ] = true;
-                queue.push_back(succ);
+            if merged {
+                let queued_entry = queued.get_mut(succ).expect("succ is a valid block index");
+                if !*queued_entry {
+                    *queued_entry = true;
+                    queue.push_back(succ);
+                }
             }
         }
     }
 
     let mut changed = false;
     for (bi, block) in blocks.iter().enumerate() {
-        let Some(in_stack) = &in_stacks[bi] else {
+        let Some(in_stack) = in_stacks.get(bi).expect("bi is a valid block index") else {
             continue;
         };
         let mut stack = in_stack.clone();
-        for inst in &mut chunk.code[block.start..block.end] {
+        for inst in chunk
+            .code
+            .get_mut(block.start..block.end)
+            .expect("block range is within the code array")
+        {
             if let Instruction::GetLocal { index } = inst {
                 let known = stack.get(*index).copied().flatten();
                 if let Some(k) = known {
@@ -220,14 +259,20 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
 fn build_blocks(code: &[Instruction]) -> Vec<Block> {
     let len = code.len();
     let mut starts = vec![false; len + 1];
-    starts[0] = true;
+    *starts
+        .first_mut()
+        .expect("the starts array always has at least one entry") = true;
     for (i, inst) in code.iter().enumerate() {
         match inst {
-            Instruction::Jump { offset } | Instruction::JumpIf { offset, .. } if *offset < len => {
-                starts[*offset] = true;
+            Instruction::Jump { offset } | Instruction::JumpIf { offset, .. } => {
+                if let Some(entry) = starts.get_mut(*offset) {
+                    *entry = true;
+                }
             },
-            Instruction::ForLoop { body_offset, .. } if *body_offset < len => {
-                starts[*body_offset] = true;
+            Instruction::ForLoop { body_offset, .. } => {
+                if let Some(entry) = starts.get_mut(*body_offset) {
+                    *entry = true;
+                }
             },
             _ => {},
         }
@@ -238,7 +283,9 @@ fn build_blocks(code: &[Instruction]) -> Vec<Block> {
                 | Instruction::ForLoop { .. }
                 | Instruction::Return
         ) {
-            starts[i + 1] = true;
+            *starts
+                .get_mut(i + 1)
+                .expect("i + 1 is within the starts array") = true;
         }
     }
 
@@ -266,12 +313,22 @@ fn transfer(
 ) -> Vec<(usize, Stack)> {
     let mut stack = in_stack.clone();
     let last = block.end - 1;
-    for inst in &code[block.start..last] {
+    for inst in code
+        .get(block.start..last)
+        .expect("block start..last is within the code array")
+    {
         step(inst, &mut stack);
     }
-    match &code[last] {
+    match code.get(last).expect("block end is within the code array") {
         Instruction::Return => Vec::new(),
-        Instruction::Jump { offset } => vec![(index_to_block[*offset], stack)],
+        Instruction::Jump { offset } => {
+            vec![(
+                *index_to_block
+                    .get(*offset)
+                    .expect("jump target maps to a block"),
+                stack,
+            )]
+        },
         Instruction::JumpIf {
             offset,
             keep_stay,
@@ -287,9 +344,14 @@ fn transfer(
             if *keep_stay {
                 stay.push(cond.flatten());
             }
-            let mut out = vec![(index_to_block[*offset], taken)];
-            if block.end < code.len() {
-                out.push((index_to_block[block.end], stay));
+            let mut out = vec![(
+                *index_to_block
+                    .get(*offset)
+                    .expect("jump target maps to a block"),
+                taken,
+            )];
+            if let Some(mapped) = index_to_block.get(block.end) {
+                out.push((*mapped, stay));
             }
             out
         },
@@ -301,20 +363,28 @@ fn transfer(
             if *control_index >= stack.len() {
                 stack.resize(*control_index + 1, None);
             }
-            stack[*control_index] = None;
-            let mut out = vec![(index_to_block[*body_offset], stack.clone())];
-            if block.end < code.len() {
-                out.push((index_to_block[block.end], stack));
+            *stack
+                .get_mut(*control_index)
+                .expect("control slot was resized into the stack") = None;
+            let mut out = vec![(
+                *index_to_block
+                    .get(*body_offset)
+                    .expect("jump target maps to a block"),
+                stack.clone(),
+            )];
+            if let Some(mapped) = index_to_block.get(block.end) {
+                out.push((*mapped, stack));
             }
             out
         },
         _ => {
-            step(&code[last], &mut stack);
-            if block.end < code.len() {
-                vec![(index_to_block[block.end], stack)]
-            } else {
-                Vec::new()
-            }
+            step(
+                code.get(last).expect("block end is within the code array"),
+                &mut stack,
+            );
+            index_to_block
+                .get(block.end)
+                .map_or_else(Vec::new, |mapped| vec![(*mapped, stack)])
         },
     }
 }
@@ -323,9 +393,9 @@ fn transfer(
 /// stack. A stack entry is only known when all predecessors agree.
 fn merge_stack(dst: &mut Stack, src: &Stack) -> bool {
     let mut changed = false;
-    for i in 0..dst.len().min(src.len()) {
-        if dst[i] != src[i] {
-            dst[i] = None;
+    for (dst_slot, src_slot) in dst.iter_mut().zip(src) {
+        if *dst_slot != *src_slot {
+            *dst_slot = None;
             changed = true;
         }
     }
@@ -348,8 +418,8 @@ fn step(inst: &Instruction, stack: &mut Stack) {
         },
         Instruction::Duplicate { index } => {
             let idx = stack.len().saturating_sub(*index + 1);
-            if idx < stack.len() {
-                stack.push(stack[idx]);
+            if let Some(&val) = stack.get(idx) {
+                stack.push(val);
             }
         },
         Instruction::GetLocal { index } => {
@@ -361,13 +431,17 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             if *index >= stack.len() {
                 stack.resize(*index + 1, None);
             }
-            stack[*index] = value;
+            *stack
+                .get_mut(*index)
+                .expect("local slot was resized into the stack") = value;
         },
         Instruction::ForLoop { control_index, .. } => {
             if *control_index >= stack.len() {
                 stack.resize(*control_index + 1, None);
             }
-            stack[*control_index] = None;
+            *stack
+                .get_mut(*control_index)
+                .expect("control slot was resized into the stack") = None;
         },
         Instruction::Call {
             arg_count,
@@ -465,16 +539,36 @@ fn fold_constants(chunk: &Chunk, pool: &mut Vec<HeapCell>) -> (Chunk, bool) {
             changed = true;
             let idx = add_constant(pool, &mut values, &mut heap, data);
             new_code.push(Instruction::Constant { index: idx });
-            new_locations.push(chunk.locations[i].clone());
+            new_locations.push(
+                chunk
+                    .locations
+                    .get(i)
+                    .expect("i is within the code array")
+                    .clone(),
+            );
             let new_idx = new_code.len() - 1;
             for k in 0..count {
-                old_to_new[i + k] = new_idx;
+                *old_to_new
+                    .get_mut(i + k)
+                    .expect("folded window is within the code array") = new_idx;
             }
             i += count;
         } else {
-            old_to_new[i] = new_code.len();
-            new_code.push(chunk.code[i].clone());
-            new_locations.push(chunk.locations[i].clone());
+            *old_to_new.get_mut(i).expect("i is within the code array") = new_code.len();
+            new_code.push(
+                chunk
+                    .code
+                    .get(i)
+                    .expect("i is within the code array")
+                    .clone(),
+            );
+            new_locations.push(
+                chunk
+                    .locations
+                    .get(i)
+                    .expect("i is within the code array")
+                    .clone(),
+            );
             i += 1;
         }
     }
@@ -522,40 +616,42 @@ fn fold_binary(
     values: &[StackValue],
     heap: &mut Heap,
 ) -> Option<HeapData> {
+    let lhs = values.get(lhs).copied()?;
+    let rhs = values.get(rhs).copied()?;
     let result = match op {
-        Instruction::Add => add(&values[lhs], &values[rhs], heap),
-        Instruction::Subtract => sub(&values[lhs], &values[rhs], heap),
-        Instruction::Multiply => mul(&values[lhs], &values[rhs], heap),
-        Instruction::Divide => div(&values[lhs], &values[rhs], heap),
-        Instruction::Modulo => modulo(&values[lhs], &values[rhs], heap),
-        Instruction::Power => pow(&values[lhs], &values[rhs], heap),
+        Instruction::Add => add(&lhs, &rhs, heap),
+        Instruction::Subtract => sub(&lhs, &rhs, heap),
+        Instruction::Multiply => mul(&lhs, &rhs, heap),
+        Instruction::Divide => div(&lhs, &rhs, heap),
+        Instruction::Modulo => modulo(&lhs, &rhs, heap),
+        Instruction::Power => pow(&lhs, &rhs, heap),
         Instruction::Equal { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 c == Some(Ordering::Equal)
             }));
         },
         Instruction::NotEqual { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 c != Some(Ordering::Equal)
             }));
         },
         Instruction::Less { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 c == Some(Ordering::Less)
             }));
         },
         Instruction::LessEqual { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 matches!(c, Some(Ordering::Less | Ordering::Equal))
             }));
         },
         Instruction::Greater { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 c == Some(Ordering::Greater)
             }));
         },
         Instruction::GreaterEqual { keep_rhs: false } => {
-            return Some(compare_result(lhs, rhs, values, heap, |c| {
+            return Some(compare_result(&lhs, &rhs, heap, |c| {
                 matches!(c, Some(Ordering::Greater | Ordering::Equal))
             }));
         },
@@ -565,13 +661,12 @@ fn fold_binary(
 }
 
 fn compare_result(
-    lhs: usize,
-    rhs: usize,
-    values: &[StackValue],
+    lhs: &StackValue,
+    rhs: &StackValue,
     heap: &Heap,
     pred: impl FnOnce(Option<Ordering>) -> bool,
 ) -> HeapData {
-    let ordering = compare(&values[lhs], &values[rhs], heap);
+    let ordering = compare(lhs, rhs, heap);
     HeapData::Primitive(Primitive::Bool(pred(ordering)))
 }
 
@@ -581,9 +676,10 @@ fn fold_unary(
     values: &[StackValue],
     heap: &mut Heap,
 ) -> Option<HeapData> {
+    let operand = values.get(operand).copied()?;
     let result = match op {
-        Instruction::Negate => negative(&values[operand], heap),
-        Instruction::Not => Ok(not_op(&values[operand], heap)),
+        Instruction::Negate => negative(&operand, heap),
+        Instruction::Not => Ok(not_op(&operand, heap)),
         _ => return None,
     };
     result.as_ref().ok().and_then(|sv| foldable_data(sv, heap))
