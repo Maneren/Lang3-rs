@@ -1,17 +1,17 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 pub type Counter = usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
-    pub filename: Option<String>,
+    pub filename: Option<Rc<str>>,
     pub line: Counter,
     pub column: Counter,
 }
 
 impl Position {
     #[must_use]
-    pub const fn new(filename: Option<String>, line: Counter, column: Counter) -> Self {
+    pub const fn new(filename: Option<Rc<str>>, line: Counter, column: Counter) -> Self {
         Self {
             filename,
             line,
@@ -47,7 +47,7 @@ fn add(lhs: Counter, rhs: Counter, min: Counter) -> Counter {
 
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(ref filename) = self.filename {
+        if let Some(filename) = self.filename.as_deref() {
             write!(f, "{filename}:{}.{}", self.line, self.column)
         } else {
             write!(f, "{}.{}", self.line, self.column)

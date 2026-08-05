@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use l3_location::*;
 
 #[must_use]
-pub fn byte_to_position(source: &str, byte: usize, filename: &str) -> Position {
+pub fn byte_to_position(source: &str, byte: usize, filename: &Rc<str>) -> Position {
     let mut line: usize = 1;
     let mut col: usize = 1;
     for (i, c) in source.char_indices() {
@@ -15,11 +17,11 @@ pub fn byte_to_position(source: &str, byte: usize, filename: &str) -> Position {
             col += 1;
         }
     }
-    Position::new(Some(filename.to_string()), line, col)
+    Position::new(Some(filename.clone()), line, col)
 }
 
 #[must_use]
-pub fn make_loc(begin: usize, end: usize, source: &str, filename: &str) -> Location {
+pub fn make_loc(begin: usize, end: usize, source: &str, filename: &Rc<str>) -> Location {
     Location::new(
         byte_to_position(source, begin, filename),
         byte_to_position(source, end, filename),

@@ -13,6 +13,8 @@
 // circuit evaluation).
 // ---------------------------------------------------------------------------
 
+use std::rc::Rc;
+
 use l3_ast::*;
 use crate::token::Token;
 use crate::loc_util::*;
@@ -22,12 +24,12 @@ use crate::loc_util::*;
 //
 // Parameters:
 //   source   — the full source text (for byte-offset → line/col conversion)
-//   filename — the source file path (embedded in Location for diagnostics)
+//   filename — the source file path, shared via Rc across every Location
 //
 // Lifetime 'input ties the source reference and string token borrows
 // (&'input str for Ident and Str variants) together.
 // ---------------------------------------------------------------------------
-grammar<'input>(source: &'input str, filename: &'input str);
+grammar<'input>(source: &'input str, filename: &'input Rc<str>);
 
 // ---------------------------------------------------------------------------
 // External token declaration

@@ -21,7 +21,7 @@ enum RuntimeErrorKind {
 #[derive(Debug, Clone)]
 pub struct RuntimeError {
     kind: RuntimeErrorKind,
-    location: Option<Box<Location>>,
+    location: Option<Location>,
     stacktrace: Vec<StacktraceFrame>,
 }
 
@@ -67,13 +67,13 @@ impl RuntimeError {
 
     #[must_use]
     pub fn with_location(mut self, loc: Location) -> Self {
-        self.location = Some(Box::new(loc));
+        self.location = Some(loc);
         self
     }
 
     #[must_use]
-    pub fn location(&self) -> Option<&Location> {
-        self.location.as_deref()
+    pub const fn location(&self) -> Option<&Location> {
+        self.location.as_ref()
     }
 
     pub fn set_stacktrace(&mut self, stacktrace: Vec<StacktraceFrame>) {
