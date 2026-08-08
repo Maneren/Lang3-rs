@@ -193,7 +193,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Constant { index } => {
                         let val = &constants
-                            .get(*index)
+                            .get(*index as usize)
                             .expect("constant index emitted by the compiler is valid");
                         let sv = match &val.value {
                             HeapData::Nil => StackValue::Nil,
@@ -201,7 +201,7 @@ impl<'a> BytecodeVM<'a> {
                             _ => StackValue::Heap(
                                 *self
                                     .constant_keys
-                                    .get(*index)
+                                    .get(*index as usize)
                                     .expect("constant was pre-inserted into the heap"),
                             ),
                         };
@@ -211,7 +211,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Pop { count } => {
                         debug_println!(debug, "    POP {}", count);
-                        match self.stack.len().checked_sub(*count) {
+                        match self.stack.len().checked_sub(*count as usize) {
                             Some(remaining) => {
                                 self.stack.truncate(remaining);
                                 Ok(())
@@ -224,7 +224,7 @@ impl<'a> BytecodeVM<'a> {
                         match self
                             .stack
                             .len()
-                            .checked_sub(*index)
+                            .checked_sub(*index as usize)
                             .and_then(|n| n.checked_sub(1))
                             .and_then(|n| self.stack.get(n))
                         {
@@ -314,7 +314,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetGlobal { name_index } => {
                         let name = &constants
-                            .get(*name_index)
+                            .get(*name_index as usize)
                             .expect("global name constant emitted by the compiler is valid");
                         let name_str = name
                             .value
@@ -330,7 +330,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::SetGlobal { name_index } => {
                         let name = &constants
-                            .get(*name_index)
+                            .get(*name_index as usize)
                             .expect("global name constant emitted by the compiler is valid");
                         let name_str = name
                             .value
@@ -344,7 +344,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetLocal { index } => {
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
-                        if let Some(&cell) = self.stack.get(fp + index) {
+                        if let Some(&cell) = self.stack.get(fp + *index as usize) {
                             self.stack.push(cell);
                         }
                         Ok(())
@@ -354,7 +354,7 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
                         *self
                             .stack
-                            .get_mut(fp + index)
+                            .get_mut(fp + *index as usize)
                             .expect("local slot is within the current frame") = val;
 
                         if let Some(cell) = self
@@ -362,7 +362,7 @@ impl<'a> BytecodeVM<'a> {
                             .last()
                             .expect("execution continues only while a frame exists")
                             .captured_locals
-                            .get(index)
+                            .get(&(*index as usize))
                         {
                             cell.borrow_mut().value = val;
                         }
@@ -378,7 +378,7 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    FOR_LOOP");
                         let current = self
                             .stack
-                            .get(fp + control_index)
+                            .get(fp + *control_index as usize)
                             .expect("for-loop control slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -387,7 +387,7 @@ impl<'a> BytecodeVM<'a> {
                             });
                         let limit_val = self
                             .stack
-                            .get(fp + limit_index)
+                            .get(fp + *limit_index as usize)
                             .expect("for-loop limit slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -400,7 +400,7 @@ impl<'a> BytecodeVM<'a> {
                                 let step = step_index
                                     .and_then(|si| {
                                         self.stack
-                                            .get(fp + si)
+                                            .get(fp + si as usize)
                                             .expect(
                                                 "for-loop step slot is within the current frame",
                                             )
@@ -415,7 +415,7 @@ impl<'a> BytecodeVM<'a> {
                                 let next = current + step;
                                 *self
                                     .stack
-                                    .get_mut(fp + control_index)
+                                    .get_mut(fp + *control_index as usize)
                                     .expect("for-loop control slot is within the current frame") =
                                     StackValue::Primitive(Primitive::Integer(next));
 
@@ -434,7 +434,7 @@ impl<'a> BytecodeVM<'a> {
                                     keep_going
                                 );
                                 if keep_going {
-                                    ip = *body_offset;
+                                    ip = *body_offset as usize;
                                 }
                                 Ok(())
                             },
@@ -448,7 +448,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Jump { offset } => {
                         debug_println!(debug, "    JUMP -> {}", offset);
-                        ip = *offset;
+                        ip = *offset as usize;
                         Ok(())
                     },
                     Instruction::JumpIf {
@@ -473,7 +473,7 @@ impl<'a> BytecodeVM<'a> {
                             Self::pop_value(&mut self.stack);
                         }
                         if should_jump {
-                            ip = *offset;
+                            ip = *offset as usize;
                         }
                         Ok(())
                     },
@@ -490,7 +490,7 @@ impl<'a> BytecodeVM<'a> {
                         match self
                             .stack
                             .len()
-                            .checked_sub(*arg_count)
+                            .checked_sub(*arg_count as usize)
                             .and_then(|n| n.checked_sub(1))
                         {
                             None => Err(RuntimeError::generic("stack underflow")),
@@ -508,7 +508,7 @@ impl<'a> BytecodeVM<'a> {
                                 match self.call_function(
                                     func_sv,
                                     base,
-                                    *arg_count,
+                                    *arg_count as usize,
                                     *keep_return_value,
                                     &call_location,
                                 ) {
@@ -529,7 +529,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::MakeArray { count } => {
                         debug_println!(debug, "    MAKE_ARRAY {}", count);
-                        match self.stack.len().checked_sub(*count) {
+                        match self.stack.len().checked_sub(*count as usize) {
                             Some(start) => {
                                 let elements: Vec<StackValue> = self.stack.drain(start..).collect();
                                 let sv = self.heap.alloc_vector(elements);
@@ -577,7 +577,7 @@ impl<'a> BytecodeVM<'a> {
                         );
                         let constant_key = *self
                             .constant_keys
-                            .get(*function_index)
+                            .get(*function_index as usize)
                             .expect("closure constant was pre-inserted into the heap");
                         let bc = match self.heap.cells.get(constant_key) {
                             Some(cell) => match &cell.value {
@@ -641,7 +641,7 @@ impl<'a> BytecodeVM<'a> {
                             .last()
                             .expect("execution continues only while a frame exists")
                             .upvalues
-                            .get(*index)
+                            .get(*index as usize)
                             .expect("upvalue index is within the captured upvalues")
                             .try_borrow()
                         {
@@ -657,7 +657,7 @@ impl<'a> BytecodeVM<'a> {
                             .last()
                             .expect("execution continues only while a frame exists")
                             .upvalues
-                            .get(*index)
+                            .get(*index as usize)
                             .expect("upvalue index is within the captured upvalues")
                             .try_borrow_mut()
                         {

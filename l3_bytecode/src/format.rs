@@ -115,7 +115,7 @@ fn format_instruction(
         Instruction::Constant { index } => {
             pad_op(out, "CONSTANT");
             write_operand(out, index);
-            write_value(out, program.constants.get(*index));
+            write_value(out, program.constants.get(*index as usize));
         },
 
         // Named global
@@ -126,7 +126,7 @@ fn format_instruction(
                 out,
                 format_args!(
                     " '{}'",
-                    display_constant(program.constants.get(*name_index))
+                    display_constant(program.constants.get(*name_index as usize))
                 ),
             );
         },
@@ -137,7 +137,7 @@ fn format_instruction(
                 out,
                 format_args!(
                     " '{}'",
-                    display_constant(program.constants.get(*name_index))
+                    display_constant(program.constants.get(*name_index as usize))
                 ),
             );
         },
@@ -212,7 +212,7 @@ fn format_instruction(
                 out,
                 format_args!(
                     " ({})",
-                    display_constant(program.constants.get(*function_index))
+                    display_constant(program.constants.get(*function_index as usize))
                 ),
             );
             let continuation_indent = HEADER_WIDTH + OP_WIDTH + 1;
