@@ -86,17 +86,17 @@ fn format_instruction(
         },
         Instruction::GetLocal { index } => {
             pad_op(out, "GET_LOCAL");
-            write_operand(out, index);
+            write_operand(out, index.0);
         },
         Instruction::SetLocal { index } => {
             pad_op(out, "SET_LOCAL");
-            write_operand(out, index);
+            write_operand(out, index.0);
         },
         Instruction::Jump {
             offset: jump_offset,
         } => {
             pad_op(out, "JUMP");
-            write_operand(out, jump_offset);
+            write_operand(out, jump_offset.0);
         },
         Instruction::MakeArray { count } => {
             pad_op(out, "MAKE_ARRAY");
@@ -108,40 +108,40 @@ fn format_instruction(
         },
         Instruction::GetUpvalue { index } => {
             pad_op(out, "GET_UPVALUE");
-            write_operand(out, index);
+            write_operand(out, index.0);
         },
         Instruction::SetUpvalue { index } => {
             pad_op(out, "SET_UPVALUE");
-            write_operand(out, index);
+            write_operand(out, index.0);
         },
 
         // Index + value
         Instruction::Constant { index } => {
             pad_op(out, "CONSTANT");
-            write_operand(out, index);
-            write_value(out, program.constants.get(*index as usize));
+            write_operand(out, index.0);
+            write_value(out, program.constants.get(*index));
         },
 
         // Named global
         Instruction::GetGlobal { name_index } => {
             pad_op(out, "GET_GLOBAL");
-            write_operand(out, name_index);
+            write_operand(out, name_index.0);
             append(
                 out,
                 format_args!(
                     " '{}'",
-                    display_constant(program.constants.get(*name_index as usize))
+                    display_constant(program.constants.get(*name_index))
                 ),
             );
         },
         Instruction::SetGlobal { name_index } => {
             pad_op(out, "SET_GLOBAL");
-            write_operand(out, name_index);
+            write_operand(out, name_index.0);
             append(
                 out,
                 format_args!(
                     " '{}'",
-                    display_constant(program.constants.get(*name_index as usize))
+                    display_constant(program.constants.get(*name_index))
                 ),
             );
         },
@@ -173,13 +173,19 @@ fn format_instruction(
             step_index,
         } => {
             pad_op(out, "FOR_LOOP");
-            append(out, format_args!(" ctrl={control_index:>OPERAND_WIDTH$}"));
-            append(out, format_args!(" lim={limit_index:>OPERAND_WIDTH$}"));
-            append(out, format_args!(" body={body_offset:>OPERAND_WIDTH$}"));
+            let ctrl = control_index.0;
+            let lim = limit_index.0;
+            let body = body_offset.0;
+            append(out, format_args!(" ctrl={ctrl:>OPERAND_WIDTH$}"));
+            append(out, format_args!(" lim={lim:>OPERAND_WIDTH$}"));
+            append(out, format_args!(" body={body:>OPERAND_WIDTH$}"));
             let cmp = if *inclusive { "LE" } else { "LT" };
             append(out, format_args!(" {cmp}"));
             match step_index {
-                Some(si) => append(out, format_args!(" step={si:>OPERAND_WIDTH$}")),
+                Some(si) => {
+                    let s = si.0;
+                    append(out, format_args!(" step={s:>OPERAND_WIDTH$}"));
+                },
                 None => out.push_str(" step=const1"),
             }
         },
@@ -192,7 +198,7 @@ fn format_instruction(
             keep_jump,
         } => {
             pad_op(out, "JUMP_IF");
-            write_operand(out, jump_offset);
+            write_operand(out, jump_offset.0);
             append(out, format_args!(" {expected}"));
             if *keep_jump || *keep_stay {
                 out.push_str(" keep after");
@@ -211,12 +217,12 @@ fn format_instruction(
             upvalues,
         } => {
             pad_op(out, "CLOSURE");
-            write_operand(out, function_index);
+            write_operand(out, function_index.0);
             append(
                 out,
                 format_args!(
                     " ({})",
-                    display_constant(program.constants.get(*function_index as usize))
+                    display_constant(program.constants.get(*function_index))
                 ),
             );
             let continuation_indent = HEADER_WIDTH + OP_WIDTH + 1;

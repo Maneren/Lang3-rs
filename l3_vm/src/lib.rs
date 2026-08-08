@@ -5,7 +5,9 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     io::{Read, Write},
+    ops::RangeBounds,
     rc::Rc,
+    slice::{Iter, SliceIndex},
 };
 
 use foldhash::fast::FixedState;
@@ -18,18 +20,140 @@ use l3_runtime::{
     *,
 };
 
+pub struct VmStack {
+    values: Vec<StackValue>,
+}
+
+impl VmStack {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            values: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push(&mut self, val: StackValue) {
+        self.values.push(val);
+    }
+
+    fn pop(&mut self) -> StackValue {
+        self.values
+            .pop()
+            .expect("compiler invariant: stack non-empty")
+    }
+
+    fn top(&self) -> StackValue {
+        *self
+            .values
+            .last()
+            .expect("compiler invariant: stack non-empty")
+    }
+
+    fn top_mut(&mut self) -> &mut StackValue {
+        self.values
+            .last_mut()
+            .expect("compiler invariant: stack non-empty")
+    }
+
+    fn get_local(&self, fp: usize, index: LocalIndex) -> StackValue {
+        self.values[fp + index.0 as usize]
+    }
+
+    fn set_local(&mut self, fp: usize, index: LocalIndex, val: StackValue) {
+        self.values[fp + index.0 as usize] = val;
+    }
+
+    fn truncate(&mut self, len: usize) {
+        self.values.truncate(len);
+    }
+
+    const fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<[StackValue]>>::Output>
+    where
+        I: SliceIndex<[StackValue]>,
+    {
+        self.values.get(index)
+    }
+
+    fn get_mut<I>(&mut self, index: I) -> Option<&mut <I as SliceIndex<[StackValue]>>::Output>
+    where
+        I: SliceIndex<[StackValue]>,
+    {
+        self.values.get_mut(index)
+    }
+
+    fn drain<R>(&mut self, range: R) -> impl Iterator<Item = StackValue>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.values.drain(range)
+    }
+
+    fn extend_from_slice(&mut self, other: &[StackValue]) {
+        self.values.extend_from_slice(other);
+    }
+}
+
+pub struct CallStack {
+    frames: Vec<CallFrame>,
+}
+
+impl CallStack {
+    const fn new() -> Self {
+        Self { frames: Vec::new() }
+    }
+
+    fn last_mut(&mut self) -> Option<&mut CallFrame> {
+        self.frames.last_mut()
+    }
+
+    fn push(&mut self, frame: CallFrame) {
+        self.frames.push(frame);
+    }
+
+    fn pop(&mut self) -> CallFrame {
+        self.frames.pop().expect("active frame exists")
+    }
+
+    const fn is_empty(&self) -> bool {
+        self.frames.is_empty()
+    }
+
+    const fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    fn iter(&self) -> Iter<'_, CallFrame> {
+        self.frames.iter()
+    }
+
+    fn last(&self) -> Option<&CallFrame> {
+        self.frames.last()
+    }
+}
+
+impl<'a> IntoIterator for &'a CallStack {
+    type Item = &'a CallFrame;
+    type IntoIter = Iter<'a, CallFrame>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
-    pub stack: Vec<StackValue>,
+    pub stack: VmStack,
     pub global_symbols: HashMap<String, StackValue, FixedState>,
     constant_keys: Vec<slotmap::DefaultKey>,
-    frames: Vec<CallFrame>,
+    frames: CallStack,
     debug: bool,
 }
 
-struct CallFrame {
-    chunk_id: usize,
-    ip: usize,
+pub struct CallFrame {
+    chunk_id: ChunkId,
+    ip: CodeOffset,
     frame_pointer: usize,
     closure_info: Option<(BytecodeFunction, StackValue)>,
     call_location: Option<Location>,
@@ -51,10 +175,10 @@ impl<'a> BytecodeVM<'a> {
     pub fn new(writer: &'a mut impl Write, reader: &'a mut impl Read, debug: bool) -> Self {
         let mut vm = Self {
             heap: Heap::new(writer, reader),
-            stack: Vec::with_capacity(1024),
+            stack: VmStack::with_capacity(1024),
             global_symbols: HashMap::with_hasher(FixedState::default()),
             constant_keys: Vec::new(),
-            frames: Vec::new(),
+            frames: CallStack::new(),
             debug,
         };
 
@@ -74,8 +198,6 @@ impl<'a> BytecodeVM<'a> {
 
     pub fn execute(&mut self, program: &ProgramBytecode) -> RuntimeResult<()> {
         let debug = self.debug;
-        let chunks = &program.chunks;
-        let constants = &program.constants;
 
         // Pre-insert all program constants into the heap so the Constant
         // dispatch can use a cached slotmap key instead of a linear scan.
@@ -86,8 +208,8 @@ impl<'a> BytecodeVM<'a> {
             .collect();
 
         let frame = CallFrame {
-            chunk_id: 0,
-            ip: 0,
+            chunk_id: ChunkId(0),
+            ip: CodeOffset(0),
             frame_pointer: 0,
             closure_info: None,
             call_location: None,
@@ -97,14 +219,13 @@ impl<'a> BytecodeVM<'a> {
         };
         self.frames.push(frame);
 
-        let result = self.execute_loop(chunks, constants, debug);
+        let result = self.execute_loop(program, debug);
 
         if let Err(mut err) = result {
             if err.location().is_none() {
-                let loc = self
-                    .frames
-                    .last()
-                    .map_or_default(|frame| self.instruction_location(chunks, frame.ip));
+                let loc = self.frames.last().map_or_default(|frame| {
+                    self.instruction_location(&program.chunks, frame.ip.as_index())
+                });
                 err = err.with_location(loc);
             }
             err.set_stacktrace(self.build_stacktrace());
@@ -122,7 +243,7 @@ impl<'a> BytecodeVM<'a> {
             return Location::default();
         };
         chunks
-            .get(frame.chunk_id)
+            .get(frame.chunk_id.as_index())
             .and_then(|chunk| chunk.locations.get(ip))
             .cloned()
             .unwrap_or_default()
@@ -145,18 +266,12 @@ impl<'a> BytecodeVM<'a> {
             .collect()
     }
 
-    fn execute_loop(
-        &mut self,
-        chunks: &[Chunk],
-        constants: &[l3_runtime::HeapCell],
-        debug: bool,
-    ) -> RuntimeResult<()> {
+    fn execute_loop(&mut self, program: &ProgramBytecode, debug: bool) -> RuntimeResult<()> {
+        let constants = &program.constants;
+
         while let Some(frame) = self.frames.last() {
-            let (mut ip, chunk_id, fp) = (frame.ip, frame.chunk_id, frame.frame_pointer);
-            let code = &chunks
-                .get(chunk_id)
-                .expect("frames only reference chunks known to the program")
-                .code;
+            let (mut ip, chunk_id, fp) = (frame.ip.as_index(), frame.chunk_id, frame.frame_pointer);
+            let code = &program[chunk_id].code;
 
             while let Some(instruction) = code.get(ip) {
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
@@ -171,17 +286,10 @@ impl<'a> BytecodeVM<'a> {
                             frame_pointer,
                             discard_return,
                             ..
-                        } = self
-                            .frames
-                            .pop()
-                            .expect("Return is only emitted inside a function");
+                        } = self.frames.pop();
 
                         if !self.frames.is_empty() {
-                            // if the function returns a value, pop it off the stack
-                            let return_value = *self.stack.last().expect(
-                                "the compiler pushes a return value before every Return inside a \
-                                 function",
-                            );
+                            let return_value = self.stack.top();
                             debug_println!(debug, "    RETURN value={:?}", return_value);
                             self.stack.truncate(frame_pointer - 1);
                             if !discard_return {
@@ -193,7 +301,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Constant { index } => {
                         let val = &constants
-                            .get(*index as usize)
+                            .get(*index)
                             .expect("constant index emitted by the compiler is valid");
                         let sv = match &val.value {
                             HeapData::Nil => StackValue::Nil,
@@ -201,7 +309,7 @@ impl<'a> BytecodeVM<'a> {
                             _ => StackValue::Heap(
                                 *self
                                     .constant_keys
-                                    .get(*index as usize)
+                                    .get(index.as_index())
                                     .expect("constant was pre-inserted into the heap"),
                             ),
                         };
@@ -261,7 +369,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Negate => {
                         debug_println!(debug, "    NEGATE");
-                        let a = Self::pop_value(&mut self.stack);
+                        let a = self.stack.pop();
                         match negative(&a, &self.heap) {
                             Ok(result) => {
                                 self.stack.push(result);
@@ -272,7 +380,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Not => {
                         debug_println!(debug, "    NOT");
-                        let a = Self::pop_value(&mut self.stack);
+                        let a = self.stack.pop();
                         self.stack.push(not_op(&a, &self.heap));
                         Ok(())
                     },
@@ -313,13 +421,7 @@ impl<'a> BytecodeVM<'a> {
                         Ok(())
                     },
                     Instruction::GetGlobal { name_index } => {
-                        let name = &constants
-                            .get(*name_index as usize)
-                            .expect("global name constant emitted by the compiler is valid");
-                        let name_str = name
-                            .value
-                            .as_string()
-                            .expect("global name constants emitted by the compiler are strings");
+                        let name_str = constants.string(*name_index);
                         debug_println!(debug, "    GET_GLOBAL {}", name_str);
                         if let Some(&val) = self.global_symbols.get(name_str) {
                             self.stack.push(val);
@@ -329,40 +431,29 @@ impl<'a> BytecodeVM<'a> {
                         }
                     },
                     Instruction::SetGlobal { name_index } => {
-                        let name = &constants
-                            .get(*name_index as usize)
-                            .expect("global name constant emitted by the compiler is valid");
-                        let name_str = name
-                            .value
-                            .as_string()
-                            .expect("global name constants emitted by the compiler are strings")
-                            .to_string();
-                        let val = Self::pop_value(&mut self.stack);
+                        let name_str = constants.string(*name_index).to_string();
+                        let val = self.stack.pop();
                         debug_println!(debug, "    SET_GLOBAL {} = {:?}", name_str, val);
                         self.global_symbols.insert(name_str, val);
                         Ok(())
                     },
                     Instruction::GetLocal { index } => {
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
-                        if let Some(&cell) = self.stack.get(fp + *index as usize) {
-                            self.stack.push(cell);
-                        }
+                        let cell = self.stack.get_local(fp, *index);
+                        self.stack.push(cell);
                         Ok(())
                     },
                     Instruction::SetLocal { index } => {
-                        let val = Self::pop_value(&mut self.stack);
+                        let val = self.stack.pop();
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
-                        *self
-                            .stack
-                            .get_mut(fp + *index as usize)
-                            .expect("local slot is within the current frame") = val;
+                        self.stack.set_local(fp, *index, val);
 
                         if let Some(cell) = self
                             .frames
                             .last()
                             .expect("execution continues only while a frame exists")
                             .captured_locals
-                            .get(&(*index as usize))
+                            .get(&index.as_index())
                         {
                             cell.borrow_mut().value = val;
                         }
@@ -378,7 +469,7 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    FOR_LOOP");
                         let current = self
                             .stack
-                            .get(fp + *control_index as usize)
+                            .get(fp + control_index.as_index())
                             .expect("for-loop control slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -387,7 +478,7 @@ impl<'a> BytecodeVM<'a> {
                             });
                         let limit_val = self
                             .stack
-                            .get(fp + *limit_index as usize)
+                            .get(fp + limit_index.as_index())
                             .expect("for-loop limit slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -400,7 +491,7 @@ impl<'a> BytecodeVM<'a> {
                                 let step = step_index
                                     .and_then(|si| {
                                         self.stack
-                                            .get(fp + si as usize)
+                                            .get(fp + si.as_index())
                                             .expect(
                                                 "for-loop step slot is within the current frame",
                                             )
@@ -415,7 +506,7 @@ impl<'a> BytecodeVM<'a> {
                                 let next = current + step;
                                 *self
                                     .stack
-                                    .get_mut(fp + *control_index as usize)
+                                    .get_mut(fp + control_index.as_index())
                                     .expect("for-loop control slot is within the current frame") =
                                     StackValue::Primitive(Primitive::Integer(next));
 
@@ -434,7 +525,7 @@ impl<'a> BytecodeVM<'a> {
                                     keep_going
                                 );
                                 if keep_going {
-                                    ip = *body_offset as usize;
+                                    ip = body_offset.as_index();
                                 }
                                 Ok(())
                             },
@@ -448,7 +539,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Jump { offset } => {
                         debug_println!(debug, "    JUMP -> {}", offset);
-                        ip = *offset as usize;
+                        ip = offset.as_index();
                         Ok(())
                     },
                     Instruction::JumpIf {
@@ -457,7 +548,7 @@ impl<'a> BytecodeVM<'a> {
                         keep_stay,
                         keep_jump,
                     } => {
-                        let cond = Self::top_value(&self.stack);
+                        let cond = self.stack.top();
                         let truthy = cond.is_truthy(&self.heap);
                         let should_jump = truthy == *expected;
                         debug_println!(
@@ -470,10 +561,10 @@ impl<'a> BytecodeVM<'a> {
                         );
                         let should_pop = if should_jump { !keep_jump } else { !keep_stay };
                         if should_pop {
-                            Self::pop_value(&mut self.stack);
+                            self.stack.pop();
                         }
                         if should_jump {
-                            ip = *offset as usize;
+                            ip = offset.as_index();
                         }
                         Ok(())
                     },
@@ -500,11 +591,12 @@ impl<'a> BytecodeVM<'a> {
                                     .get(base)
                                     .expect("call base is a valid stack index");
                                 let frame_count = self.frames.len();
-                                let call_location = self.instruction_location(chunks, ip - 1);
+                                let call_location =
+                                    self.instruction_location(&program.chunks, ip - 1);
                                 self.frames
                                     .last_mut()
                                     .expect("execution continues only while a frame exists")
-                                    .ip = ip;
+                                    .ip = CodeOffset(ip as u32);
                                 match self.call_function(
                                     func_sv,
                                     base,
@@ -566,8 +658,8 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetIndex => {
                         debug_println!(debug, "    GET_INDEX");
-                        let idx = Self::pop_value(&mut self.stack);
-                        let container = Self::top_value_mut(&mut self.stack);
+                        let idx = self.stack.pop();
+                        let container = self.stack.top_mut();
                         match index(container, &idx, &mut self.heap) {
                             Ok(result) => {
                                 *container = result;
@@ -578,9 +670,9 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::SetIndex => {
                         debug_println!(debug, "    SET_INDEX");
-                        let val = Self::pop_value(&mut self.stack);
-                        let idx = Self::pop_value(&mut self.stack);
-                        let container = Self::top_value_mut(&mut self.stack);
+                        let val = self.stack.pop();
+                        let idx = self.stack.pop();
+                        let container = self.stack.top_mut();
                         match index_mut(container, &idx, &mut self.heap) {
                             Ok(target) => {
                                 *target = val;
@@ -601,19 +693,21 @@ impl<'a> BytecodeVM<'a> {
                         );
                         let constant_key = *self
                             .constant_keys
-                            .get(*function_index as usize)
+                            .get(function_index.as_index())
                             .expect("closure constant was pre-inserted into the heap");
-                        let bc = match self.heap.cells.get(constant_key) {
-                            Some(cell) => match &cell.value {
+                        let bc = self.heap.cells.get(constant_key).map_or_else(
+                            || {
+                                Err(RuntimeError::type_error(
+                                    "invalid closure function constant",
+                                ))
+                            },
+                            |cell| match &cell.value {
                                 HeapData::Function(Function::Bytecode(bc)) => Ok(bc.clone()),
                                 _ => Err(RuntimeError::type_error(
                                     "closure constant is not a function",
                                 )),
                             },
-                            None => Err(RuntimeError::type_error(
-                                "invalid closure function constant",
-                            )),
-                        };
+                        );
                         match bc {
                             Err(e) => Err(e),
                             Ok(mut bc) => {
@@ -627,10 +721,12 @@ impl<'a> BytecodeVM<'a> {
                                         if is_local {
                                             current_frame
                                                 .captured_locals
-                                                .entry(index)
+                                                .entry(index as usize)
                                                 .or_insert_with(|| {
-                                                    let captured =
-                                                        *self.stack.get(fp + index).expect(
+                                                    let captured = *self
+                                                        .stack
+                                                        .get(fp + index as usize)
+                                                        .expect(
                                                             "captured local slot is within the \
                                                              current frame",
                                                         );
@@ -642,7 +738,7 @@ impl<'a> BytecodeVM<'a> {
                                         } else {
                                             current_frame
                                                 .upvalues
-                                                .get(index)
+                                                .get(index as usize)
                                                 .expect(
                                                     "upvalue index is within the captured upvalues",
                                                 )
@@ -665,7 +761,7 @@ impl<'a> BytecodeVM<'a> {
                             .last()
                             .expect("execution continues only while a frame exists")
                             .upvalues
-                            .get(*index as usize)
+                            .get(index.as_index())
                             .expect("upvalue index is within the captured upvalues")
                             .try_borrow()
                         {
@@ -674,14 +770,14 @@ impl<'a> BytecodeVM<'a> {
                         Ok(())
                     },
                     Instruction::SetUpvalue { index } => {
-                        let val = Self::pop_value(&mut self.stack);
+                        let val = self.stack.pop();
                         debug_println!(debug, "    SET_UPVALUE {} val={:?}", index, val);
                         if let Ok(mut cell) = self
                             .frames
                             .last()
                             .expect("execution continues only while a frame exists")
                             .upvalues
-                            .get(*index as usize)
+                            .get(index.as_index())
                             .expect("upvalue index is within the captured upvalues")
                             .try_borrow_mut()
                         {
@@ -695,7 +791,7 @@ impl<'a> BytecodeVM<'a> {
                     self.frames
                         .last_mut()
                         .expect("execution continues only while a frame exists")
-                        .ip = ip - 1;
+                        .ip = CodeOffset((ip - 1) as u32);
                     return Err(e);
                 }
             }
@@ -721,7 +817,7 @@ impl<'a> BytecodeVM<'a> {
     }
 
     fn gc_mark_roots(&self) {
-        for sv in &self.stack {
+        for sv in &self.stack.values {
             mark_stack_value(sv, &self.heap.cells);
         }
         for frame in &self.frames {
@@ -816,8 +912,8 @@ impl<'a> BytecodeVM<'a> {
         }
 
         let new_frame = CallFrame {
-            chunk_id: bc.id,
-            ip: 0,
+            chunk_id: ChunkId(u32::try_from(bc.id).expect("chunk id fits in u32")),
+            ip: CodeOffset(0),
             frame_pointer,
             closure_info: Some((*bc.clone(), func)),
             call_location: Some(call_location.clone()),
@@ -830,30 +926,12 @@ impl<'a> BytecodeVM<'a> {
         Ok(StackValue::Nil)
     }
 
-    fn pop_value(stack: &mut Vec<StackValue>) -> StackValue {
-        stack
-            .pop()
-            .expect("Valid program should not cause stack underflow.")
-    }
-
-    const fn top_value(stack: &[StackValue]) -> StackValue {
-        *stack
-            .last()
-            .expect("Valid program should not cause stack underflow")
-    }
-
-    const fn top_value_mut(stack: &mut [StackValue]) -> &mut StackValue {
-        stack
-            .last_mut()
-            .expect("Valid program should not cause stack underflow")
-    }
-
     fn binary_op<F>(&mut self, f: F) -> RuntimeResult<()>
     where
         F: Fn(&StackValue, &StackValue, &mut Heap) -> RuntimeResult<StackValue>,
     {
-        let b = Self::pop_value(&mut self.stack);
-        let a = Self::top_value_mut(&mut self.stack);
+        let b = self.stack.pop();
+        let a = self.stack.top_mut();
         let result = f(a, &b, &mut self.heap)?;
         *a = result;
         Ok(())
@@ -863,16 +941,16 @@ impl<'a> BytecodeVM<'a> {
     where
         F: Fn(Option<Ordering>) -> bool,
     {
-        let b = Self::pop_value(&mut self.stack);
+        let b = self.stack.pop();
         if keep_rhs {
-            let a = Self::pop_value(&mut self.stack);
+            let a = self.stack.pop();
             let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
             self.stack.push(b);
             self.stack.push(result);
         } else {
-            let a = Self::top_value(&self.stack);
+            let a = self.stack.top();
             let result = StackValue::Primitive(Primitive::Bool(pred(compare(&a, &b, &self.heap))));
-            let top = Self::top_value_mut(&mut self.stack);
+            let top = self.stack.top_mut();
             *top = result;
         }
     }
