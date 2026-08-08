@@ -1,7 +1,7 @@
 # Lang3 Performance Bottleneck Exploration
 
 Date: 2026-08-08
-Worktree: `/tmp/opencode/lang3-perf` (branch `perf-explore`, HEAD `185864d wip refactor`)
+Worktree: `/tmp/opencode/lang3-perf` (branch `perf-explore`, HEAD `37cb118 perf: store bytecode indices as u32 to shrink instruction to 24 bytes`)
 
 ## 1. Benchmark
 
@@ -14,6 +14,19 @@ Benchmark 1: /home/maneren/.cache/cargo/target/release/l3 examples/game_of_life.
 ```
 
 Confirmed on a fresh build: **~336 ms mean**. `CARGO_TARGET_DIR=/home/maneren/.cache/cargo/target`.
+
+### Results after the first round of fixes
+
+Three targets are implemented (commits `4c466fb`, `0d6be3b`, `37cb118`):
+
+| Commit | Change | Mean (hyperfine, warmup 5) |
+|--------|--------|------:|
+| `185864d` baseline | — | 336 ms |
+| `4c466fb` | cache `ip`; sync frame only on Call/Return/error | 301 ms |
+| `0d6be3b` | GC check only at allocation sites | 287 ms |
+| `37cb118` | `u32` indices, `Box<[UpvalueDesc]>` (enum 48→24 B) | 286 ms |
+
+**Total: ~336 → ~286 ms (~15%).** A boxed-`ForLoop` alternative (enum → 32 B) *regressed* to 297 ms — the pointer deref on the hot loop path outweighs the cache win — and is preserved as `stash@{0}` rather than deleted.
 
 ### Workload (examples/game_of_life.l3)
 - 40×40 board, 100 generations.
@@ -163,18 +176,20 @@ The `Instruction` enum is large (Closure carries a `Vec`, so the enum is 48 byte
 
 10/32 opcodes are never executed in this workload — the fat enum hurts I-cache for no benefit.
 
-## 7. Recommended fixes, ranked by effort/reward
+## 7. Remaining recommended fixes, ranked by effort/reward
+
+Implemented so far (see §1): cache `ip` (was #1), GC check at allocation sites (was #3), `u32` instruction indices. Remaining:
 
 | # | Change | Est. win | Scope |
 |---|--------|----------|-------|
-| 1 | Cache `ip`; sync to frame only on Call/Return/error | ~20% | VM only |
-| 2 | Global slot indices instead of string-hash globals | ~12% | compiler + VM |
-| 3 | Move GC check off the per-instruction path | ~4% | VM only |
-| 4 | Capture read-only locals by value (drop Rc/RefCell) | ~11% | compiler + VM |
-| 5 | Special-case primitive arithmetic before heap `resolve` | ~10% | runtime |
-| 6 | Pre-size VM stack; reduce array-append allocations | ~5-11% | VM / builtins |
+| 1 | Global slot indices instead of string-hash globals | ~12% | compiler + VM |
+| 2 | Capture read-only locals by value (drop Rc/RefCell) | ~11% | compiler + VM |
+| 3 | Special-case primitive arithmetic before heap `resolve` | ~10% | runtime |
+| 4 | Pre-size VM stack; reduce array-append allocations | ~5-11% | VM / builtins |
 
-Items 1 and 3 are pure VM changes with no language/bytecode-format impact and are the best first targets. Item 2 is the classic "symbol resolution" win. Item 4 requires a compiler "captures-are-not-mutated" analysis.
+Item 1 is the classic "symbol resolution" win. Item 2 requires a compiler "captures-are-not-mutated" analysis.
+
+Section 9 shows the post-fix measurements: comparison chain ~25%, StackValue copies ~20%, dispatch+bounds ~10%, GetGlobal ~4.5%.
 
 ## 8. Tooling
 
@@ -201,3 +216,57 @@ Notes:
 
 ### Dynamic instruction counting
 Temporary instrumentation (reverted): add `AtomicU64[32]` counters + a `tag()` map to `execute_loop`, print at end of `execute()`. Re-add if opcode-mix data needs refreshing.
+
+## 9. Post-fix profile (frame pointers enabled)
+
+Built `release-debug` with `RUSTFLAGS='-C force-frame-pointers=yes'` (config-based `[build] rustflags` did not apply — the shell exports `CARGO_ENCODED_RUSTFLAGS=""` which overrides config; env var works). 1512 resolved samples at `-F 5000`.
+
+### Call-graph (children %) — now reliable
+
+| Children | Self | Function |
+|--------:|-----:|----------|
+| 94.72 | 78.00 | `BytecodeVM::execute_loop` |
+| 13.67 | — | `pop_value` → `Vec<StackValue>::pop` → `ptr::read` |
+| 9.42 | — | `l3_runtime::heap_data::compare` |
+| 8.36 | — | `compare_op` closure #5 |
+| 8.23 | — | `compare_primitives` |
+| 7.51 | — | `heap_data::add` |
+| 7.46 | — | `Vec<StackValue>::push` → `push_mut` → `ptr::write` |
+| 7.26 | — | `BytecodeVM::call_function` |
+| 6.21 | — | `Ordering::eq` (result-of-compare check in `compare_op` closures) |
+| 5.43 | 5.43 | `l3_runtime::heap_data::compare` (self) |
+| 4.49 | — | `HashMap<String, StackValue>::get` (GetGlobal) |
+| 4.07 | — | `slice::get` `Instruction` (bounds check in `code.get(ip)`) |
+| 3.81 | — | `heap_data::resolve` |
+| 3.42 | — | `compare_op` closure #4 |
+
+### Source lines (self %)
+
+| Self % | Line | Code |
+|-------:|------|------|
+| 12.8 | core `ptr/mod.rs:1755` | `ptr::read<StackValue>` — 16-byte pop off the VM stack |
+| 9.1 | `l3_vm/src/lib.rs:0` | dispatch prologue / instruction fetch |
+| 5.6 | `lib.rs:168` | `match instruction { … }` jump-table dispatch |
+| 5.2 | core `cmp.rs:2031` | `Ord::cmp` (int compare inside `compare_primitives`) |
+| 4.7 | core `ptr/mod.rs:1963` | `ptr::write<StackValue>` — 16-byte push |
+| 3.6 | `lib.rs:549` | GetIndex: `*container = result` |
+| 3.4 | core `slice/index.rs:184` | `code.get(ip)` bounds check |
+| 3.0 | `l3_runtime/src/primitive.rs:168` | `compare_primitives` match |
+| 2.7 | `heap_data.rs:170` | `resolve()`: `StackValue::Heap` → `cells.get` |
+| 1.7 | alloc `vec/mod.rs:1038` | `Vec::push` capacity check |
+| 1.5 | `heap_data.rs:169` | `resolve()`: `StackValue::Primitive` arm |
+
+### What this changes vs. the baseline profile (§4)
+
+- The three fixes moved ~13% out of `execute_loop` self-time into the operations it calls: `resolve`, `compare`, `add`, `call_function`, and StackValue push/pop are now visible as separate attributed frames instead of being smeared into `execute_loop` (82% self before → 78% now; previously that 82% was partly an artifact of the call-graph being garbage).
+- The **remaining** cost is now dominated by the 16-byte `StackValue` copies through the VM stack: `ptr::read` 12.3% + `ptr::write` 4.5% + `Vec::pop`/`push` capacity checks ~4% ≈ **~20% total**, plus the dispatch/bounds-check ~10% (`lib.rs:0` + `lib.rs:168` + `slice::get`).
+- The **comparison chain** (`compare` 9.4 + `compare_primitives` 8.2 + `Ordering::eq` 6.2 + `compare_op` closures ~16 total ≈ **~25%**) is the single biggest cluster now — driven by `Less`/`LessEqual`/`Equal` in the hot `count_neighbors` loop plus the chained-comparison codegen (`LessEqual` inside `0 < i && i < H`-style bounds checks). These are cheap per-op but the *closure-based `compare_op` helper* allocates a closure env and compares `Ordering` values, and the compiler inlines all of it.
+- `GetGlobal` via `HashMap<String, _>` still shows ~4.5% — global slot indices (section 7 #1) remain unclaimed.
+- `resolve` dropped from 9.9% self (baseline, without reliable frames) to 3.8% — the profile is now accurately attributing its heap `cells.get` cost instead of folding it into `execute_loop`.
+
+### Remaining opportunities, by current measured cost
+
+1. **Comparison chain ~25%** — replace the `compare_op(Ordering::X)` closure pattern with direct integer/primitive branch codegen; `Ordering::eq` after every compare is pure overhead when the codegen already knows the expected direction.
+2. **StackValue 16-byte copy ~20%** — shrink `StackValue` (e.g. `Primitive` 8B + tag in one word) or keep the VM stack in parallel typed arrays; also `Vec::push` capacity re-check per op.
+3. **Dispatch+bounds ~10%** — `code.get(ip)` is a checked slice index every instruction; an unsafe `get_unchecked` (ip always < len, maintained by the loop invariant + Call/Return jumps) would cut the bounds check ~3-4%.
+4. **`GetGlobal` hashmap 4.5%** — global slot indices (section 7 #1).
