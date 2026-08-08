@@ -466,6 +466,14 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             }
             stack.push(None);
         },
+        Instruction::VectorAppend { count } => {
+            for _ in 0..*count {
+                stack.pop();
+            }
+            if let Some(top) = stack.last_mut() {
+                *top = None;
+            }
+        },
         Instruction::GetIndex => {
             stack.pop();
             if let Some(top) = stack.last_mut() {

@@ -104,6 +104,13 @@ pub enum Instruction {
         count: u32,
     },
 
+    /// In-place append of the top `count` stack values onto the heap vector
+    /// referenced by the value below them. Only emitted when the compiler can
+    /// prove exclusive ownership of the vector.
+    VectorAppend {
+        count: u32,
+    },
+
     GetIndex,
     SetIndex,
 

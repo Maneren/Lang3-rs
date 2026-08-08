@@ -28,10 +28,21 @@ Three targets are implemented (commits `4c466fb`, `0d6be3b`, `37cb118`):
 
 **Total: ~336 → ~286 ms (~15%).** A boxed-`ForLoop` alternative (enum → 32 B) *regressed* to 297 ms — the pointer deref on the hot loop path outweighs the cache win — and is preserved as `stash@{0}` rather than deleted.
 
+### Second round: `VectorAppend` + stack pre-sizing
+
+Implemented on top of `4aaaf31` (commit: `in-place vector append for exclusive +=`). Measured in the same session against the then-current `4aaaf31` baseline:
+
+| Commit | Change | Mean (hyperfine, warmup 5) |
+|--------|--------|------:|
+| `4aaaf31` (pre-fix, this session) | — | 319.4 ms |
+| this change | `VectorAppend` in-place append for exclusive locals + stack pre-size + `with_capacity` vector `add` | 272.9 ms |
+
+**~319 → ~273 ms (~14.5%).** A local exclusivity analysis (`Local.possibly_aliased`) marks locals whose value is ever copied (assignments, call args, array elements, index-assign values, closure captures, `for`-collection slot) and only then emits `VectorAppend { count }` for `v += [elems]`, mutating the heap vector in place instead of `MakeArray` + clone + re-alloc. Params, loop vars, and non-literal initializers start aliased. Output verified byte-identical to the pre-change binary on `game_of_life.l3` and targeted alias/closure/nested-loop edge cases.
+
 ### Workload (examples/game_of_life.l3)
 - 40×40 board, 100 generations.
 - `count_neighbors` (chunk 5) is the hot function: 1600 cells/gen × 100 gens = **160k calls**, each with a 9-iteration nested loop (~25 bytecode instructions per inner iteration).
-- `create_board()` re-runs every generation: 1600 `row += [false]` array-appends + 40 `board += [row]` appends → ~164k array allocations.
+- `create_board()` re-runs every generation: 1600 `row += [false]` array-appends + 40 `board += [row]` appends → ~164k array allocations (now ~0 heap-cell allocations after the `VectorAppend` fix — the appends mutate the existing vectors in place).
 - `display_board` runs 100×, printing 40 rows of 42 cells.
 
 ## 2. Methodology
@@ -178,14 +189,13 @@ The `Instruction` enum is large (Closure carries a `Vec`, so the enum is 48 byte
 
 ## 7. Remaining recommended fixes, ranked by effort/reward
 
-Implemented so far (see §1): cache `ip` (was #1), GC check at allocation sites (was #3), `u32` instruction indices. Remaining:
+Implemented so far (see §1): cache `ip`, GC check at allocation sites, `u32` instruction indices, `VectorAppend` for exclusive locals + stack pre-sizing. Remaining:
 
 | # | Change | Est. win | Scope |
 |---|--------|----------|-------|
 | 1 | Global slot indices instead of string-hash globals | ~12% | compiler + VM |
 | 2 | Capture read-only locals by value (drop Rc/RefCell) | ~11% | compiler + VM |
 | 3 | Special-case primitive arithmetic before heap `resolve` | ~10% | runtime |
-| 4 | Pre-size VM stack; reduce array-append allocations | ~5-11% | VM / builtins |
 
 Item 1 is the classic "symbol resolution" win. Item 2 requires a compiler "captures-are-not-mutated" analysis.
 
