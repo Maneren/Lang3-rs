@@ -102,6 +102,10 @@ fn format_instruction(
             pad_op(out, "MAKE_ARRAY");
             write_operand(out, count);
         },
+        Instruction::VectorAppend { count } => {
+            pad_op(out, "VECTOR_APPEND");
+            write_operand(out, count);
+        },
         Instruction::GetUpvalue { index } => {
             pad_op(out, "GET_UPVALUE");
             write_operand(out, index);

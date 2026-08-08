@@ -51,7 +51,7 @@ impl<'a> BytecodeVM<'a> {
     pub fn new(writer: &'a mut impl Write, reader: &'a mut impl Read, debug: bool) -> Self {
         let mut vm = Self {
             heap: Heap::new(writer, reader),
-            stack: Vec::new(),
+            stack: Vec::with_capacity(1024),
             global_symbols: HashMap::with_hasher(FixedState::default()),
             constant_keys: Vec::new(),
             frames: Vec::new(),
@@ -539,6 +539,30 @@ impl<'a> BytecodeVM<'a> {
                             },
                             None => Err(RuntimeError::generic("stack underflow")),
                         }
+                    },
+                    Instruction::VectorAppend { count } => {
+                        debug_println!(debug, "    VECTOR_APPEND {}", count);
+                        let Some(start) = self.stack.len().checked_sub(*count as usize + 1) else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let Some(&container) = self.stack.get(start) else {
+                            return Err(RuntimeError::generic("stack underflow"));
+                        };
+                        let StackValue::Heap(key) = container else {
+                            return Err(RuntimeError::type_error(
+                                "unsupported operand types for +",
+                            ));
+                        };
+                        let Some(cell) = self.heap.cells.get_mut(key) else {
+                            return Err(RuntimeError::type_error("invalid heap reference"));
+                        };
+                        let Some(vec) = cell.value.as_mut_vector() else {
+                            return Err(RuntimeError::type_error(
+                                "unsupported operand types for +",
+                            ));
+                        };
+                        vec.extend(self.stack.drain(start + 1..));
+                        Ok(())
                     },
                     Instruction::GetIndex => {
                         debug_println!(debug, "    GET_INDEX");

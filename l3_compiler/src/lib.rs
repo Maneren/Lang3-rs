@@ -1,9 +1,9 @@
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
-    ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfExpression,
-    IfStatement, LastStatement, Literal, LogicalExpression, LogicalOperator, NameAssignment,
-    NamedFunction, OperatorAssignment, Program, RangeForLoop, RangeOperator, Statement,
-    UnaryExpression, UnaryOperator, Variable, While,
+    ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfBase,
+    IfExpression, IfStatement, LastStatement, Literal, LogicalExpression, LogicalOperator,
+    NameAssignment, NamedFunction, OperatorAssignment, Program, RangeForLoop, RangeOperator,
+    Statement, UnaryExpression, UnaryOperator, Variable, While,
 };
 use l3_bytecode::{Chunk, Instruction, ProgramBytecode, UpvalueDesc};
 use l3_location::Location;
@@ -26,6 +26,10 @@ pub struct Compiler {
 struct Local {
     name: String,
     depth: i32,
+    /// Set once the local's heap value may be shared with other references
+    /// (assignment copy, closure capture, function argument, container
+    /// element). Disables the exclusive-ownership `VectorAppend` optimization.
+    possibly_aliased: bool,
 }
 
 struct Context {
@@ -160,6 +164,7 @@ impl Compiler {
         ctx.locals.push(Local {
             name: name.to_string(),
             depth: ctx.scope_depth,
+            possibly_aliased: false,
         });
     }
 
@@ -174,24 +179,31 @@ impl Compiler {
     }
 
     fn resolve_upvalue(&mut self, name: &str) -> Option<usize> {
-        let outer_context = self.contexts.iter().nth_back(1)?;
-        // Check if this context already captures the given name from the outer context
-        let cur = self.contexts.last()?;
-        for (j, existing) in cur.upvalues.iter().enumerate() {
-            if existing.is_local
-                && let Some(l) = outer_context.locals.get(existing.index)
-                && l.name == name
-            {
-                return Some(j);
+        let outer_index = self.contexts.len().checked_sub(2)?;
+        {
+            let outer = self.contexts.get(outer_index)?;
+            let cur = self.contexts.last()?;
+            // Check if this context already captures the given name from the outer context
+            for (j, existing) in cur.upvalues.iter().enumerate() {
+                if existing.is_local
+                    && let Some(l) = outer.locals.get(existing.index)
+                    && l.name == name
+                {
+                    return Some(j);
+                }
             }
         }
-        for (i, local) in outer_context.locals.iter().enumerate() {
-            if local.name == name {
-                return Some(self.add_upvalue(true, i));
+        let outer = self.contexts.get(outer_index)?;
+        if let Some(i) = outer.locals.iter().position(|local| local.name == name) {
+            // A closure captures this local: its slot now has another holder.
+            let outer = self.contexts.get_mut(outer_index)?;
+            if let Some(local) = outer.locals.get_mut(i) {
+                local.possibly_aliased = true;
             }
+            return Some(self.add_upvalue(true, i));
         }
         // Check outer's upvalues
-        for _uv in &outer_context.upvalues {
+        for _uv in &self.contexts.get(outer_index)?.upvalues {
             // We need to find if the outer captures this name
             // For MVP, we only handle one level of upvalue nesting
         }
@@ -216,6 +228,207 @@ impl Compiler {
             });
         }
         VarType::Global(name.to_string())
+    }
+
+    // -----------------------------------------------------------------------
+    // Alias tracking: marks locals whose heap value may be shared, disabling
+    // the in-place `VectorAppend` optimization (which is only sound on
+    // exclusively-owned vectors).
+    // -----------------------------------------------------------------------
+
+    /// Record that `name`'s value may have gained another holder. The local may
+    /// live in this context or in the immediately enclosing one (upvalue).
+    fn mark_referenced_aliased(&mut self, name: &str) {
+        if let Some(idx) = self.resolve_local(name) {
+            if let Some(local) = self.current_context_mut().locals.get_mut(idx) {
+                local.possibly_aliased = true;
+            }
+            return;
+        }
+        if self.contexts.len() >= 2 {
+            let outer = self.contexts.len() - 2;
+            if let Some(outer_ctx) = self.contexts.get_mut(outer)
+                && let Some(local) = outer_ctx.locals.iter_mut().find(|local| local.name == name)
+            {
+                local.possibly_aliased = true;
+            }
+        }
+    }
+
+    /// Set the aliasing state of a local in the current context. Used by
+    /// plain assignments: a fresh literal result stays exclusive.
+    fn set_local_aliased(&mut self, name: &str, aliased: bool) {
+        if let Some(idx) = self.resolve_local(name)
+            && let Some(local) = self.current_context_mut().locals.get_mut(idx)
+        {
+            local.possibly_aliased = aliased;
+        }
+    }
+
+    /// Conservatively mark every variable referenced within `expr` as
+    /// possibly aliased. Over-marking is always safe; it only skips the
+    /// `VectorAppend` optimization.
+    fn mark_expression_aliased(&mut self, expr: &Expression) {
+        match expr {
+            Expression::Variable(var) => self.mark_variable_aliased(var),
+            Expression::FunctionCall(fc) => {
+                self.mark_referenced_aliased(&fc.name.name);
+                for arg in &fc.arguments {
+                    self.mark_expression_aliased(arg);
+                }
+            },
+            Expression::BinaryExpression(be) => {
+                self.mark_expression_aliased(&be.lhs);
+                self.mark_expression_aliased(&be.rhs);
+            },
+            Expression::UnaryExpression(ue) => self.mark_expression_aliased(&ue.expression),
+            Expression::LogicalExpression(le) => {
+                self.mark_expression_aliased(&le.lhs);
+                self.mark_expression_aliased(&le.rhs);
+            },
+            Expression::Comparison(cmp) => {
+                self.mark_expression_aliased(&cmp.start);
+                for (_, rhs) in &cmp.comparisons {
+                    self.mark_expression_aliased(rhs);
+                }
+            },
+            Expression::IfExpression(ife) => {
+                self.mark_if_base_aliased(&ife.base_if);
+                for elif in &ife.elseif {
+                    self.mark_if_base_aliased(elif);
+                }
+                self.mark_block_aliased(&ife.else_block);
+            },
+            // A closure's captures are marked when its body is compiled.
+            Expression::AnonymousFunction(_) => {},
+            Expression::Literal(lit) => {
+                if let Literal::Array(arr) = lit {
+                    for elem in &arr.elements {
+                        self.mark_expression_aliased(elem);
+                    }
+                }
+            },
+        }
+    }
+
+    fn mark_if_base_aliased(&mut self, if_base: &IfBase) {
+        self.mark_expression_aliased(&if_base.condition);
+        self.mark_block_aliased(&if_base.block);
+    }
+
+    fn mark_variable_aliased(&mut self, var: &Variable) {
+        match var {
+            Variable::Identifier(id) => self.mark_referenced_aliased(&id.name),
+            Variable::IndexExpression(ie) => {
+                self.mark_variable_aliased(&ie.base);
+                self.mark_expression_aliased(&ie.index);
+            },
+        }
+    }
+
+    fn variable_references_name(&self, var: &Variable, name: &str) -> bool {
+        match var {
+            Variable::Identifier(id) => id.name == name,
+            Variable::IndexExpression(ie) => {
+                self.variable_references_name(&ie.base, name)
+                    || self.expression_references_name(&ie.index, name)
+            },
+        }
+    }
+
+    fn mark_block_aliased(&mut self, block: &Block) {
+        for stmt in &block.statements {
+            self.mark_statement_aliased(stmt);
+        }
+        if let Some(LastStatement::Return(ret)) = block.last_statement.as_ref()
+            && let Some(expr) = &ret.expression
+        {
+            self.mark_expression_aliased(expr);
+        }
+    }
+
+    fn mark_statement_aliased(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::Declaration(decl) => {
+                if let Some(expr) = &decl.expression {
+                    self.mark_expression_aliased(expr);
+                }
+            },
+            Statement::FunctionCall(fc) => {
+                for arg in &fc.arguments {
+                    self.mark_expression_aliased(arg);
+                }
+            },
+            Statement::IfStatement(ifs) => {
+                self.mark_if_base_aliased(&ifs.base_if);
+                for elif in &ifs.elseif {
+                    self.mark_if_base_aliased(elif);
+                }
+                if let Some(else_block) = &ifs.else_block {
+                    self.mark_block_aliased(else_block);
+                }
+            },
+            Statement::While(w) => {
+                self.mark_expression_aliased(&w.condition);
+                self.mark_block_aliased(&w.body);
+            },
+            Statement::ForLoop(fl) => {
+                self.mark_expression_aliased(&fl.collection);
+                self.mark_block_aliased(&fl.body);
+            },
+            Statement::RangeForLoop(rfl) => {
+                self.mark_expression_aliased(&rfl.start);
+                self.mark_expression_aliased(&rfl.end);
+                if let Some(step) = &rfl.step {
+                    self.mark_expression_aliased(step);
+                }
+                self.mark_block_aliased(&rfl.body);
+            },
+            Statement::NameAssignment(na) => self.mark_expression_aliased(&na.expression),
+            Statement::NamedFunction(_) => {},
+            Statement::OperatorAssignment(oa) => self.mark_expression_aliased(&oa.expression),
+        }
+    }
+
+    /// Whether any variable referenced in `expr` (transitively) is `name`.
+    /// Conservative: complex expressions that could capture `name` report true.
+    fn expression_references_name(&self, expr: &Expression, name: &str) -> bool {
+        match expr {
+            Expression::Variable(var) => self.variable_references_name(var, name),
+            Expression::FunctionCall(fc) => {
+                fc.name.name == name
+                    || fc
+                        .arguments
+                        .iter()
+                        .any(|arg| self.expression_references_name(arg, name))
+            },
+            Expression::BinaryExpression(be) => {
+                self.expression_references_name(&be.lhs, name)
+                    || self.expression_references_name(&be.rhs, name)
+            },
+            Expression::UnaryExpression(ue) => {
+                self.expression_references_name(&ue.expression, name)
+            },
+            Expression::LogicalExpression(le) => {
+                self.expression_references_name(&le.lhs, name)
+                    || self.expression_references_name(&le.rhs, name)
+            },
+            Expression::Comparison(cmp) => {
+                self.expression_references_name(&cmp.start, name)
+                    || cmp
+                        .comparisons
+                        .iter()
+                        .any(|(_, rhs)| self.expression_references_name(rhs, name))
+            },
+            Expression::IfExpression(_) | Expression::AnonymousFunction(_) => true,
+            Expression::Literal(lit) => match lit {
+                Literal::Array(arr) => arr
+                    .elements
+                    .iter()
+                    .any(|elem| self.expression_references_name(elem, name)),
+                _ => false,
+            },
+        }
     }
 
     fn make_constant(&mut self, value: HeapData) -> usize {
@@ -279,6 +492,7 @@ impl Compiler {
 
     fn compile_declaration(&mut self, decl: &Declaration) -> Result<(), CompileError> {
         if let Some(ref expr) = decl.expression {
+            self.mark_expression_aliased(expr);
             self.compile_expression(expr)?;
         } else {
             let nil_idx = self.make_constant(HeapData::Nil);
@@ -286,8 +500,15 @@ impl Compiler {
                 index: u32_index(nil_idx),
             });
         }
-        for name in &decl.names {
+        let fresh = decl
+            .expression
+            .as_deref()
+            .is_some_and(|expr| matches!(expr, Expression::Literal(_)));
+        for (i, name) in decl.names.iter().enumerate() {
             self.add_local(&name.name);
+            if i == 0 && !fresh {
+                self.set_local_aliased(&name.name, true);
+            }
         }
         Ok(())
     }
@@ -308,6 +529,8 @@ impl Compiler {
             let chunk_id = c.push_context();
             for param in &body.parameters {
                 c.add_local(&param.name);
+                // A parameter may be aliased by the caller's own reference.
+                c.set_local_aliased(&param.name, true);
             }
             let ended_with_return =
                 matches!(&body.block.last_statement, Some(LastStatement::Return(_)));
@@ -475,10 +698,15 @@ impl Compiler {
         });
         self.add_local(&fl.variable.name);
         let var_idx = self.current_context().locals.len() - 1;
+        self.set_local_aliased(&fl.variable.name, true);
 
+        // The collection's value is stored into the synthetic __collection__
+        // slot for the loop's whole scope — a second holder of the key.
+        self.mark_expression_aliased(&fl.collection);
         self.compile_expression(&fl.collection)?;
         let coll_idx = self.current_context().locals.len();
         self.add_local("__collection__");
+        self.set_local_aliased("__collection__", true);
 
         let zero_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(0)));
         self.emit(Instruction::Constant {
@@ -589,6 +817,7 @@ impl Compiler {
         });
         self.add_local(&rfl.variable.name);
         let control_idx = self.current_context().locals.len() - 1;
+        self.set_local_aliased(&rfl.variable.name, true);
 
         self.compile_expression(&rfl.start)?;
         if let Some(ref step_expr) = rfl.step {
@@ -607,6 +836,7 @@ impl Compiler {
         self.compile_expression(&rfl.end)?;
         let limit_idx = self.current_context().locals.len();
         self.add_local("__limit__");
+        self.set_local_aliased("__limit__", true);
 
         if let Some(ref step_expr) = rfl.step {
             self.compile_expression(step_expr)?;
@@ -618,6 +848,7 @@ impl Compiler {
         }
         let step_idx = self.current_context().locals.len();
         self.add_local("__step__");
+        self.set_local_aliased("__step__", true);
 
         let body_locals_snapshot = self.current_context().locals.len();
         let for_idx = self.current_chunk().code.len();
@@ -681,11 +912,16 @@ impl Compiler {
     }
 
     fn compile_name_assign(&mut self, na: &NameAssignment) -> Result<(), CompileError> {
+        self.mark_expression_aliased(&na.expression);
+        let fresh = matches!(&*na.expression, Expression::Literal(_));
         self.compile_expression(&na.expression)?;
         if let Some(name) = na.names.first() {
             let name = &name.name;
             match self.resolve_variable(name) {
                 VarType::Local(idx) => {
+                    if !fresh {
+                        self.set_local_aliased(name, true);
+                    }
                     self.emit(Instruction::SetLocal {
                         index: u32_index(idx),
                     });
@@ -710,6 +946,39 @@ impl Compiler {
         match &oa.variable {
             Variable::Identifier(id) => {
                 let name = &id.name;
+
+                // `v += [elems]` on an exclusively-owned local vector: append
+                // in place, avoiding the temp array, the full clone and a new
+                // heap allocation.
+                if oa.op == AssignmentOperator::Plus
+                    && let Expression::Literal(Literal::Array(arr)) = &*oa.expression
+                    && let VarType::Local(idx) = self.resolve_variable(name)
+                    && self
+                        .current_context()
+                        .locals
+                        .get(idx)
+                        .is_some_and(|local| !local.possibly_aliased)
+                    && !arr
+                        .elements
+                        .iter()
+                        .any(|elem| self.expression_references_name(elem, name))
+                {
+                    self.compile_variable(&oa.variable)?;
+                    for elem in &arr.elements {
+                        self.mark_expression_aliased(elem);
+                        self.compile_expression(elem)?;
+                    }
+                    self.emit(Instruction::VectorAppend {
+                        count: u32_index(arr.elements.len()),
+                    });
+                    self.emit(Instruction::SetLocal {
+                        index: u32_index(idx),
+                    });
+                    return Ok(());
+                }
+
+                self.mark_expression_aliased(&oa.expression);
+                let fresh = matches!(&*oa.expression, Expression::Literal(_));
                 self.compile_variable(&oa.variable)?;
                 self.compile_expression(&oa.expression)?;
 
@@ -730,6 +999,9 @@ impl Compiler {
                     AssignmentOperator::Power => self.emit(Instruction::Power),
                     AssignmentOperator::Assign => {
                         self.emit(Instruction::Pop { count: 1 });
+                        if !fresh {
+                            self.set_local_aliased(name, true);
+                        }
                         match self.resolve_variable(name) {
                             VarType::Local(idx) => {
                                 self.emit(Instruction::SetLocal {
@@ -773,6 +1045,7 @@ impl Compiler {
                 Ok(())
             },
             Variable::IndexExpression(ie) => {
+                self.mark_expression_aliased(&oa.expression);
                 self.compile_variable(&ie.base)?;
                 self.compile_expression(&ie.index)?;
 
@@ -886,6 +1159,7 @@ impl Compiler {
             Literal::String(s) => HeapData::String(s.value.clone()),
             Literal::Array(arr) => {
                 for elem in &arr.elements {
+                    self.mark_expression_aliased(elem);
                     self.compile_expression(elem)?;
                 }
                 self.emit(Instruction::MakeArray {
@@ -955,6 +1229,7 @@ impl Compiler {
         }
 
         for arg in &fc.arguments {
+            self.mark_expression_aliased(arg);
             self.compile_expression(arg)?;
         }
 

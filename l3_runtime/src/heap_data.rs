@@ -188,8 +188,9 @@ pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa + pb),
         (Resolved::Str(sa), Resolved::Str(sb)) => Ok(heap.alloc_string(format!("{sa}{sb}"))),
         (Resolved::Vec(va), Resolved::Vec(vb)) => {
-            let mut result = va.clone();
-            result.extend(vb.iter().copied());
+            let mut result = Vec::with_capacity(va.len() + vb.len());
+            result.extend_from_slice(va);
+            result.extend_from_slice(vb);
             Ok(heap.alloc_vector(result))
         },
         _ => Err(RuntimeError::type_error("unsupported operand types for +")),
