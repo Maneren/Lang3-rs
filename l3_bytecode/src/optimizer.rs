@@ -5,7 +5,9 @@ use l3_runtime::{
     heap_data::{add, compare, div, modulo, mul, negative, not_op, pow, sub, to_owned},
 };
 
-use crate::{Chunk, Instruction, ProgramBytecode};
+use crate::{
+    Chunk, CodeOffset, ConstantIndex, ConstantPool, Instruction, LocalIndex, ProgramBytecode,
+};
 
 /// A whole-program bytecode optimizer. Runs after compilation, before
 /// execution.
@@ -63,7 +65,7 @@ fn chunk_arities(program: &ProgramBytecode) -> Vec<usize> {
     arities
 }
 
-fn optimize_chunk(chunk: Chunk, pool: &mut Vec<HeapCell>, arity: usize) -> (Chunk, bool) {
+fn optimize_chunk(chunk: Chunk, pool: &mut ConstantPool, arity: usize) -> (Chunk, bool) {
     let mut changed = false;
     let (chunk, c) = remove_dead_code(chunk);
     changed |= c;
@@ -134,17 +136,17 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
 fn successors(code: &[Instruction], i: usize) -> Vec<usize> {
     match code.get(i).expect("queue holds valid instruction indices") {
         Instruction::Return => Vec::new(),
-        Instruction::Jump { offset } => vec![*offset as usize],
-        Instruction::JumpIf { offset, .. } => vec![*offset as usize, i + 1],
-        Instruction::ForLoop { body_offset, .. } => vec![*body_offset as usize, i + 1],
+        Instruction::Jump { offset } => vec![offset.as_index()],
+        Instruction::JumpIf { offset, .. } => vec![offset.as_index(), i + 1],
+        Instruction::ForLoop { body_offset, .. } => vec![body_offset.as_index(), i + 1],
         _ => vec![i + 1],
     }
 }
 
 fn remap_offsets(instruction: &mut Instruction, old_to_new: &[usize]) {
-    let remap = |offset: &mut u32| {
-        if let Some(mapped) = old_to_new.get(*offset as usize) {
-            *offset = u32::try_from(*mapped).expect("remapped offset fits in u32");
+    let remap = |offset: &mut CodeOffset| {
+        if let Some(mapped) = old_to_new.get(offset.as_index()) {
+            *offset = CodeOffset(u32::try_from(*mapped).expect("remapped offset fits in u32"));
         }
     };
     match instruction {
@@ -160,10 +162,58 @@ fn remap_offsets(instruction: &mut Instruction, old_to_new: &[usize]) {
 
 /// Abstract stack value: `Some(pool_index)` when the runtime stack entry is
 /// provably the constant at that pool index, `None` otherwise.
-type AbstractValue = Option<usize>;
+type AbstractValue = Option<ConstantIndex>;
+
 /// Abstract model of the runtime stack (relative to the frame pointer). Local
 /// slots live at the bottom of this stack, matching the VM's layout.
-type Stack = Vec<AbstractValue>;
+#[derive(Clone, Default)]
+struct AbstractStack(Vec<AbstractValue>);
+
+impl AbstractStack {
+    fn with_unknowns(len: usize) -> Self {
+        Self(vec![None; len])
+    }
+
+    /// Value in the local slot at `index` (relative to the frame pointer),
+    /// flattened: `Some(pool_index)` when known, `None` when unknown.
+    fn get_local(&self, index: LocalIndex) -> Option<ConstantIndex> {
+        self.0.get(index.as_index()).copied().flatten()
+    }
+
+    fn set_local(&mut self, index: LocalIndex, value: AbstractValue) {
+        if let Some(slot) = self.0.get_mut(index.as_index()) {
+            *slot = value;
+        }
+    }
+
+    fn push(&mut self, value: AbstractValue) {
+        self.0.push(value);
+    }
+
+    fn pop(&mut self) -> AbstractValue {
+        self.0.pop().unwrap_or(None)
+    }
+
+    fn truncate(&mut self, len: usize) {
+        self.0.truncate(len);
+    }
+
+    const fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn last_mut(&mut self) -> Option<&mut AbstractValue> {
+        self.0.last_mut()
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut AbstractValue> {
+        self.0.iter_mut()
+    }
+
+    fn as_slice(&self) -> &[AbstractValue] {
+        &self.0
+    }
+}
 
 #[derive(Clone, Copy)]
 struct Block {
@@ -182,10 +232,10 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
             .fill(bi);
     }
 
-    let mut in_stacks: Vec<Option<Stack>> = vec![None; n];
+    let mut in_stacks: Vec<Option<AbstractStack>> = vec![None; n];
     let mut queued = vec![false; n];
     if let Some(first) = in_stacks.first_mut() {
-        *first = Some(vec![None; arity]);
+        *first = Some(AbstractStack::with_unknowns(arity));
     }
     if let Some(first) = queued.first_mut() {
         *first = true;
@@ -242,94 +292,109 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
             .expect("block range is within the code array")
         {
             if let Instruction::GetLocal { index } = inst {
-                let known = stack.get(*index as usize).copied().flatten();
+                let known = stack.get_local(*index);
                 if let Some(k) = known {
                     changed = true;
-                    *inst = Instruction::Constant {
-                        index: u32::try_from(k).expect("constant pool index fits in u32"),
-                    };
+                    *inst = Instruction::Constant { index: k };
                 }
                 stack.push(known);
             } else {
-                step(inst, &mut stack);
+                transfer_instruction(inst, &mut stack);
             }
         }
     }
+
     (chunk, changed)
 }
 
 fn build_blocks(code: &[Instruction]) -> Vec<Block> {
     let len = code.len();
-    let mut starts = vec![false; len + 1];
-    *starts
-        .first_mut()
-        .expect("the starts array always has at least one entry") = true;
+    if len == 0 {
+        return Vec::new();
+    }
+    let mut starts = vec![false; len];
+    if let Some(first) = starts.first_mut() {
+        *first = true;
+    }
     for (i, inst) in code.iter().enumerate() {
         match inst {
-            Instruction::Jump { offset } | Instruction::JumpIf { offset, .. } => {
-                if let Some(entry) = starts.get_mut(*offset as usize) {
-                    *entry = true;
+            Instruction::Jump { offset } => {
+                if let Some(s) = starts.get_mut(offset.as_index()) {
+                    *s = true;
+                }
+            },
+            Instruction::JumpIf { offset, .. } => {
+                if let Some(s) = starts.get_mut(offset.as_index()) {
+                    *s = true;
+                }
+                if let Some(s) = starts.get_mut(i + 1) {
+                    *s = true;
                 }
             },
             Instruction::ForLoop { body_offset, .. } => {
-                if let Some(entry) = starts.get_mut(*body_offset as usize) {
-                    *entry = true;
+                if let Some(s) = starts.get_mut(body_offset.as_index()) {
+                    *s = true;
+                }
+                if let Some(s) = starts.get_mut(i + 1) {
+                    *s = true;
+                }
+            },
+            Instruction::Return => {
+                if let Some(s) = starts.get_mut(i + 1) {
+                    *s = true;
                 }
             },
             _ => {},
-        }
-        if matches!(
-            inst,
-            Instruction::Jump { .. }
-                | Instruction::JumpIf { .. }
-                | Instruction::ForLoop { .. }
-                | Instruction::Return
-        ) {
-            *starts
-                .get_mut(i + 1)
-                .expect("i + 1 is within the starts array") = true;
         }
     }
 
     let mut blocks = Vec::new();
     let mut start = 0;
-    for (end, &is_start) in starts.iter().enumerate() {
-        if is_start {
-            if end > start {
-                blocks.push(Block { start, end });
-            }
-            start = end;
+    for i in 1..len {
+        if *starts.get(i).expect("i is within the starts array") {
+            blocks.push(Block { start, end: i });
+            start = i;
         }
     }
+    blocks.push(Block { start, end: len });
     blocks
 }
 
-/// Simulate a straight-line block, producing the outgoing abstract stack for
-/// each successor. Control-flow instructions are always the last in their
-/// block.
+fn merge_stack(dst: &mut AbstractStack, src: &AbstractStack) -> bool {
+    let mut changed = false;
+    let n = dst.len().min(src.len());
+    dst.truncate(n);
+    for (d, s) in dst.iter_mut().zip(src.as_slice()) {
+        if *d != *s && d.is_some() {
+            *d = None;
+            changed = true;
+        }
+    }
+    changed
+}
+
 fn transfer(
     code: &[Instruction],
     block: &Block,
     index_to_block: &[usize],
-    in_stack: &Stack,
-) -> Vec<(usize, Stack)> {
+    in_stack: &AbstractStack,
+) -> Vec<(usize, AbstractStack)> {
     let mut stack = in_stack.clone();
-    let last = block.end - 1;
     for inst in code
-        .get(block.start..last)
-        .expect("block start..last is within the code array")
+        .get(block.start..block.end)
+        .expect("block range is within the code array")
     {
-        step(inst, &mut stack);
+        transfer_instruction(inst, &mut stack);
     }
+
+    let last = block.end.saturating_sub(1);
+    let mut outs = Vec::new();
     match code.get(last).expect("block end is within the code array") {
-        Instruction::Return => Vec::new(),
+        Instruction::Return => {},
         Instruction::Jump { offset } => {
-            vec![(
-                *index_to_block
-                    .get(*offset as usize)
-                    .expect("jump target maps to a block"),
-                stack,
-            )]
+            if let Some(&succ) = index_to_block.get(offset.as_index()) {
+                outs.push((succ, stack));
+            }
         },
         Instruction::JumpIf {
             offset,
@@ -341,158 +406,93 @@ fn transfer(
             let mut taken = stack.clone();
             let mut stay = stack;
             if *keep_jump {
-                taken.push(cond.flatten());
+                taken.push(cond);
             }
             if *keep_stay {
-                stay.push(cond.flatten());
+                stay.push(cond);
             }
-            let mut out = vec![(
-                *index_to_block
-                    .get(*offset as usize)
-                    .expect("jump target maps to a block"),
-                taken,
-            )];
-            if let Some(mapped) = index_to_block.get(block.end) {
-                out.push((*mapped, stay));
+            if let Some(&succ) = index_to_block.get(offset.as_index()) {
+                outs.push((succ, taken));
             }
-            out
+            if let Some(&succ) = index_to_block.get(last + 1) {
+                outs.push((succ, stay));
+            }
         },
         Instruction::ForLoop {
             control_index,
             body_offset,
             ..
         } => {
-            let control_index = *control_index as usize;
-            let body_offset = *body_offset as usize;
-            if control_index >= stack.len() {
-                stack.resize(control_index + 1, None);
+            let mut loop_stack = stack.clone();
+            loop_stack.set_local(*control_index, None);
+            if let Some(&succ) = index_to_block.get(body_offset.as_index()) {
+                outs.push((succ, loop_stack));
             }
-            *stack
-                .get_mut(control_index)
-                .expect("control slot was resized into the stack") = None;
-            let mut out = vec![(
-                *index_to_block
-                    .get(body_offset)
-                    .expect("jump target maps to a block"),
-                stack.clone(),
-            )];
-            if let Some(mapped) = index_to_block.get(block.end) {
-                out.push((*mapped, stack));
+            if let Some(&succ) = index_to_block.get(last + 1) {
+                outs.push((succ, stack));
             }
-            out
         },
         _ => {
-            step(
-                code.get(last).expect("block end is within the code array"),
-                &mut stack,
-            );
-            index_to_block
-                .get(block.end)
-                .map_or_else(Vec::new, |mapped| vec![(*mapped, stack)])
+            if let Some(&succ) = index_to_block.get(last + 1) {
+                outs.push((succ, stack));
+            }
         },
     }
+    outs
 }
 
-/// Intersect a predecessor's abstract stack into the successor's incoming
-/// stack. A stack entry is only known when all predecessors agree.
-fn merge_stack(dst: &mut Stack, src: &Stack) -> bool {
-    let mut changed = false;
-    for (dst_slot, src_slot) in dst.iter_mut().zip(src) {
-        if *dst_slot != *src_slot {
-            *dst_slot = None;
-            changed = true;
-        }
-    }
-    if dst.len() > src.len() {
-        dst.truncate(src.len());
-        changed = true;
-    }
-    changed
-}
-
-/// Update the abstract stack for one instruction. Mirrors the VM's handlers
-/// exactly so the abstract stack stays aligned with the runtime stack.
-fn step(inst: &Instruction, stack: &mut Stack) {
+fn transfer_instruction(inst: &Instruction, stack: &mut AbstractStack) {
     match inst {
-        Instruction::Constant { index } => stack.push(Some(*index as usize)),
+        Instruction::Constant { index } => stack.push(Some(*index)),
         Instruction::Pop { count } => {
-            for _ in 0..*count {
-                stack.pop();
-            }
+            let new_len = stack.len().saturating_sub(*count as usize);
+            stack.truncate(new_len);
         },
         Instruction::Duplicate { index } => {
-            let idx = stack.len().saturating_sub(*index as usize + 1);
-            if let Some(&val) = stack.get(idx) {
-                stack.push(val);
-            }
+            let known = stack
+                .len()
+                .checked_sub(*index as usize)
+                .and_then(|n| n.checked_sub(1))
+                .and_then(|n| stack.as_slice().get(n).copied())
+                .flatten();
+            stack.push(known);
         },
         Instruction::GetLocal { index } => {
-            let value = stack.get(*index as usize).copied().flatten();
-            stack.push(value);
+            let known = stack.get_local(*index);
+            stack.push(known);
         },
         Instruction::SetLocal { index } => {
-            let value = stack.pop().flatten();
-            let index = *index as usize;
-            if index >= stack.len() {
-                stack.resize(index + 1, None);
-            }
-            *stack
-                .get_mut(index)
-                .expect("local slot was resized into the stack") = value;
+            let value = stack.pop();
+            stack.set_local(*index, value);
         },
         Instruction::ForLoop { control_index, .. } => {
-            let control_index = *control_index as usize;
-            if control_index >= stack.len() {
-                stack.resize(control_index + 1, None);
-            }
-            *stack
-                .get_mut(control_index)
-                .expect("control slot was resized into the stack") = None;
+            stack.set_local(*control_index, None);
         },
         Instruction::Call {
             arg_count,
             keep_return_value,
         } => {
-            for _ in 0..=*arg_count {
-                stack.pop();
-            }
+            let pop_len = arg_count + 1;
+            let new_len = stack.len().saturating_sub(pop_len as usize);
+            stack.truncate(new_len);
             if *keep_return_value {
                 stack.push(None);
             }
         },
         Instruction::MakeArray { count } => {
-            for _ in 0..*count {
-                stack.pop();
-            }
+            let new_len = stack.len().saturating_sub(*count as usize);
+            stack.truncate(new_len);
             stack.push(None);
         },
         Instruction::VectorAppend { count } => {
-            for _ in 0..*count {
-                stack.pop();
-            }
+            let new_len = stack.len().saturating_sub(*count as usize);
+            stack.truncate(new_len);
             if let Some(top) = stack.last_mut() {
                 *top = None;
             }
         },
-        Instruction::GetIndex => {
-            stack.pop();
-            if let Some(top) = stack.last_mut() {
-                *top = None;
-            }
-        },
-        Instruction::SetIndex => {
-            stack.pop();
-            stack.pop();
-        },
-        Instruction::GetGlobal { .. }
-        | Instruction::GetUpvalue { .. }
-        | Instruction::Closure { .. } => {
-            stack.push(None);
-        },
-        Instruction::SetGlobal { .. } | Instruction::SetUpvalue { .. } => {
-            stack.pop();
-        },
-        Instruction::Add
+        Instruction::GetIndex
+        | Instruction::Add
         | Instruction::Subtract
         | Instruction::Multiply
         | Instruction::Divide
@@ -507,6 +507,19 @@ fn step(inst: &Instruction, stack: &mut Stack) {
             stack.pop();
             stack.pop();
             stack.push(None);
+        },
+        Instruction::SetIndex => {
+            stack.pop();
+            stack.pop();
+            stack.pop();
+        },
+        Instruction::GetGlobal { .. }
+        | Instruction::GetUpvalue { .. }
+        | Instruction::Closure { .. } => {
+            stack.push(None);
+        },
+        Instruction::SetGlobal { .. } | Instruction::SetUpvalue { .. } => {
+            stack.pop();
         },
         Instruction::Equal { keep_rhs: true }
         | Instruction::NotEqual { keep_rhs: true }
@@ -531,7 +544,7 @@ fn step(inst: &Instruction, stack: &mut Stack) {
 // Constant folding over adjacent Constant + op sequences
 // ---------------------------------------------------------------------------
 
-fn fold_constants(chunk: &Chunk, pool: &mut Vec<HeapCell>) -> (Chunk, bool) {
+fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
     let mut sink = io::sink();
     let mut empty = io::empty();
     let mut heap = Heap::new(&mut sink, &mut empty);
@@ -552,9 +565,7 @@ fn fold_constants(chunk: &Chunk, pool: &mut Vec<HeapCell>) -> (Chunk, bool) {
         if let Some((data, count)) = fold {
             changed = true;
             let idx = add_constant(pool, &mut values, &mut heap, data);
-            new_code.push(Instruction::Constant {
-                index: u32::try_from(idx).expect("constant pool index fits in u32"),
-            });
+            new_code.push(Instruction::Constant { index: idx });
             new_locations.push(
                 chunk
                     .locations
@@ -613,12 +624,12 @@ fn fold_window(
         Some(Instruction::Constant { index: rhs }),
         Some(op),
     ) = (code.get(i), code.get(i + 1), code.get(i + 2))
-        && let Some(data) = fold_binary(op, *lhs as usize, *rhs as usize, values, heap)
+        && let Some(data) = fold_binary(op, *lhs, *rhs, values, heap)
     {
         return Some((data, 3));
     }
     if let (Some(Instruction::Constant { index }), Some(op)) = (code.get(i), code.get(i + 1))
-        && let Some(data) = fold_unary(op, *index as usize, values, heap)
+        && let Some(data) = fold_unary(op, *index, values, heap)
     {
         return Some((data, 2));
     }
@@ -627,13 +638,13 @@ fn fold_window(
 
 fn fold_binary(
     op: &Instruction,
-    lhs: usize,
-    rhs: usize,
+    lhs: ConstantIndex,
+    rhs: ConstantIndex,
     values: &[StackValue],
     heap: &mut Heap,
 ) -> Option<HeapData> {
-    let lhs = values.get(lhs).copied()?;
-    let rhs = values.get(rhs).copied()?;
+    let lhs = values.get(lhs.as_index()).copied()?;
+    let rhs = values.get(rhs.as_index()).copied()?;
     let result = match op {
         Instruction::Add => add(&lhs, &rhs, heap),
         Instruction::Subtract => sub(&lhs, &rhs, heap),
@@ -688,11 +699,11 @@ fn compare_result(
 
 fn fold_unary(
     op: &Instruction,
-    operand: usize,
+    operand: ConstantIndex,
     values: &[StackValue],
     heap: &mut Heap,
 ) -> Option<HeapData> {
-    let operand = values.get(operand).copied()?;
+    let operand = values.get(operand.as_index()).copied()?;
     let result = match op {
         Instruction::Negate => negative(&operand, heap),
         Instruction::Not => Ok(not_op(&operand, heap)),
@@ -713,17 +724,16 @@ fn foldable_data(result: &StackValue, heap: &Heap) -> Option<HeapData> {
 }
 
 fn add_constant(
-    pool: &mut Vec<HeapCell>,
+    pool: &mut ConstantPool,
     values: &mut Vec<StackValue>,
     heap: &mut Heap,
     data: HeapData,
-) -> usize {
+) -> ConstantIndex {
     if let Some(idx) = pool.iter().position(|cell| cell.value == data) {
-        return idx;
+        return ConstantIndex(u32::try_from(idx).expect("constant pool index fits in u32"));
     }
-    let idx = pool.len();
-    let stack_value = heap.alloc(data.clone());
-    pool.push(HeapCell::new(data));
+    let idx = pool.push(HeapCell::new(data.clone()));
+    let stack_value = heap.alloc(data);
     values.push(stack_value);
     idx
 }
