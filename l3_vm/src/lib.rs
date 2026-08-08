@@ -534,6 +534,7 @@ impl<'a> BytecodeVM<'a> {
                                 let elements: Vec<StackValue> = self.stack.drain(start..).collect();
                                 let sv = self.heap.alloc_vector(elements);
                                 self.stack.push(sv);
+                                self.maybe_gc();
                                 Ok(())
                             },
                             None => Err(RuntimeError::generic("stack underflow")),
@@ -628,6 +629,7 @@ impl<'a> BytecodeVM<'a> {
                                 let sv = self.heap.alloc_function(Function::Bytecode(bc));
                                 debug_println!(debug, "      -> allocated function {:?}", sv);
                                 self.stack.push(sv);
+                                self.maybe_gc();
                                 Ok(())
                             },
                         }
@@ -672,7 +674,6 @@ impl<'a> BytecodeVM<'a> {
                         .ip = ip - 1;
                     return Err(e);
                 }
-                self.maybe_gc();
             }
         }
 
@@ -757,6 +758,7 @@ impl<'a> BytecodeVM<'a> {
             };
             let result = { body(args, &mut self.heap) };
             self.stack.truncate(base);
+            self.maybe_gc();
             return result.map_err(|e| RuntimeError::type_error(format!("builtin error: {e}")));
         }
 
@@ -775,7 +777,9 @@ impl<'a> BytecodeVM<'a> {
             let mut new_bc = bc.clone();
             new_bc.curried_args.extend_from_slice(args);
             self.stack.truncate(base);
-            return Ok(self.heap.alloc_function(Function::Bytecode(new_bc)));
+            let sv = self.heap.alloc_function(Function::Bytecode(new_bc));
+            self.maybe_gc();
+            return Ok(sv);
         }
 
         let frame_pointer = base + 1;
