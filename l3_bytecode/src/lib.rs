@@ -23,15 +23,15 @@ pub enum Instruction {
     Return,
 
     Constant {
-        index: usize,
+        index: u32,
     },
 
     Pop {
-        count: usize,
+        count: u32,
     },
 
     Duplicate {
-        index: usize,
+        index: u32,
     },
 
     Add,
@@ -63,60 +63,60 @@ pub enum Instruction {
     Not,
 
     GetGlobal {
-        name_index: usize,
+        name_index: u32,
     },
     SetGlobal {
-        name_index: usize,
+        name_index: u32,
     },
 
     GetLocal {
-        index: usize,
+        index: u32,
     },
     SetLocal {
-        index: usize,
+        index: u32,
     },
 
     ForLoop {
-        control_index: usize,
-        limit_index: usize,
-        body_offset: usize,
+        control_index: u32,
+        limit_index: u32,
+        body_offset: u32,
         inclusive: bool,
-        step_index: Option<usize>,
+        step_index: Option<u32>,
     },
 
     Jump {
-        offset: usize,
+        offset: u32,
     },
 
     JumpIf {
-        offset: usize,
+        offset: u32,
         expected: bool,
         keep_stay: bool,
         keep_jump: bool,
     },
 
     Call {
-        arg_count: usize,
+        arg_count: u32,
         keep_return_value: bool,
     },
 
     MakeArray {
-        count: usize,
+        count: u32,
     },
 
     GetIndex,
     SetIndex,
 
     Closure {
-        function_index: usize,
-        upvalues: Vec<UpvalueDesc>,
+        function_index: u32,
+        upvalues: Box<[UpvalueDesc]>,
     },
 
     GetUpvalue {
-        index: usize,
+        index: u32,
     },
     SetUpvalue {
-        index: usize,
+        index: u32,
     },
 }
 
