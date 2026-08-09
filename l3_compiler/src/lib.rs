@@ -46,6 +46,10 @@ struct LoopContext {
     break_jumps: Vec<usize>,
     continue_jumps: Vec<usize>,
     body_locals_snapshot: usize,
+    /// The chunk the loop belongs to. `break`/`continue` are only valid in the
+    /// same chunk: a nested function body compiles into its own chunk and must
+    /// not inherit an enclosing loop's control flow.
+    chunk_id: usize,
 }
 
 enum VarType {
@@ -643,6 +647,7 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot: self.current_context().locals.len(),
+            chunk_id: self.current_context().chunk_id,
         });
 
         self.compile_expression(&w.condition)?;
@@ -730,6 +735,7 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot,
+            chunk_id: self.current_context().chunk_id,
         });
 
         // Loop condition: index < length
@@ -763,6 +769,7 @@ impl Compiler {
         self.compile_block(&fl.body)?;
 
         // index++
+        let increment_start = self.current_chunk().code.len();
         self.emit(Instruction::GetLocal {
             index: LocalIndex(u32_index(idx_idx)),
         });
@@ -795,7 +802,7 @@ impl Compiler {
         }
         for jump in &lc.continue_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(loop_start));
+                *offset = CodeOffset(u32_index(increment_start));
             }
         }
 
@@ -842,6 +849,7 @@ impl Compiler {
             break_jumps: Vec::new(),
             continue_jumps: Vec::new(),
             body_locals_snapshot,
+            chunk_id: self.current_context().chunk_id,
         });
 
         self.emit(Instruction::ForLoop {
@@ -1086,33 +1094,47 @@ impl Compiler {
                     self.emit(Instruction::Return);
                 }
             },
-            LastStatement::Break(_) => {
-                let jump = self.current_chunk().code.len();
-                self.emit(Instruction::Jump {
-                    offset: CodeOffset(0),
-                });
-                if let Some(lc) = self.loop_contexts.last_mut() {
-                    lc.break_jumps.push(jump);
-                }
-            },
-            LastStatement::Continue(_) => {
-                if let Some(lc) = self.loop_contexts.last() {
-                    let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
-                    if body_locals > 0 {
-                        self.emit(Instruction::Pop {
-                            count: u32_index(body_locals),
-                        });
-                    }
-                }
-                let jump = self.current_chunk().code.len();
-                self.emit(Instruction::Jump {
-                    offset: CodeOffset(0),
-                });
-                if let Some(lc) = self.loop_contexts.last_mut() {
-                    lc.continue_jumps.push(jump);
-                }
-            },
+            LastStatement::Break(_) => self.compile_loop_control(true)?,
+            LastStatement::Continue(_) => self.compile_loop_control(false)?,
         }
+        Ok(())
+    }
+
+    /// Emit the stack restore + jump for a `break`/`continue`. Only an
+    /// enclosing loop in the *same chunk* is a valid target; anything else is
+    /// a compile error (a `break` inside a nested function body, or outside any
+    /// loop, would otherwise compile into an unpatched `Jump { offset: 0 }`).
+    fn compile_loop_control(&mut self, is_break: bool) -> Result<(), CompileError> {
+        let chunk_id = self.current_context().chunk_id;
+        let Some(lc_pos) = self
+            .loop_contexts
+            .iter()
+            .rposition(|lc| lc.chunk_id == chunk_id)
+        else {
+            let keyword = if is_break { "break" } else { "continue" };
+            return Err(CompileError::new(format!(
+                "{keyword} outside of a loop is not allowed"
+            )));
+        };
+        {
+            let lc = &self.loop_contexts[lc_pos];
+            let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
+            if body_locals > 0 {
+                self.emit(Instruction::Pop {
+                    count: u32_index(body_locals),
+                });
+            }
+        }
+        let jump = self.current_chunk().code.len();
+        self.emit(Instruction::Jump {
+            offset: CodeOffset(0),
+        });
+        let targets = if is_break {
+            &mut self.loop_contexts[lc_pos].break_jumps
+        } else {
+            &mut self.loop_contexts[lc_pos].continue_jumps
+        };
+        targets.push(jump);
         Ok(())
     }
 
