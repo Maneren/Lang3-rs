@@ -387,11 +387,6 @@ fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
     }
 }
 
-fn builtin_trigger_gc(_args: &[StackValue], heap: &mut Heap) -> StackValue {
-    let erased = heap.sweep();
-    heap.alloc_string(format!("GC swept {erased} cells"))
-}
-
 #[must_use]
 pub fn builtins() -> Vec<(&'static str, Builtin)> {
     vec![
@@ -414,7 +409,6 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("input", wrap_infallible(builtin_input)),
         ("sleep", wrap(builtin_sleep)),
         ("sum", wrap(builtin_sum)),
-        ("__trigger_gc", wrap_infallible(builtin_trigger_gc)),
     ]
 }
 

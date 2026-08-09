@@ -148,6 +148,7 @@ pub struct BytecodeVM<'a> {
     pub global_symbols: HashMap<String, StackValue, FixedState>,
     constant_keys: Vec<slotmap::DefaultKey>,
     frames: CallStack,
+    trigger_gc_key: Option<slotmap::DefaultKey>,
     debug: bool,
 }
 
@@ -179,6 +180,7 @@ impl<'a> BytecodeVM<'a> {
             global_symbols: HashMap::with_hasher(FixedState::default()),
             constant_keys: Vec::new(),
             frames: CallStack::new(),
+            trigger_gc_key: None,
             debug,
         };
 
@@ -192,6 +194,25 @@ impl<'a> BytecodeVM<'a> {
                 )));
             vm.global_symbols.insert(name.to_string(), func);
         }
+
+        // __trigger_gc runs a full mark-and-sweep over VM roots (stack, frames,
+        // upvalues, globals, constants), which a builtin body cannot reach, so the
+        // VM registers it here and intercepts calls to it in `call_function`.
+        let trigger_key = vm
+            .heap
+            .alloc_function(Function::Builtin(BuiltinFunction::new(
+                Identifier::new("__trigger_gc".to_string(), Location::default()),
+                Rc::new(|_: &[StackValue], _: &mut Heap| {
+                    Err(RuntimeError::type_error(
+                        "__trigger_gc is handled by the VM",
+                    ))
+                }),
+            )))
+            .get_heap_key()
+            .expect("allocated function lives on the heap");
+        vm.global_symbols
+            .insert("__trigger_gc".to_string(), StackValue::Heap(trigger_key));
+        vm.trigger_gc_key = Some(trigger_key);
 
         vm
     }
@@ -857,13 +878,13 @@ impl<'a> BytecodeVM<'a> {
 
     fn call_function(
         &mut self,
-        func: StackValue,
+        func_sv: StackValue,
         base: usize,
         arg_count: usize,
         keep_return_value: bool,
         call_location: &Location,
     ) -> RuntimeResult<StackValue> {
-        let func_key = match &func {
+        let func_key = match &func_sv {
             StackValue::Heap(key) => *key,
             _ => return Err(RuntimeError::type_error("cannot call non-function")),
         };
@@ -873,29 +894,32 @@ impl<'a> BytecodeVM<'a> {
             return Err(RuntimeError::generic("stack underflow"));
         };
 
-        let is_builtin = self
-            .heap
-            .cells
-            .get(func_key)
-            .is_some_and(|c| matches!(&c.value, HeapData::Function(Function::Builtin(_))));
+        let Some(cell) = self.heap.cells.get(func_key) else {
+            return Err(RuntimeError::type_error("invalid heap reference"));
+        };
 
-        if is_builtin {
-            let Some(body) = self.heap.cells.get(func_key).and_then(|c| match &c.value {
-                HeapData::Function(Function::Builtin(b)) => Some(b.body.clone()),
-                _ => None,
-            }) else {
-                return Err(RuntimeError::type_error("invalid builtin function"));
-            };
-            let result = { body(args, &mut self.heap) };
+        let function = match cell.value {
+            HeapData::Function(ref f) => Some(f),
+            _ => None,
+        }
+        .ok_or(RuntimeError::type_error("invalid function reference"))?;
+
+        if let Function::Builtin(builtin_function) = function {
+            if Some(func_key) == self.trigger_gc_key {
+                let before = self.heap.cells.len();
+                self.run_gc();
+                let erased = before - self.heap.cells.len();
+                self.stack.truncate(base);
+                return Ok(self.heap.alloc_string(format!("GC swept {erased} cells")));
+            }
+            let body = Rc::clone(&builtin_function.body);
+            let result = body(args, &mut self.heap);
             self.stack.truncate(base);
             self.maybe_gc();
             return result.map_err(|e| RuntimeError::type_error(format!("builtin error: {e}")));
         }
 
-        let Some(cell) = self.heap.cells.get(func_key) else {
-            return Err(RuntimeError::type_error("invalid function reference"));
-        };
-        let HeapData::Function(Function::Bytecode(bc)) = &cell.value else {
+        let Function::Bytecode(bc) = &function else {
             return Err(RuntimeError::type_error("cannot call non-function"));
         };
 
@@ -925,7 +949,7 @@ impl<'a> BytecodeVM<'a> {
             chunk_id: ChunkId(u32::try_from(bc.id).expect("chunk id fits in u32")),
             ip: CodeOffset(0),
             frame_pointer,
-            closure_info: Some((*bc.clone(), func)),
+            closure_info: Some((*bc.clone(), func_sv)),
             call_location: Some(call_location.clone()),
             upvalues: bc.captured_upvalues.clone().into(),
             captured_locals: HashMap::with_hasher(FixedState::default()),

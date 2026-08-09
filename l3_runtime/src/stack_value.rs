@@ -4,12 +4,6 @@ use slotmap::DefaultKey;
 
 use crate::{heap::Heap, heap_data::HeapData, primitive::Primitive};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Slice {
-    pub start: Option<i64>,
-    pub end: Option<i64>,
-}
-
 #[derive(Debug, Clone, Default, Copy)]
 pub enum StackValue {
     #[default]

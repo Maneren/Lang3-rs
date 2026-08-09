@@ -81,14 +81,6 @@ impl UpvalueCell {
             marked: Cell::new(false),
         }
     }
-
-    pub fn mark(&self, heap: &SlotMap<DefaultKey, HeapCell>) {
-        if self.marked.get() {
-            return;
-        }
-        self.marked.set(true);
-        mark_stack_value(&self.value, heap);
-    }
 }
 
 /// Garbage-collected heap using slotmap-based storage.
