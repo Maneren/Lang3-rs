@@ -244,9 +244,10 @@ impl<'a> BytecodeVM<'a> {
 
         if let Err(mut err) = result {
             if err.location().is_none() {
-                let loc = self.frames.last().map_or_default(|frame| {
-                    self.instruction_location(&program.chunks, frame.ip.as_index())
-                });
+                let loc = self
+                    .frames
+                    .last()
+                    .map_or_default(|frame| self.instruction_location(&program.chunks, frame.ip));
                 err = err.with_location(loc);
             }
             err.set_stacktrace(self.build_stacktrace());
@@ -259,13 +260,13 @@ impl<'a> BytecodeVM<'a> {
 
     /// The instruction being executed is the one at `ip`, which `execute_loop`
     /// keeps synced with `frame.ip`.
-    fn instruction_location(&self, chunks: &[Chunk], ip: usize) -> Location {
+    fn instruction_location(&self, chunks: &[Chunk], ip: CodeOffset) -> Location {
         let Some(frame) = self.frames.last() else {
             return Location::default();
         };
         chunks
             .get(frame.chunk_id.as_index())
-            .and_then(|chunk| chunk.locations.get(ip))
+            .and_then(|chunk| chunk.locations.get(ip.as_index()))
             .cloned()
             .unwrap_or_default()
     }
@@ -291,12 +292,13 @@ impl<'a> BytecodeVM<'a> {
         let constants = &program.constants;
 
         while let Some(frame) = self.frames.last() {
-            let (mut ip, chunk_id, fp) = (frame.ip.as_index(), frame.chunk_id, frame.frame_pointer);
-            let code = &program[chunk_id].code;
+            let (mut ip, chunk_id, fp) = (frame.ip, frame.chunk_id, frame.frame_pointer);
+            let code = &program[chunk_id];
 
-            while let Some(instruction) = code.get(ip) {
+            loop {
+                let instruction = &code[ip];
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
-                ip += 1;
+                ip.0 += 1;
 
                 // The frame's `ip` is only synced here (on error) and in the
                 // Call/Return handlers, so the hot dispatch loop avoids a
@@ -556,7 +558,7 @@ impl<'a> BytecodeVM<'a> {
                                     keep_going
                                 );
                                 if keep_going {
-                                    ip = body_offset.as_index();
+                                    ip = *body_offset;
                                 }
                                 Ok(())
                             },
@@ -570,7 +572,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Jump { offset } => {
                         debug_println!(debug, "    JUMP -> {}", offset);
-                        ip = offset.as_index();
+                        ip = *offset;
                         Ok(())
                     },
                     Instruction::JumpIf {
@@ -595,7 +597,7 @@ impl<'a> BytecodeVM<'a> {
                             self.stack.pop();
                         }
                         if should_jump {
-                            ip = offset.as_index();
+                            ip = *offset;
                         }
                         Ok(())
                     },
@@ -622,12 +624,11 @@ impl<'a> BytecodeVM<'a> {
                                     .get(base)
                                     .expect("call base is a valid stack index");
                                 let frame_count = self.frames.len();
-                                let call_location =
-                                    self.instruction_location(&program.chunks, ip - 1);
+                                let call_location = self.instruction_location(&program.chunks, ip);
                                 self.frames
                                     .last_mut()
                                     .expect("execution continues only while a frame exists")
-                                    .ip = CodeOffset(ip as u32);
+                                    .ip = ip;
                                 match self.call_function(
                                     func_sv,
                                     base,
@@ -822,7 +823,7 @@ impl<'a> BytecodeVM<'a> {
                     self.frames
                         .last_mut()
                         .expect("execution continues only while a frame exists")
-                        .ip = CodeOffset((ip - 1) as u32);
+                        .ip = CodeOffset(ip.0 - 1);
                     return Err(e);
                 }
             }
