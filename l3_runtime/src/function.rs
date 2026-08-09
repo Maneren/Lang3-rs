@@ -39,9 +39,9 @@ impl fmt::Debug for BuiltinFunction {
 
 #[derive(Debug, Clone)]
 pub struct BytecodeFunction {
-    pub id: usize,
+    pub id: u32,
+    pub arity: u32,
     pub name: String,
-    pub arity: usize,
     pub curried_args: Vec<StackValue>,
     pub captured_upvalues: Vec<Rc<RefCell<UpvalueCell>>>,
 }

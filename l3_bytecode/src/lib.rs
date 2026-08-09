@@ -1,255 +1,169 @@
 pub mod format;
+pub mod indices;
+pub mod instructions;
 pub mod optimizer;
 
 use std::{
-    fmt::{self, Display, Formatter},
+    fmt::Debug,
     ops::{Index, IndexMut},
     slice::{Iter, IterMut},
     vec::IntoIter,
 };
 
+pub use indices::{ChunkId, CodeOffset, ConstantIndex, LocalIndex, StackIndex, UpvalueIndex, idx};
+pub use instructions::{Instruction, UpvalueDesc};
 use l3_location::Location;
 use l3_runtime::{BytecodeFunction, Function, HeapCell, HeapData};
 
-// ---------------------------------------------------------------------------
-// Strongly typed domain handles
-// ---------------------------------------------------------------------------
+/// A `Vec<T>` whose `len`/`push` return the strongly typed index into the
+/// collection, removing the `usize` ↔ typed-index conversions at every use
+/// site.
+#[macro_export]
+macro_rules! indexed_vec {
+    ($(#[$meta:meta])* $vis:vis $name:ident, $index:ty, $item:ty) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Default)]
+        $vis struct $name {
+            items: Vec<$item>,
+        }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct ConstantIndex(pub u32);
+        impl $name {
+            #[must_use]
+            pub const fn new() -> Self {
+                Self { items: Vec::new() }
+            }
 
-impl ConstantIndex {
-    pub fn as_index(&self) -> usize {
-        self.0 as usize
-    }
-}
+            /// Append an item and return the index of the newly pushed slot.
+            pub fn push(&mut self, item: $item) -> $index {
+                let index = $crate::idx(self.items.len());
+                self.items.push(item);
+                index
+            }
 
-impl From<u32> for ConstantIndex {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+            #[must_use]
+            pub fn len(&self) -> $index {
+                $crate::idx(self.items.len())
+            }
 
-impl Display for ConstantIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+            #[must_use]
+            pub const fn is_empty(&self) -> bool {
+                self.items.is_empty()
+            }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct LocalIndex(pub u32);
+            #[must_use]
+            pub fn get(&self, index: $index) -> Option<&$item> {
+                self.items.get(index.as_index())
+            }
 
-impl LocalIndex {
-    pub fn as_index(&self) -> usize {
-        self.0 as usize
-    }
-}
+            pub fn get_mut(&mut self, index: $index) -> Option<&mut $item> {
+                self.items.get_mut(index.as_index())
+            }
 
-impl From<u32> for LocalIndex {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+            #[must_use]
+            pub fn last(&self) -> Option<&$item> {
+                self.items.last()
+            }
 
-impl Display for LocalIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+            pub fn pop(&mut self) -> Option<$item> {
+                self.items.pop()
+            }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct UpvalueIndex(pub u32);
+            #[must_use]
+            pub fn as_slice(&self) -> &[$item] {
+                &self.items
+            }
 
-impl UpvalueIndex {
-    pub fn as_index(&self) -> usize {
-        self.0 as usize
-    }
-}
+            pub fn as_mut_slice(&mut self) -> &mut [$item] {
+                &mut self.items
+            }
 
-impl From<u32> for UpvalueIndex {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+            pub fn iter(&self) -> std::slice::Iter<'_, $item> {
+                self.items.iter()
+            }
 
-impl Display for UpvalueIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+            pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, $item> {
+                self.items.iter_mut()
+            }
+        }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct ChunkId(pub u32);
+        impl From<Vec<$item>> for $name {
+            fn from(items: Vec<$item>) -> Self {
+                Self { items }
+            }
+        }
 
-impl ChunkId {
-    pub fn as_index(&self) -> usize {
-        self.0 as usize
-    }
-}
+        impl std::ops::Index<$index> for $name {
+            type Output = $item;
 
-impl From<u32> for ChunkId {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "typed index is within bounds by construction"
+            )]
+            fn index(&self, index: $index) -> &Self::Output {
+                &self.items[index.as_index()]
+            }
+        }
 
-impl Display for ChunkId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+        impl std::ops::IndexMut<$index> for $name {
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "typed index is within bounds by construction"
+            )]
+            fn index_mut(&mut self, index: $index) -> &mut Self::Output {
+                &mut self.items[index.as_index()]
+            }
+        }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct CodeOffset(pub u32);
+        impl IntoIterator for $name {
+            type Item = $item;
+            type IntoIter = std::vec::IntoIter<$item>;
 
-impl CodeOffset {
-    pub fn as_index(&self) -> usize {
-        self.0 as usize
-    }
-}
+            fn into_iter(self) -> Self::IntoIter {
+                self.items.into_iter()
+            }
+        }
 
-impl From<u32> for CodeOffset {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+        impl<'a> IntoIterator for &'a $name {
+            type Item = &'a $item;
+            type IntoIter = std::slice::Iter<'a, $item>;
 
-impl Display for CodeOffset {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+            fn into_iter(self) -> Self::IntoIter {
+                self.items.iter()
+            }
+        }
 
-// ---------------------------------------------------------------------------
-// Upvalue descriptor (used in OpClosure)
-// ---------------------------------------------------------------------------
+        impl<'a> IntoIterator for &'a mut $name {
+            type Item = &'a mut $item;
+            type IntoIter = std::slice::IterMut<'a, $item>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UpvalueDesc {
-    pub is_local: bool,
-    pub index: u32,
-}
-
-// ---------------------------------------------------------------------------
-// All opcodes
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone)]
-pub enum Instruction {
-    Return,
-
-    Constant {
-        index: ConstantIndex,
-    },
-
-    Pop {
-        count: u32,
-    },
-
-    Duplicate {
-        index: u32,
-    },
-
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Power,
-    Negate,
-
-    Equal {
-        keep_rhs: bool,
-    },
-    NotEqual {
-        keep_rhs: bool,
-    },
-    Greater {
-        keep_rhs: bool,
-    },
-    GreaterEqual {
-        keep_rhs: bool,
-    },
-    Less {
-        keep_rhs: bool,
-    },
-    LessEqual {
-        keep_rhs: bool,
-    },
-    Not,
-
-    GetGlobal {
-        name_index: ConstantIndex,
-    },
-    SetGlobal {
-        name_index: ConstantIndex,
-    },
-
-    GetLocal {
-        index: LocalIndex,
-    },
-    SetLocal {
-        index: LocalIndex,
-    },
-
-    ForLoop {
-        control_index: LocalIndex,
-        limit_index: LocalIndex,
-        body_offset: CodeOffset,
-        inclusive: bool,
-        step_index: Option<LocalIndex>,
-    },
-
-    Jump {
-        offset: CodeOffset,
-    },
-
-    JumpIf {
-        offset: CodeOffset,
-        expected: bool,
-        keep_stay: bool,
-        keep_jump: bool,
-    },
-
-    Call {
-        arg_count: u32,
-        keep_return_value: bool,
-    },
-
-    MakeArray {
-        count: u32,
-    },
-
-    /// In-place append of the top `count` stack values onto the heap vector
-    /// referenced by the value below them. Only emitted when the compiler can
-    /// prove exclusive ownership of the vector.
-    VectorAppend {
-        count: u32,
-    },
-
-    GetIndex,
-    SetIndex,
-
-    Closure {
-        function_index: ConstantIndex,
-        upvalues: Vec<UpvalueDesc>,
-    },
-
-    GetUpvalue {
-        index: UpvalueIndex,
-    },
-    SetUpvalue {
-        index: UpvalueIndex,
-    },
+            fn into_iter(self) -> Self::IntoIter {
+                self.items.iter_mut()
+            }
+        }
+    };
 }
 
 // ---------------------------------------------------------------------------
 // Chunk -- a sequence of instructions with source locations
 // ---------------------------------------------------------------------------
 
+indexed_vec! {
+    /// A chunk's instruction stream, indexed by `CodeOffset`.
+    pub Code,
+    CodeOffset,
+    Instruction
+}
+
+indexed_vec! {
+    /// The captured upvalue descriptors of a closure.
+    pub Upvalues,
+    UpvalueIndex,
+    UpvalueDesc
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Chunk {
-    pub code: Vec<Instruction>,
+    pub code: Code,
     pub locations: Vec<Location>,
 }
 
@@ -264,13 +178,13 @@ impl Index<CodeOffset> for Chunk {
     type Output = Instruction;
 
     fn index(&self, offset: CodeOffset) -> &Self::Output {
-        &self.code[offset.as_index()]
+        &self.code[offset]
     }
 }
 
 impl IndexMut<CodeOffset> for Chunk {
     fn index_mut(&mut self, offset: CodeOffset) -> &mut Self::Output {
-        &mut self.code[offset.as_index()]
+        &mut self.code[offset]
     }
 }
 
@@ -317,9 +231,9 @@ impl ConstantPool {
     }
 
     pub fn push(&mut self, cell: HeapCell) -> ConstantIndex {
-        let idx = ConstantIndex(u32::try_from(self.constants.len()).expect("constants fit in u32"));
+        let index = idx(self.constants.len());
         self.constants.push(cell);
-        idx
+        index
     }
 
     #[must_use]
@@ -379,9 +293,16 @@ impl<'a> IntoIterator for &'a mut ConstantPool {
 // ProgramBytecode -- the compiled output
 // ---------------------------------------------------------------------------
 
+indexed_vec! {
+    /// The program's chunks, indexed by `ChunkId`.
+    pub Chunks,
+    ChunkId,
+    Chunk
+}
+
 #[derive(Debug, Clone)]
 pub struct ProgramBytecode {
-    pub chunks: Vec<Chunk>,
+    pub chunks: Chunks,
     pub constants: ConstantPool,
 }
 
@@ -389,7 +310,7 @@ impl ProgramBytecode {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            chunks: Vec::new(),
+            chunks: Chunks::new(),
             constants: ConstantPool::new(),
         }
     }
@@ -405,12 +326,12 @@ impl Index<ChunkId> for ProgramBytecode {
     type Output = Chunk;
 
     fn index(&self, id: ChunkId) -> &Self::Output {
-        &self.chunks[id.as_index()]
+        &self.chunks[id]
     }
 }
 
 impl IndexMut<ChunkId> for ProgramBytecode {
     fn index_mut(&mut self, id: ChunkId) -> &mut Self::Output {
-        &mut self.chunks[id.as_index()]
+        &mut self.chunks[id]
     }
 }

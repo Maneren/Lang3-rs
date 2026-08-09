@@ -6,22 +6,17 @@ use l3_ast::{
     RangeOperator, Statement, UnaryExpression, UnaryOperator, Variable, While,
 };
 use l3_bytecode::{
-    Chunk, CodeOffset, ConstantIndex, Instruction, LocalIndex, ProgramBytecode, UpvalueDesc,
-    UpvalueIndex,
+    Chunk, ChunkId, CodeOffset, ConstantIndex, Instruction, LocalIndex, ProgramBytecode,
+    UpvalueDesc, UpvalueIndex, Upvalues, idx, indexed_vec,
 };
 use l3_location::Location;
 use l3_runtime::{BytecodeFunction, CompileError, Function, HeapCell, HeapData, Primitive};
 
-/// Convert a compiler-internal `usize` index to the `u32` stored in bytecode.
-#[must_use]
-fn u32_index(idx: usize) -> u32 {
-    u32::try_from(idx).expect("compiler indices fit in u32")
-}
-
-/// Convert a compiler-internal `usize` index to the `i64` used in constants.
-#[must_use]
-fn i64_index(idx: usize) -> i64 {
-    i64::try_from(idx).expect("compiler indices fit in i64")
+indexed_vec! {
+    /// The locals of a single compilation context, indexed by `LocalIndex`.
+    Locals,
+    LocalIndex,
+    Local
 }
 
 pub struct Compiler {
@@ -32,6 +27,7 @@ pub struct Compiler {
     location_stack: Vec<Location>,
 }
 
+#[derive(Debug, Clone)]
 struct Local {
     name: String,
     depth: i32,
@@ -46,25 +42,25 @@ struct Local {
 }
 
 struct Context {
-    locals: Vec<Local>,
-    upvalues: Vec<UpvalueDesc>,
-    chunk_id: usize,
+    locals: Locals,
+    upvalues: Upvalues,
+    chunk_id: ChunkId,
     scope_depth: i32,
 }
 
 struct LoopContext {
-    break_jumps: Vec<usize>,
-    continue_jumps: Vec<usize>,
-    body_locals_snapshot: usize,
+    break_jumps: Vec<CodeOffset>,
+    continue_jumps: Vec<CodeOffset>,
+    body_locals_snapshot: LocalIndex,
     /// The chunk the loop belongs to. `break`/`continue` are only valid in the
     /// same chunk: a nested function body compiles into its own chunk and must
     /// not inherit an enclosing loop's control flow.
-    chunk_id: usize,
+    chunk_id: ChunkId,
 }
 
 enum VarType {
-    Local(usize),
-    Upvalue(UpvalueDesc),
+    Local(LocalIndex),
+    Upvalue(UpvalueIndex),
     Global(String),
 }
 
@@ -105,12 +101,11 @@ impl Compiler {
         result
     }
 
-    fn push_context(&mut self) -> usize {
-        let chunk_id = self.program.chunks.len();
-        self.program.chunks.push(Chunk::default());
+    fn push_context(&mut self) -> ChunkId {
+        let chunk_id = self.program.chunks.push(Chunk::default());
         self.contexts.push(Context {
-            locals: Vec::new(),
-            upvalues: Vec::new(),
+            locals: Locals::new(),
+            upvalues: Upvalues::new(),
             chunk_id,
             scope_depth: 0,
         });
@@ -170,40 +165,40 @@ impl Compiler {
         }
         if pop_count > 0 {
             self.emit(Instruction::Pop {
-                count: u32_index(pop_count),
+                count: idx(pop_count),
             });
         }
     }
 
-    fn add_local(&mut self, name: &str) {
-        self.add_local_with_mutability(name, false);
+    fn add_local(&mut self, name: &str) -> LocalIndex {
+        self.add_local_with_mutability(name, false)
     }
 
-    fn add_mutable_local(&mut self, name: &str) {
-        self.add_local_with_mutability(name, true);
+    fn add_mutable_local(&mut self, name: &str) -> LocalIndex {
+        self.add_local_with_mutability(name, true)
     }
 
-    fn add_local_with_mutability(&mut self, name: &str, mutable: bool) {
+    fn add_local_with_mutability(&mut self, name: &str, mutable: bool) -> LocalIndex {
         let ctx = self.current_context_mut();
         ctx.locals.push(Local {
             name: name.to_string(),
             depth: ctx.scope_depth,
             mutable,
             possibly_aliased: false,
-        });
+        })
     }
 
-    fn resolve_local(&self, name: &str) -> Option<usize> {
+    fn resolve_local(&self, name: &str) -> Option<LocalIndex> {
         let ctx = self.contexts.last()?;
         ctx.locals
             .iter()
             .enumerate()
             .rev()
             .find(|(_, local)| local.name == name)
-            .map(|(i, _)| i)
+            .map(|(i, _)| idx(i))
     }
 
-    fn resolve_upvalue(&mut self, name: &str) -> Option<usize> {
+    fn resolve_upvalue(&mut self, name: &str) -> Option<UpvalueIndex> {
         let outer_index = self.contexts.len().checked_sub(2)?;
         {
             let outer = self.contexts.get(outer_index)?;
@@ -211,10 +206,10 @@ impl Compiler {
             // Check if this context already captures the given name from the outer context
             for (j, existing) in cur.upvalues.iter().enumerate() {
                 if existing.is_local
-                    && let Some(l) = outer.locals.get(existing.index as usize)
+                    && let Some(l) = outer.locals.get(LocalIndex(existing.index))
                     && l.name == name
                 {
-                    return Some(j);
+                    return Some(idx(j));
                 }
             }
         }
@@ -222,7 +217,7 @@ impl Compiler {
         if let Some(i) = outer.locals.iter().position(|local| local.name == name) {
             // A closure captures this local: its slot now has another holder.
             let outer = self.contexts.get_mut(outer_index)?;
-            if let Some(local) = outer.locals.get_mut(i) {
+            if let Some(local) = outer.locals.get_mut(idx(i)) {
                 local.possibly_aliased = true;
             }
             return Some(self.add_upvalue(true, i));
@@ -235,14 +230,12 @@ impl Compiler {
         None
     }
 
-    fn add_upvalue(&mut self, is_local: bool, index: usize) -> usize {
+    fn add_upvalue(&mut self, is_local: bool, index: usize) -> UpvalueIndex {
         let ctx = self.current_context_mut();
-        let idx = ctx.upvalues.len();
         ctx.upvalues.push(UpvalueDesc {
             is_local,
-            index: u32_index(index),
-        });
-        idx
+            index: idx(index),
+        })
     }
 
     fn resolve_variable(&mut self, name: &str) -> VarType {
@@ -250,10 +243,7 @@ impl Compiler {
             return VarType::Local(idx);
         }
         if let Some(idx) = self.resolve_upvalue(name) {
-            return VarType::Upvalue(UpvalueDesc {
-                is_local: false,
-                index: u32_index(idx),
-            });
+            return VarType::Upvalue(idx);
         }
         VarType::Global(name.to_string())
     }
@@ -262,8 +252,8 @@ impl Compiler {
     /// unresolved names, which are always assignable.
     fn binding_mutability(&self, name: &str) -> Option<bool> {
         for ctx in self.contexts.iter().rev() {
-            if let Some(idx) = ctx.locals.iter().rposition(|local| local.name == name) {
-                return Some(ctx.locals[idx].mutable);
+            if let Some(local) = ctx.locals.iter().rev().find(|local| local.name == name) {
+                return Some(local.mutable);
             }
         }
         None
@@ -481,10 +471,13 @@ impl Compiler {
     }
 
     fn make_constant(&mut self, value: HeapData) -> ConstantIndex {
-        for (i, existing) in self.program.constants.iter().enumerate() {
-            if existing.value == value {
-                return ConstantIndex(u32_index(i));
-            }
+        if let Some(i) = self
+            .program
+            .constants
+            .iter()
+            .position(|cell| cell.value == value)
+        {
+            return idx(i);
         }
         self.program.constants.push(HeapCell::new(value))
     }
@@ -551,14 +544,11 @@ impl Compiler {
             // on the stack (it is reclaimed by the enclosing scope's end).
             let source_name = format!("<destructure_{}>", self.synthetic_counter);
             self.synthetic_counter += 1;
-            self.add_local(&source_name);
+            let source_idx = self.add_local(&source_name);
             self.set_local_aliased(&source_name, true);
-            let source_idx = self.current_context().locals.len() - 1;
             for (i, name) in decl.names.iter().enumerate() {
-                self.emit(Instruction::GetLocal {
-                    index: LocalIndex(u32_index(source_idx)),
-                });
-                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(i64_index(i))));
+                self.emit(Instruction::GetLocal { index: source_idx });
+                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(idx(i))));
                 self.emit(Instruction::Constant { index: idx });
                 self.emit(Instruction::GetIndex);
                 self.add_local_with_mutability(
@@ -598,7 +588,7 @@ impl Compiler {
     fn compile_function_body(
         &mut self,
         body: &FunctionBody,
-    ) -> Result<(usize, Vec<UpvalueDesc>), CompileError> {
+    ) -> Result<(ChunkId, Upvalues), CompileError> {
         self.with_location(&body.location, |c| {
             let chunk_id = c.push_context();
             for param in &body.parameters {
@@ -626,14 +616,14 @@ impl Compiler {
 
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx });
-        self.add_local(&nf.name.name);
+        let local_idx = self.add_local(&nf.name.name);
 
         let (chunk_id, upvalues) = self.compile_function_body(&nf.body)?;
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
-            id: chunk_id,
+            id: chunk_id.0,
             name: nf.name.name.clone(),
-            arity,
+            arity: idx(arity),
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),
         })));
@@ -648,15 +638,10 @@ impl Compiler {
             });
         }
 
-        let local_idx = self.current_context().locals.len() - 1;
-        self.emit(Instruction::SetLocal {
-            index: LocalIndex(u32_index(local_idx)),
-        });
+        self.emit(Instruction::SetLocal { index: local_idx });
         if is_top_level {
             let name_idx = self.make_string_constant(&nf.name.name);
-            self.emit(Instruction::GetLocal {
-                index: LocalIndex(u32_index(local_idx)),
-            });
+            self.emit(Instruction::GetLocal { index: local_idx });
             self.emit(Instruction::SetGlobal {
                 name_index: name_idx,
             });
@@ -691,7 +676,7 @@ impl Compiler {
         if let Some(Instruction::JumpIf { offset, .. }) =
             self.current_chunk().code.get_mut(else_jump)
         {
-            *offset = CodeOffset(u32_index(else_patch));
+            *offset = else_patch;
         }
 
         if let Some(ref else_block) = if_stmt.else_block {
@@ -702,7 +687,7 @@ impl Compiler {
         let end_patch = self.current_chunk().code.len();
         for jump in &end_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(end_patch));
+                *offset = end_patch;
             }
         }
 
@@ -731,16 +716,14 @@ impl Compiler {
         self.compile_block(&w.body)?;
 
         // Jump back to condition
-        self.emit(Instruction::Jump {
-            offset: CodeOffset(u32_index(loop_start)),
-        });
+        self.emit(Instruction::Jump { offset: loop_start });
 
         // Patch exit jump
         let exit_patch = self.current_chunk().code.len();
         if let Some(Instruction::JumpIf { offset, .. }) =
             self.current_chunk().code.get_mut(exit_jump)
         {
-            *offset = CodeOffset(u32_index(exit_patch));
+            *offset = exit_patch;
         }
 
         // Patch break/continue
@@ -750,12 +733,12 @@ impl Compiler {
             .expect("loop context was pushed when entering the loop");
         for jump in &lc.break_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(exit_patch));
+                *offset = exit_patch;
             }
         }
         for jump in &lc.continue_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(loop_start));
+                *offset = loop_start;
             }
         }
 
@@ -765,40 +748,34 @@ impl Compiler {
     fn compile_for_loop(&mut self, fl: &ForLoop) -> Result<(), CompileError> {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx });
-        self.add_local_with_mutability(
+        let var_idx = self.add_local_with_mutability(
             &fl.variable.name,
             matches!(fl.mutability, Mutability::Mutable),
         );
-        let var_idx = self.current_context().locals.len() - 1;
         self.set_local_aliased(&fl.variable.name, true);
 
         // The collection's value is stored into the synthetic __collection__
         // slot for the loop's whole scope — a second holder of the key.
         self.mark_expression_aliased(&fl.collection);
         self.compile_expression(&fl.collection)?;
-        let coll_idx = self.current_context().locals.len();
-        self.add_mutable_local("__collection__");
+        let coll_idx = self.add_mutable_local("__collection__");
         self.set_local_aliased("__collection__", true);
 
         let zero_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(0)));
         self.emit(Instruction::Constant { index: zero_idx });
-        let idx_idx = self.current_context().locals.len();
-        self.add_mutable_local("__index__");
+        let idx_idx = self.add_mutable_local("__index__");
 
         // Call len(collection)
         let len_name_idx = self.make_string_constant("len");
         self.emit(Instruction::GetGlobal {
             name_index: len_name_idx,
         });
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(coll_idx)),
-        });
+        self.emit(Instruction::GetLocal { index: coll_idx });
         self.emit(Instruction::Call {
             arg_count: 1,
             keep_return_value: true,
         });
-        let len_idx = self.current_context().locals.len();
-        self.add_mutable_local("__length__");
+        let len_idx = self.add_mutable_local("__length__");
 
         let body_locals_snapshot = self.current_context().locals.len();
         let loop_start = self.current_chunk().code.len();
@@ -810,12 +787,8 @@ impl Compiler {
         });
 
         // Loop condition: index < length
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(idx_idx)),
-        });
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(len_idx)),
-        });
+        self.emit(Instruction::GetLocal { index: idx_idx });
+        self.emit(Instruction::GetLocal { index: len_idx });
         self.emit(Instruction::Less { keep_rhs: false });
         let exit_jump = self.current_chunk().code.len();
         self.emit(Instruction::JumpIf {
@@ -826,40 +799,28 @@ impl Compiler {
         });
 
         // collection[index] → assign to loop variable
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(coll_idx)),
-        });
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(idx_idx)),
-        });
+        self.emit(Instruction::GetLocal { index: coll_idx });
+        self.emit(Instruction::GetLocal { index: idx_idx });
         self.emit(Instruction::GetIndex);
-        self.emit(Instruction::SetLocal {
-            index: LocalIndex(u32_index(var_idx)),
-        });
+        self.emit(Instruction::SetLocal { index: var_idx });
 
         self.compile_block(&fl.body)?;
 
         // index++
         let increment_start = self.current_chunk().code.len();
-        self.emit(Instruction::GetLocal {
-            index: LocalIndex(u32_index(idx_idx)),
-        });
+        self.emit(Instruction::GetLocal { index: idx_idx });
         let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
         self.emit(Instruction::Constant { index: one_idx });
         self.emit(Instruction::Add);
-        self.emit(Instruction::SetLocal {
-            index: LocalIndex(u32_index(idx_idx)),
-        });
+        self.emit(Instruction::SetLocal { index: idx_idx });
 
-        self.emit(Instruction::Jump {
-            offset: CodeOffset(u32_index(loop_start)),
-        });
+        self.emit(Instruction::Jump { offset: loop_start });
 
         let exit_patch = self.current_chunk().code.len();
         if let Some(Instruction::JumpIf { offset, .. }) =
             self.current_chunk().code.get_mut(exit_jump)
         {
-            *offset = CodeOffset(u32_index(exit_patch));
+            *offset = exit_patch;
         }
 
         let lc = self
@@ -868,12 +829,12 @@ impl Compiler {
             .expect("loop context was pushed when entering the loop");
         for jump in &lc.break_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(exit_patch));
+                *offset = exit_patch;
             }
         }
         for jump in &lc.continue_jumps {
             if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(increment_start));
+                *offset = increment_start;
             }
         }
 
@@ -883,11 +844,10 @@ impl Compiler {
     fn compile_range_for_loop(&mut self, rfl: &RangeForLoop) -> Result<(), CompileError> {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx });
-        self.add_local_with_mutability(
+        let control_idx = self.add_local_with_mutability(
             &rfl.variable.name,
             matches!(rfl.mutability, Mutability::Mutable),
         );
-        let control_idx = self.current_context().locals.len() - 1;
         self.set_local_aliased(&rfl.variable.name, true);
 
         self.compile_expression(&rfl.start)?;
@@ -898,13 +858,10 @@ impl Compiler {
             self.emit(Instruction::Constant { index: one_idx });
         }
         self.emit(Instruction::Subtract);
-        self.emit(Instruction::SetLocal {
-            index: LocalIndex(u32_index(control_idx)),
-        });
+        self.emit(Instruction::SetLocal { index: control_idx });
 
         self.compile_expression(&rfl.end)?;
-        let limit_idx = self.current_context().locals.len();
-        self.add_mutable_local("__limit__");
+        let limit_idx = self.add_mutable_local("__limit__");
         self.set_local_aliased("__limit__", true);
 
         if let Some(ref step_expr) = rfl.step {
@@ -913,8 +870,7 @@ impl Compiler {
             let one_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(1)));
             self.emit(Instruction::Constant { index: one_idx });
         }
-        let step_idx = self.current_context().locals.len();
-        self.add_mutable_local("__step__");
+        let step_idx = self.add_mutable_local("__step__");
         self.set_local_aliased("__step__", true);
 
         let body_locals_snapshot = self.current_context().locals.len();
@@ -927,11 +883,11 @@ impl Compiler {
         });
 
         self.emit(Instruction::ForLoop {
-            control_index: LocalIndex(u32_index(control_idx)),
-            limit_index: LocalIndex(u32_index(limit_idx)),
+            control_index: control_idx,
+            limit_index: limit_idx,
             body_offset: CodeOffset(0),
             inclusive: matches!(rfl.range_type, RangeOperator::Inclusive),
-            step_index: Some(LocalIndex(u32_index(step_idx))),
+            step_index: Some(step_idx),
         });
 
         let exit_jump_idx = self.current_chunk().code.len();
@@ -941,20 +897,18 @@ impl Compiler {
 
         let body_start = self.current_chunk().code.len();
         self.compile_block(&rfl.body)?;
-        self.emit(Instruction::Jump {
-            offset: CodeOffset(u32_index(for_idx)),
-        });
+        self.emit(Instruction::Jump { offset: for_idx });
 
         if let Some(Instruction::ForLoop { body_offset, .. }) =
             self.current_chunk().code.get_mut(for_idx)
         {
-            *body_offset = CodeOffset(u32_index(body_start));
+            *body_offset = body_start;
         }
 
         let exit_patch = self.current_chunk().code.len();
         if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(exit_jump_idx)
         {
-            *offset = CodeOffset(u32_index(exit_patch));
+            *offset = exit_patch;
         }
 
         let lc = self
@@ -965,14 +919,14 @@ impl Compiler {
         let code = &mut self.current_chunk().code;
         for jump in &lc.break_jumps {
             if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(exit_patch));
+                *offset = exit_patch;
             } else {
                 return Err(CompileError::new("Invalid break target"));
             }
         }
         for jump in &lc.continue_jumps {
             if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
-                *offset = CodeOffset(u32_index(for_idx));
+                *offset = for_idx;
             } else {
                 return Err(CompileError::new("Invalid continue target"));
             }
@@ -995,14 +949,10 @@ impl Compiler {
                     if !fresh {
                         self.set_local_aliased(name, true);
                     }
-                    self.emit(Instruction::SetLocal {
-                        index: LocalIndex(u32_index(idx)),
-                    });
+                    self.emit(Instruction::SetLocal { index: idx });
                 },
                 VarType::Upvalue(uv) => {
-                    self.emit(Instruction::SetUpvalue {
-                        index: UpvalueIndex(uv.index),
-                    });
+                    self.emit(Instruction::SetUpvalue { index: uv });
                 },
                 VarType::Global(_) => {
                     let name_idx = self.make_string_constant(name);
@@ -1026,11 +976,11 @@ impl Compiler {
                 // heap allocation.
                 if oa.op == AssignmentOperator::Plus
                     && let Expression::Literal(Literal::Array(arr)) = &*oa.expression
-                    && let VarType::Local(idx) = self.resolve_variable(name)
+                    && let VarType::Local(slot) = self.resolve_variable(name)
                     && self
                         .current_context()
                         .locals
-                        .get(idx)
+                        .get(slot)
                         .is_some_and(|local| !local.possibly_aliased)
                     && !arr
                         .elements
@@ -1043,11 +993,9 @@ impl Compiler {
                         self.compile_expression(elem)?;
                     }
                     self.emit(Instruction::VectorAppend {
-                        count: u32_index(arr.elements.len()),
+                        count: idx(arr.elements.len()),
                     });
-                    self.emit(Instruction::SetLocal {
-                        index: LocalIndex(u32_index(idx)),
-                    });
+                    self.emit(Instruction::SetLocal { index: slot });
                     return Ok(());
                 }
 
@@ -1078,14 +1026,10 @@ impl Compiler {
                         }
                         match self.resolve_variable(name) {
                             VarType::Local(idx) => {
-                                self.emit(Instruction::SetLocal {
-                                    index: LocalIndex(u32_index(idx)),
-                                });
+                                self.emit(Instruction::SetLocal { index: idx });
                             },
                             VarType::Upvalue(uv) => {
-                                self.emit(Instruction::SetUpvalue {
-                                    index: UpvalueIndex(uv.index),
-                                });
+                                self.emit(Instruction::SetUpvalue { index: uv });
                             },
                             VarType::Global(_) => {
                                 let name_idx = self.make_string_constant(name);
@@ -1100,14 +1044,10 @@ impl Compiler {
 
                 match self.resolve_variable(name) {
                     VarType::Local(idx) => {
-                        self.emit(Instruction::SetLocal {
-                            index: LocalIndex(u32_index(idx)),
-                        });
+                        self.emit(Instruction::SetLocal { index: idx });
                     },
                     VarType::Upvalue(uv) => {
-                        self.emit(Instruction::SetUpvalue {
-                            index: UpvalueIndex(uv.index),
-                        });
+                        self.emit(Instruction::SetUpvalue { index: uv });
                     },
                     VarType::Global(_) => {
                         let name_idx = self.make_string_constant(name);
@@ -1197,9 +1137,9 @@ impl Compiler {
         {
             let lc = &self.loop_contexts[lc_pos];
             let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
-            if body_locals > 0 {
+            if body_locals.0 > 0 {
                 self.emit(Instruction::Pop {
-                    count: u32_index(body_locals),
+                    count: body_locals.0,
                 });
             }
         }
@@ -1253,7 +1193,7 @@ impl Compiler {
                     self.compile_expression(elem)?;
                 }
                 self.emit(Instruction::MakeArray {
-                    count: u32_index(arr.elements.len()),
+                    count: idx(arr.elements.len()),
                 });
                 return Ok(());
             },
@@ -1267,14 +1207,10 @@ impl Compiler {
         match var {
             Variable::Identifier(id) => match self.resolve_variable(&id.name) {
                 VarType::Local(idx) => {
-                    self.emit(Instruction::GetLocal {
-                        index: LocalIndex(u32_index(idx)),
-                    });
+                    self.emit(Instruction::GetLocal { index: idx });
                 },
                 VarType::Upvalue(uv) => {
-                    self.emit(Instruction::GetUpvalue {
-                        index: UpvalueIndex(uv.index),
-                    });
+                    self.emit(Instruction::GetUpvalue { index: uv });
                 },
                 VarType::Global(name) => {
                     let name_idx = self.make_string_constant(&name);
@@ -1299,14 +1235,10 @@ impl Compiler {
     ) -> Result<(), CompileError> {
         match self.resolve_variable(&fc.name.name) {
             VarType::Local(idx) => {
-                self.emit(Instruction::GetLocal {
-                    index: LocalIndex(u32_index(idx)),
-                });
+                self.emit(Instruction::GetLocal { index: idx });
             },
             VarType::Upvalue(uv) => {
-                self.emit(Instruction::GetUpvalue {
-                    index: UpvalueIndex(uv.index),
-                });
+                self.emit(Instruction::GetUpvalue { index: uv });
             },
             VarType::Global(_) => {
                 let name_idx = self.make_string_constant(&fc.name.name);
@@ -1322,7 +1254,7 @@ impl Compiler {
         }
 
         self.emit(Instruction::Call {
-            arg_count: u32_index(fc.arguments.len()),
+            arg_count: idx(fc.arguments.len()),
             keep_return_value,
         });
         Ok(())
@@ -1456,7 +1388,7 @@ impl Compiler {
                 if let Some(Instruction::JumpIf { offset, .. }) =
                     self.current_chunk().code.get_mut(jump)
                 {
-                    *offset = CodeOffset(u32_index(patch));
+                    *offset = patch;
                 }
             },
             LogicalOperator::Or => {
@@ -1473,7 +1405,7 @@ impl Compiler {
                 if let Some(Instruction::JumpIf { offset, .. }) =
                     self.current_chunk().code.get_mut(jump)
                 {
-                    *offset = CodeOffset(u32_index(patch));
+                    *offset = patch;
                 }
             },
         }
@@ -1515,7 +1447,7 @@ impl Compiler {
             if let Some(Instruction::JumpIf { offset, .. }) =
                 self.current_chunk().code.get_mut(*jump)
             {
-                *offset = CodeOffset(u32_index(cleanup));
+                *offset = cleanup;
             }
         }
         self.emit(Instruction::Pop { count: 2 });
@@ -1524,7 +1456,7 @@ impl Compiler {
 
         let end = self.current_chunk().code.len();
         if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(end_jump) {
-            *offset = CodeOffset(u32_index(end));
+            *offset = end;
         }
 
         Ok(())
@@ -1551,14 +1483,14 @@ impl Compiler {
         if let Some(Instruction::JumpIf { offset, .. }) =
             self.current_chunk().code.get_mut(else_jump)
         {
-            *offset = CodeOffset(u32_index(else_patch));
+            *offset = else_patch;
         }
 
         self.compile_block(&ife.else_block)?;
 
         let end_patch = self.current_chunk().code.len();
         if let Some(Instruction::Jump { offset }) = self.current_chunk().code.get_mut(end_jump) {
-            *offset = CodeOffset(u32_index(end_patch));
+            *offset = end_patch;
         }
 
         Ok(())
@@ -1572,9 +1504,9 @@ impl Compiler {
         let (chunk_id, upvalues) = self.compile_function_body(&af.body)?;
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
-            id: chunk_id,
+            id: chunk_id.0,
             name,
-            arity,
+            arity: idx(arity),
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),
         })));
@@ -1670,7 +1602,10 @@ mod tests {
 
     #[test]
     fn break_outside_loop_is_a_compile_error() {
-        assert_compile_error("break\n", "CompileError: break outside of a loop is not allowed");
+        assert_compile_error(
+            "break\n",
+            "CompileError: break outside of a loop is not allowed",
+        );
     }
 
     #[test]

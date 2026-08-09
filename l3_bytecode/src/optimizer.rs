@@ -6,7 +6,8 @@ use l3_runtime::{
 };
 
 use crate::{
-    Chunk, CodeOffset, ConstantIndex, ConstantPool, Instruction, LocalIndex, ProgramBytecode,
+    Chunk, Code, CodeOffset, ConstantIndex, ConstantPool, Instruction, LocalIndex, ProgramBytecode,
+    idx,
 };
 
 /// A whole-program bytecode optimizer. Runs after compilation, before
@@ -53,11 +54,11 @@ impl Optimizer {
 /// Number of parameters of each chunk. Function chunks store their params in
 /// the first `arity` stack slots of the frame, so the abstract stack must
 /// reserve that many unknown entries at the bottom.
-fn chunk_arities(program: &ProgramBytecode) -> Vec<usize> {
-    let mut arities = vec![0; program.chunks.len()];
+fn chunk_arities(program: &ProgramBytecode) -> Vec<u32> {
+    let mut arities = vec![0; program.chunks.len().as_index()];
     for cell in &program.constants {
         if let HeapData::Function(Function::Bytecode(bc)) = &cell.value
-            && let Some(slot) = arities.get_mut(bc.id)
+            && let Some(slot) = arities.get_mut(bc.id as usize)
         {
             *slot = bc.arity;
         }
@@ -65,7 +66,7 @@ fn chunk_arities(program: &ProgramBytecode) -> Vec<usize> {
     arities
 }
 
-fn optimize_chunk(chunk: Chunk, pool: &mut ConstantPool, arity: usize) -> (Chunk, bool) {
+fn optimize_chunk(chunk: Chunk, pool: &mut ConstantPool, arity: u32) -> (Chunk, bool) {
     let mut changed = false;
     let (chunk, c) = remove_dead_code(chunk);
     changed |= c;
@@ -81,7 +82,7 @@ fn optimize_chunk(chunk: Chunk, pool: &mut ConstantPool, arity: usize) -> (Chunk
 // ---------------------------------------------------------------------------
 
 fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
-    let len = chunk.code.len();
+    let len = chunk.code.len().as_index();
     let mut reachable = vec![false; len];
     let mut queue = VecDeque::new();
     if let Some(first) = reachable.first_mut() {
@@ -89,7 +90,7 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
         queue.push_back(0);
     }
     while let Some(i) = queue.pop_front() {
-        for succ in successors(&chunk.code, i) {
+        for succ in successors(chunk.code.as_slice(), i) {
             if let Some(reached) = reachable.get_mut(succ)
                 && !*reached
             {
@@ -126,7 +127,7 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
 
     (
         Chunk {
-            code: new_code,
+            code: Code::from(new_code),
             locations: new_locations,
         },
         true,
@@ -146,7 +147,7 @@ fn successors(code: &[Instruction], i: usize) -> Vec<usize> {
 fn remap_offsets(instruction: &mut Instruction, old_to_new: &[usize]) {
     let remap = |offset: &mut CodeOffset| {
         if let Some(mapped) = old_to_new.get(offset.as_index()) {
-            *offset = CodeOffset(u32::try_from(*mapped).expect("remapped offset fits in u32"));
+            *offset = idx(*mapped);
         }
     };
     match instruction {
@@ -170,8 +171,8 @@ type AbstractValue = Option<ConstantIndex>;
 struct AbstractStack(Vec<AbstractValue>);
 
 impl AbstractStack {
-    fn with_unknowns(len: usize) -> Self {
-        Self(vec![None; len])
+    fn with_unknowns(len: u32) -> Self {
+        Self(vec![None; len as usize])
     }
 
     /// Value in the local slot at `index` (relative to the frame pointer),
@@ -221,10 +222,10 @@ struct Block {
     end: usize,
 }
 
-fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
-    let blocks = build_blocks(&chunk.code);
+fn propagate_constants(mut chunk: Chunk, arity: u32) -> (Chunk, bool) {
+    let blocks = build_blocks(chunk.code.as_slice());
     let n = blocks.len();
-    let mut index_to_block = vec![0; chunk.code.len()];
+    let mut index_to_block = vec![0; chunk.code.len().as_index()];
     for (bi, block) in blocks.iter().enumerate() {
         index_to_block
             .get_mut(block.start..block.end)
@@ -253,7 +254,7 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
             continue;
         };
         let outs = transfer(
-            &chunk.code,
+            chunk.code.as_slice(),
             blocks.get(bi).expect("bi is a valid block index"),
             &index_to_block,
             in_stack,
@@ -288,6 +289,7 @@ fn propagate_constants(mut chunk: Chunk, arity: usize) -> (Chunk, bool) {
         let mut stack = in_stack.clone();
         for inst in chunk
             .code
+            .as_mut_slice()
             .get_mut(block.start..block.end)
             .expect("block range is within the code array")
         {
@@ -558,7 +560,7 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
         .map(|cell| heap.alloc(cell.value.clone()))
         .collect();
 
-    let len = chunk.code.len();
+    let len = chunk.code.len().as_index();
     let mut new_code = Vec::with_capacity(len);
     let mut new_locations = Vec::with_capacity(len);
     let mut old_to_new = vec![0; len];
@@ -566,7 +568,7 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
 
     let mut i = 0;
     while i < len {
-        let fold = fold_window(&chunk.code, i, &values, &mut heap);
+        let fold = fold_window(chunk.code.as_slice(), i, &values, &mut heap);
         if let Some((data, count)) = fold {
             changed = true;
             let idx = add_constant(pool, &mut values, &mut heap, data);
@@ -590,6 +592,7 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
             new_code.push(
                 chunk
                     .code
+                    .as_slice()
                     .get(i)
                     .expect("i is within the code array")
                     .clone(),
@@ -611,7 +614,7 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
 
     (
         Chunk {
-            code: new_code,
+            code: Code::from(new_code),
             locations: new_locations,
         },
         changed,
@@ -734,8 +737,8 @@ fn add_constant(
     heap: &mut Heap,
     data: HeapData,
 ) -> ConstantIndex {
-    if let Some(idx) = pool.iter().position(|cell| cell.value == data) {
-        return ConstantIndex(u32::try_from(idx).expect("constant pool index fits in u32"));
+    if let Some(i) = pool.iter().position(|cell| cell.value == data) {
+        return idx(i);
     }
     let idx = pool.push(HeapCell::new(data.clone()));
     let stack_value = heap.alloc(data);

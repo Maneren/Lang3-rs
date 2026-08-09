@@ -5,9 +5,8 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     io::{Read, Write},
-    ops::RangeBounds,
     rc::Rc,
-    slice::{Iter, SliceIndex},
+    slice::Iter,
 };
 
 use foldhash::fast::FixedState;
@@ -54,41 +53,41 @@ impl VmStack {
             .expect("compiler invariant: stack non-empty")
     }
 
-    fn get_local(&self, fp: usize, index: LocalIndex) -> StackValue {
-        self.values[fp + index.0 as usize]
+    fn get_local(&self, fp: StackIndex, index: LocalIndex) -> StackValue {
+        self.values[fp.as_index() + index.as_index()]
     }
 
-    fn set_local(&mut self, fp: usize, index: LocalIndex, val: StackValue) {
-        self.values[fp + index.0 as usize] = val;
+    fn set_local(&mut self, fp: StackIndex, index: LocalIndex, val: StackValue) {
+        self.values[fp.as_index() + index.as_index()] = val;
     }
 
-    fn truncate(&mut self, len: usize) {
-        self.values.truncate(len);
+    fn truncate(&mut self, len: StackIndex) {
+        self.values.truncate(len.as_index());
     }
 
-    const fn len(&self) -> usize {
-        self.values.len()
+    const fn len(&self) -> StackIndex {
+        StackIndex(self.values.len() as u32)
     }
 
-    fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<[StackValue]>>::Output>
-    where
-        I: SliceIndex<[StackValue]>,
-    {
-        self.values.get(index)
+    fn get(&self, index: StackIndex) -> Option<&StackValue> {
+        self.values.get(index.as_index())
     }
 
-    fn get_mut<I>(&mut self, index: I) -> Option<&mut <I as SliceIndex<[StackValue]>>::Output>
-    where
-        I: SliceIndex<[StackValue]>,
-    {
-        self.values.get_mut(index)
+    fn get_mut(&mut self, index: StackIndex) -> Option<&mut StackValue> {
+        self.values.get_mut(index.as_index())
     }
 
-    fn drain<R>(&mut self, range: R) -> impl Iterator<Item = StackValue>
-    where
-        R: RangeBounds<usize>,
-    {
-        self.values.drain(range)
+    fn drain_from(&mut self, from: StackIndex) -> Vec<StackValue> {
+        self.values.drain(from.as_index()..).collect()
+    }
+
+    fn get_range(&self, from: StackIndex, count: StackIndex) -> Option<&[StackValue]> {
+        let from = from.as_index();
+        self.values.get(from..from + count.as_index())
+    }
+
+    fn get_mut_from(&mut self, from: StackIndex) -> Option<&mut [StackValue]> {
+        self.values.get_mut(from.as_index()..)
     }
 
     fn extend_from_slice(&mut self, other: &[StackValue]) {
@@ -155,7 +154,7 @@ pub struct BytecodeVM<'a> {
 pub struct CallFrame {
     chunk_id: ChunkId,
     ip: CodeOffset,
-    frame_pointer: usize,
+    frame_pointer: StackIndex,
     closure_info: Option<(BytecodeFunction, StackValue)>,
     call_location: Option<Location>,
     upvalues: Box<[Rc<RefCell<UpvalueCell>>]>,
@@ -231,7 +230,7 @@ impl<'a> BytecodeVM<'a> {
         let frame = CallFrame {
             chunk_id: ChunkId(0),
             ip: CodeOffset(0),
-            frame_pointer: 0,
+            frame_pointer: StackIndex(0),
             closure_info: None,
             call_location: None,
             upvalues: Box::new([]),
@@ -260,12 +259,12 @@ impl<'a> BytecodeVM<'a> {
 
     /// The instruction being executed is the one at `ip`, which `execute_loop`
     /// keeps synced with `frame.ip`.
-    fn instruction_location(&self, chunks: &[Chunk], ip: CodeOffset) -> Location {
+    fn instruction_location(&self, chunks: &Chunks, ip: CodeOffset) -> Location {
         let Some(frame) = self.frames.last() else {
             return Location::default();
         };
         chunks
-            .get(frame.chunk_id.as_index())
+            .get(frame.chunk_id)
             .and_then(|chunk| chunk.locations.get(ip.as_index()))
             .cloned()
             .unwrap_or_default()
@@ -297,6 +296,7 @@ impl<'a> BytecodeVM<'a> {
 
             loop {
                 let instruction = &code[ip];
+                // Advance first so that jumps set `ip` directly to their target.
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
                 ip.0 += 1;
 
@@ -342,7 +342,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Pop { count } => {
                         debug_println!(debug, "    POP {}", count);
-                        match self.stack.len().checked_sub(*count as usize) {
+                        match self.stack.len().checked_sub(*count) {
                             Some(remaining) => {
                                 self.stack.truncate(remaining);
                                 Ok(())
@@ -355,7 +355,7 @@ impl<'a> BytecodeVM<'a> {
                         match self
                             .stack
                             .len()
-                            .checked_sub(*index as usize)
+                            .checked_sub(*index)
                             .and_then(|n| n.checked_sub(1))
                             .and_then(|n| self.stack.get(n))
                         {
@@ -502,7 +502,7 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    FOR_LOOP");
                         let current = self
                             .stack
-                            .get(fp + control_index.as_index())
+                            .get(fp + *control_index)
                             .expect("for-loop control slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -511,7 +511,7 @@ impl<'a> BytecodeVM<'a> {
                             });
                         let limit_val = self
                             .stack
-                            .get(fp + limit_index.as_index())
+                            .get(fp + *limit_index)
                             .expect("for-loop limit slot is within the current frame")
                             .as_primitive()
                             .and_then(|p| match p {
@@ -524,7 +524,7 @@ impl<'a> BytecodeVM<'a> {
                                 let step = step_index
                                     .and_then(|si| {
                                         self.stack
-                                            .get(fp + si.as_index())
+                                            .get(fp + si)
                                             .expect(
                                                 "for-loop step slot is within the current frame",
                                             )
@@ -539,7 +539,7 @@ impl<'a> BytecodeVM<'a> {
                                 let next = current + step;
                                 *self
                                     .stack
-                                    .get_mut(fp + control_index.as_index())
+                                    .get_mut(fp + *control_index)
                                     .expect("for-loop control slot is within the current frame") =
                                     StackValue::Primitive(Primitive::Integer(next));
 
@@ -611,51 +611,46 @@ impl<'a> BytecodeVM<'a> {
                             arg_count,
                             keep_return_value
                         );
-                        match self
-                            .stack
-                            .len()
-                            .checked_sub(*arg_count as usize)
-                            .and_then(|n| n.checked_sub(1))
-                        {
-                            None => Err(RuntimeError::generic("stack underflow")),
-                            Some(base) => {
-                                let func_sv = *self
-                                    .stack
-                                    .get(base)
-                                    .expect("call base is a valid stack index");
-                                let frame_count = self.frames.len();
-                                let call_location = self.instruction_location(&program.chunks, ip);
-                                self.frames
-                                    .last_mut()
-                                    .expect("execution continues only while a frame exists")
-                                    .ip = ip;
-                                match self.call_function(
-                                    func_sv,
-                                    base,
-                                    *arg_count as usize,
-                                    *keep_return_value,
-                                    &call_location,
-                                ) {
-                                    Err(e) => Err(e),
-                                    Ok(result) => {
-                                        if *keep_return_value && self.frames.len() <= frame_count {
-                                            self.stack.push(result);
-                                        }
-                                        if self.frames.len() > frame_count {
-                                            self.maybe_gc();
-                                            break;
-                                        }
-                                        Ok(())
-                                    },
-                                }
-                            },
+                        // stack = …… base arg1 arg2 arg3 end
+                        if let Some(base) = self.stack.len().checked_sub(*arg_count + 1) {
+                            let frame_count = self.frames.len();
+                            let call_location =
+                                self.instruction_location(&program.chunks, CodeOffset(ip.0 - 1));
+                            self.frames
+                                .last_mut()
+                                .expect("execution continues only while a frame exists")
+                                .ip = ip;
+
+                            let func_sv = *self.stack.get(base).expect("stack underflow");
+
+                            match self.call_function(
+                                func_sv,
+                                base,
+                                *arg_count,
+                                *keep_return_value,
+                                &call_location,
+                            ) {
+                                Err(e) => Err(e),
+                                Ok(result) => {
+                                    if *keep_return_value && self.frames.len() <= frame_count {
+                                        self.stack.push(result);
+                                    }
+                                    if self.frames.len() > frame_count {
+                                        self.maybe_gc();
+                                        break;
+                                    }
+                                    Ok(())
+                                },
+                            }
+                        } else {
+                            Err(RuntimeError::generic("stack underflow"))
                         }
                     },
                     Instruction::MakeArray { count } => {
                         debug_println!(debug, "    MAKE_ARRAY {}", count);
-                        match self.stack.len().checked_sub(*count as usize) {
+                        match self.stack.len().checked_sub(*count) {
                             Some(start) => {
-                                let elements: Vec<StackValue> = self.stack.drain(start..).collect();
+                                let elements = self.stack.drain_from(start);
                                 let sv = self.heap.alloc_vector(elements);
                                 self.stack.push(sv);
                                 self.maybe_gc();
@@ -666,7 +661,7 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::VectorAppend { count } => {
                         debug_println!(debug, "    VECTOR_APPEND {}", count);
-                        let Some(start) = self.stack.len().checked_sub(*count as usize + 1) else {
+                        let Some(start) = self.stack.len().checked_sub(*count + 1) else {
                             return Err(RuntimeError::generic("stack underflow"));
                         };
                         let Some(&container) = self.stack.get(start) else {
@@ -685,7 +680,7 @@ impl<'a> BytecodeVM<'a> {
                                 "unsupported operand types for +",
                             ));
                         };
-                        vec.extend(self.stack.drain(start + 1..));
+                        vec.extend(self.stack.drain_from(start + 1));
                         Ok(())
                     },
                     Instruction::GetIndex => {
@@ -755,10 +750,8 @@ impl<'a> BytecodeVM<'a> {
                                                 .captured_locals
                                                 .entry(index as usize)
                                                 .or_insert_with(|| {
-                                                    let captured = *self
-                                                        .stack
-                                                        .get(fp + index as usize)
-                                                        .expect(
+                                                    let captured =
+                                                        *self.stack.get(fp + index).expect(
                                                             "captured local slot is within the \
                                                              current frame",
                                                         );
@@ -880,8 +873,8 @@ impl<'a> BytecodeVM<'a> {
     fn call_function(
         &mut self,
         func_sv: StackValue,
-        base: usize,
-        arg_count: usize,
+        base: StackIndex,
+        arg_count: u32,
         keep_return_value: bool,
         call_location: &Location,
     ) -> RuntimeResult<StackValue> {
@@ -891,7 +884,7 @@ impl<'a> BytecodeVM<'a> {
         };
 
         let args_base = base + 1;
-        let Some(args) = self.stack.get(args_base..(args_base + arg_count)) else {
+        let Some(args) = self.stack.get_range(args_base, StackIndex(arg_count)) else {
             return Err(RuntimeError::generic("stack underflow"));
         };
 
@@ -903,7 +896,7 @@ impl<'a> BytecodeVM<'a> {
             HeapData::Function(ref f) => Some(f),
             _ => None,
         }
-        .ok_or(RuntimeError::type_error("invalid function reference"))?;
+        .ok_or_else(|| RuntimeError::type_error("invalid function reference"))?;
 
         if let Function::Builtin(builtin_function) = function {
             if Some(func_key) == self.trigger_gc_key {
@@ -924,7 +917,7 @@ impl<'a> BytecodeVM<'a> {
             return Err(RuntimeError::type_error("cannot call non-function"));
         };
 
-        let total_args = bc.curried_args.len() + arg_count;
+        let total_args = bc.curried_args.len() as u32 + arg_count;
         if total_args > bc.arity {
             return Err(RuntimeError::type_error("too many arguments"));
         }
@@ -941,13 +934,13 @@ impl<'a> BytecodeVM<'a> {
 
         if !bc.curried_args.is_empty() {
             self.stack.extend_from_slice(&bc.curried_args);
-            if let Some(remainder) = self.stack.get_mut(frame_pointer..) {
+            if let Some(remainder) = self.stack.get_mut_from(frame_pointer) {
                 remainder.rotate_right(bc.curried_args.len());
             }
         }
 
         let new_frame = CallFrame {
-            chunk_id: ChunkId(u32::try_from(bc.id).expect("chunk id fits in u32")),
+            chunk_id: ChunkId(bc.id),
             ip: CodeOffset(0),
             frame_pointer,
             closure_info: Some((*bc.clone(), func_sv)),
