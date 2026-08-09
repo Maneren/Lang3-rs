@@ -145,6 +145,8 @@ impl Rem for Primitive {
             (Self::Integer(_), Self::Integer(0)) => Err("modulo by zero"),
             (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_rem(b))),
             (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a % b)),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double(a as f64 % b)),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a % b as f64)),
             _ => Err("unsupported operand types for %"),
         }
     }

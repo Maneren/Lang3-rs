@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, collections::HashSet, fmt};
 
 use slotmap::DefaultKey;
 
@@ -257,12 +257,18 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
         (Resolved::Num(pa), Resolved::Num(pb)) => {
             let result = match (pa, pb) {
                 (Primitive::Integer(a), Primitive::Integer(b)) => {
-                    let Ok(exp) = u32::try_from(b) else {
-                        return Err(RuntimeError::value(format!(
-                            "exponent must be a non-negative 32-bit integer, got {b}"
-                        )));
-                    };
-                    Primitive::Integer(a.wrapping_pow(exp))
+                    if b < 0 {
+                        // Promote negative integer exponents to double so that
+                        // `2 ^ -1` is `0.5` (uniform with mixed-type promotion).
+                        Primitive::Double((a as f64).powi(b as i32))
+                    } else {
+                        let Ok(exp) = u32::try_from(b) else {
+                            return Err(RuntimeError::value(format!(
+                                "exponent must be a non-negative 32-bit integer, got {b}"
+                            )));
+                        };
+                        Primitive::Integer(a.wrapping_pow(exp))
+                    }
                 },
                 (Primitive::Double(a), Primitive::Double(b)) => Primitive::Double(a.powf(b)),
                 (Primitive::Integer(a), Primitive::Double(b)) => {
@@ -282,10 +288,57 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
 }
 
 #[must_use]
-pub fn compare(a: &StackValue, b: &StackValue, _heap: &Heap) -> Option<Ordering> {
+pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> {
+    compare_values(a, b, heap, &mut HashSet::new())
+}
+
+/// Content-based comparison: strings compare by value, vectors element-wise
+/// (cycle-safe), everything else by reference identity (same heap key).
+/// Ordering of container values is defined only through equality/inequality
+/// outcomes; cross-type compares are `None`.
+fn compare_values(
+    a: &StackValue,
+    b: &StackValue,
+    heap: &Heap,
+    seen: &mut HashSet<(DefaultKey, DefaultKey)>,
+) -> Option<Ordering> {
     match (a, b) {
         (StackValue::Primitive(pa), StackValue::Primitive(pb)) => compare_primitives(*pa, *pb),
         (StackValue::Nil, StackValue::Nil) => Some(Ordering::Equal),
+        (StackValue::Heap(ka), StackValue::Heap(kb)) => {
+            if ka == kb {
+                return Some(Ordering::Equal);
+            }
+            // Revisiting a pair means the structure is cyclic; assume equal.
+            if !seen.insert((*ka, *kb)) {
+                return Some(Ordering::Equal);
+            }
+            let result = match (
+                heap.cells.get(*ka).map(|c| &c.value),
+                heap.cells.get(*kb).map(|c| &c.value),
+            ) {
+                (Some(HeapData::String(sa)), Some(HeapData::String(sb))) => Some(sa.cmp(sb)),
+                (Some(HeapData::Vector(va)), Some(HeapData::Vector(vb))) => {
+                    let mut ord = Ordering::Equal;
+                    for (ea, eb) in va.iter().zip(vb.iter()) {
+                        match compare_values(ea, eb, heap, seen) {
+                            Some(Ordering::Equal) => {},
+                            Some(o) => {
+                                ord = o;
+                                break;
+                            },
+                            None => return None,
+                        }
+                    }
+                    (ord == Ordering::Equal)
+                        .then_some(va.len().cmp(&vb.len()))
+                        .or(Some(ord))
+                },
+                _ => None,
+            };
+            seen.remove(&(*ka, *kb));
+            result
+        },
         _ => None,
     }
 }
