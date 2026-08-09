@@ -1,0 +1,9 @@
+let a, b = [1, 2]
+println(a)
+println(b)
+let first, second = ["hi", "there"]
+println(first)
+println(second)
+let x, y, z = [7, 8, 9]
+println(x + y + z)
+let p, q = 5

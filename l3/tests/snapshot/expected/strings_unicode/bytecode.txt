@@ -1,0 +1,57 @@
+== Chunk 0 ==
+0000 | GET_GLOBAL    0 '"println"'
+0001 | GET_GLOBAL    1 '"len"'
+0002 | CONSTANT      2 ("héllo")
+0003 | CALL          1 true
+0004 | CALL          1 false
+0005 | GET_GLOBAL    0 '"println"'
+0006 | GET_GLOBAL    1 '"len"'
+0007 | CONSTANT      3 ("")
+0008 | CALL          1 true
+0009 | CALL          1 false
+0010 | GET_GLOBAL    0 '"println"'
+0011 | GET_GLOBAL    4 '"head"'
+0012 | CONSTANT      2 ("héllo")
+0013 | CALL          1 true
+0014 | CALL          1 false
+0015 | GET_GLOBAL    0 '"println"'
+0016 | GET_GLOBAL    5 '"tail"'
+0017 | CONSTANT      2 ("héllo")
+0018 | CALL          1 true
+0019 | CALL          1 false
+0020 | GET_GLOBAL    0 '"println"'
+0021 | GET_GLOBAL    6 '"drop"'
+0022 | CONSTANT      2 ("héllo")
+0023 | CONSTANT      7 (2)
+0024 | CALL          2 true
+0025 | CALL          1 false
+0026 | GET_GLOBAL    0 '"println"'
+0027 | GET_GLOBAL    8 '"take"'
+0028 | CONSTANT      2 ("héllo")
+0029 | CONSTANT      7 (2)
+0030 | CALL          2 true
+0031 | CALL          1 false
+0032 | CONSTANT      9 (nil)
+0033 | CONSTANT     10 ("hé")
+0034 | CONSTANT     11 (0)
+0035 | GET_GLOBAL    1 '"len"'
+0036 | GET_LOCAL     1
+0037 | CALL          1 true
+0038 | GET_LOCAL     2
+0039 | GET_LOCAL     3
+0040 | LESS
+0041 | JUMP_IF      54 false
+0042 | GET_LOCAL     1
+0043 | GET_LOCAL     2
+0044 | GET_INDEX
+0045 | SET_LOCAL     0
+0046 | GET_GLOBAL    0 '"println"'
+0047 | GET_LOCAL     0
+0048 | CALL          1 false
+0049 | GET_LOCAL     2
+0050 | CONSTANT     12 (1)
+0051 | ADD
+0052 | SET_LOCAL     2
+0053 | JUMP         38
+0054 | POP           4
+0055 | RETURN

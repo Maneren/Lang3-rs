@@ -1,0 +1,7 @@
+let v = [1, 2, 3]
+println(v)
+if true then
+  let tmp = str(1000)
+end
+println(__trigger_gc())
+println(v)

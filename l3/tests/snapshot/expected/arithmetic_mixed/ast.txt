@@ -1,0 +1,57 @@
+Block
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Modulo
+▏ ▏ ▏ ▏ Number 5
+▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Modulo
+▏ ▏ ▏ ▏ Number 5
+▏ ▏ ▏ ▏ Float 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Modulo
+▏ ▏ ▏ ▏ Float 5.5
+▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Power
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Power
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Power
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ Float 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Power
+▏ ▏ ▏ ▏ Float 2
+▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Divide
+▏ ▏ ▏ ▏ Number 5
+▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Divide
+▏ ▏ ▏ ▏ Float 5
+▏ ▏ ▏ ▏ Number 2

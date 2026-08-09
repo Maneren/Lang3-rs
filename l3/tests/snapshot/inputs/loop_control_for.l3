@@ -1,0 +1,44 @@
+# continue in a collection for must skip the body but advance the index
+for x in [1, 2, 3, 4] do
+  if x == 2 then continue end
+  println(x)
+end
+
+# break with body-scope locals must not leak onto later let bindings
+let mut i = 0
+while i < 10 do
+  let a = i * 100
+  if a > 100 then break end
+  i += 1
+end
+let y = 7
+println(y)
+
+# continue followed by a let after the loop keeps stack height consistent
+let mut j = 0
+let mut total = 0
+while j < 6 do
+  j += 1
+  if j == 3 then continue end
+  total += j
+end
+let after = total + 1
+println(after)
+
+# continue and break in range-for
+for k in 0..6 do
+  if k % 2 == 0 then continue end
+  println(k)
+end
+for k in 0..6 do
+  println(k)
+  if k == 2 then break end
+end
+
+# nested loops: inner continue targets only the inner loop
+for m in [1, 2] do
+  for n in [10, 20, 30] do
+    if n == 20 then continue end
+    println(m + n)
+  end
+end

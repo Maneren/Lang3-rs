@@ -1,0 +1,49 @@
+Block
+▏ Declaration Immutable
+▏ ▏ Identifier 'a'
+▏ ▏ Identifier 'b'
+▏ ▏ Array
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'a'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'b'
+▏ Declaration Immutable
+▏ ▏ Identifier 'first'
+▏ ▏ Identifier 'second'
+▏ ▏ Array
+▏ ▏ ▏ String "hi"
+▏ ▏ ▏ String "there"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'first'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'second'
+▏ Declaration Immutable
+▏ ▏ Identifier 'x'
+▏ ▏ Identifier 'y'
+▏ ▏ Identifier 'z'
+▏ ▏ Array
+▏ ▏ ▏ Number 7
+▏ ▏ ▏ Number 8
+▏ ▏ ▏ Number 9
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'x'
+▏ ▏ ▏ ▏ ▏ Identifier 'y'
+▏ ▏ ▏ ▏ Identifier 'z'
+▏ Declaration Immutable
+▏ ▏ Identifier 'p'
+▏ ▏ Identifier 'q'
+▏ ▏ Number 5

@@ -196,24 +196,32 @@ macro_rules! snapshot_tests {
 }
 
 snapshot_tests! {
+    arithmetic_mixed,
+    builtin_strictness,
     chained_comparison_sideeffect,
+    closure_mutation,
     closures_recursive_factory,
     closures_stateful,
     comparisons_and_logic,
     control_flow,
     currying_partial_application,
+    destructuring,
+    equality_values,
     expressions,
     functions_closures,
+    garbage_collection,
     indexing,
     indexing_assignments,
     indexing_bounds,
     indexing_invalid_types,
     indexing_negative,
     indexing_nested_error,
+    loop_control_for,
     mutable_references,
     range_for,
     recursion_direct,
     recursion_indirect,
+    strings_unicode,
 }
 
 #[test]

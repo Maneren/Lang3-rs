@@ -1,0 +1,60 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (1)
+0001 | CONSTANT      1 (2)
+0002 | MAKE_ARRAY    2
+0003 | GET_LOCAL     0
+0004 | CONSTANT      2 (0)
+0005 | GET_INDEX
+0006 | GET_LOCAL     0
+0007 | CONSTANT      0 (1)
+0008 | GET_INDEX
+0009 | GET_GLOBAL    3 '"println"'
+0010 | GET_LOCAL     1
+0011 | CALL          1 false
+0012 | GET_GLOBAL    3 '"println"'
+0013 | GET_LOCAL     2
+0014 | CALL          1 false
+0015 | CONSTANT      4 ("hi")
+0016 | CONSTANT      5 ("there")
+0017 | MAKE_ARRAY    2
+0018 | GET_LOCAL     3
+0019 | CONSTANT      2 (0)
+0020 | GET_INDEX
+0021 | GET_LOCAL     3
+0022 | CONSTANT      0 (1)
+0023 | GET_INDEX
+0024 | GET_GLOBAL    3 '"println"'
+0025 | GET_LOCAL     4
+0026 | CALL          1 false
+0027 | GET_GLOBAL    3 '"println"'
+0028 | GET_LOCAL     5
+0029 | CALL          1 false
+0030 | CONSTANT      6 (7)
+0031 | CONSTANT      7 (8)
+0032 | CONSTANT      8 (9)
+0033 | MAKE_ARRAY    3
+0034 | GET_LOCAL     6
+0035 | CONSTANT      2 (0)
+0036 | GET_INDEX
+0037 | GET_LOCAL     6
+0038 | CONSTANT      0 (1)
+0039 | GET_INDEX
+0040 | GET_LOCAL     6
+0041 | CONSTANT      1 (2)
+0042 | GET_INDEX
+0043 | GET_GLOBAL    3 '"println"'
+0044 | GET_LOCAL     7
+0045 | GET_LOCAL     8
+0046 | ADD
+0047 | GET_LOCAL     9
+0048 | ADD
+0049 | CALL          1 false
+0050 | CONSTANT      9 (5)
+0051 | GET_LOCAL    10
+0052 | CONSTANT      2 (0)
+0053 | GET_INDEX
+0054 | GET_LOCAL    10
+0055 | CONSTANT      0 (1)
+0056 | GET_INDEX
+0057 | POP          13
+0058 | RETURN

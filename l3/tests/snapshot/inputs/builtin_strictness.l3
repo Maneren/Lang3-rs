@@ -1,0 +1,6 @@
+println(len([1, 2, 3]))
+println(len("héllo"))
+println(sum([1, 2, 3]))
+println(sum([1, 2.5]))
+println(sum([]))
+println(sum([1, "x", 2]))

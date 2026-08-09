@@ -1,0 +1,11 @@
+let mut x = 5
+let bump = fn() x += 1 end
+bump()
+println(x)
+
+let mut counter = 0
+let tick = fn() counter += 1 end
+tick()
+tick()
+tick()
+println(counter)

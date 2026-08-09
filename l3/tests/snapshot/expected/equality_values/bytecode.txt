@@ -1,0 +1,135 @@
+== Chunk 0 ==
+0000 | GET_GLOBAL    0 '"println"'
+0001 | CONSTANT      1 ("a")
+0002 | CONSTANT      1 ("a")
+0003 | EQUAL
+0004 | JUMP          7
+0005 | POP           2
+0006 | CONSTANT      2 (false)
+0007 | CALL          1 false
+0008 | GET_GLOBAL    0 '"println"'
+0009 | CONSTANT      1 ("a")
+0010 | CONSTANT      3 ("b")
+0011 | EQUAL
+0012 | JUMP         15
+0013 | POP           2
+0014 | CONSTANT      2 (false)
+0015 | CALL          1 false
+0016 | GET_GLOBAL    0 '"println"'
+0017 | CONSTANT      1 ("a")
+0018 | CONSTANT      3 ("b")
+0019 | NOT_EQUAL
+0020 | JUMP         23
+0021 | POP           2
+0022 | CONSTANT      2 (false)
+0023 | CALL          1 false
+0024 | CONSTANT      4 ("hello")
+0025 | CONSTANT      4 ("hello")
+0026 | GET_GLOBAL    0 '"println"'
+0027 | GET_LOCAL     0
+0028 | GET_LOCAL     1
+0029 | EQUAL
+0030 | JUMP         33
+0031 | POP           2
+0032 | CONSTANT      2 (false)
+0033 | CALL          1 false
+0034 | GET_GLOBAL    0 '"println"'
+0035 | GET_LOCAL     0
+0036 | GET_LOCAL     0
+0037 | EQUAL
+0038 | JUMP         41
+0039 | POP           2
+0040 | CONSTANT      2 (false)
+0041 | CALL          1 false
+0042 | GET_GLOBAL    0 '"println"'
+0043 | CONSTANT      5 (1)
+0044 | CONSTANT      6 (2)
+0045 | MAKE_ARRAY    2
+0046 | CONSTANT      5 (1)
+0047 | CONSTANT      6 (2)
+0048 | MAKE_ARRAY    2
+0049 | EQUAL
+0050 | JUMP         53
+0051 | POP           2
+0052 | CONSTANT      2 (false)
+0053 | CALL          1 false
+0054 | GET_GLOBAL    0 '"println"'
+0055 | CONSTANT      5 (1)
+0056 | CONSTANT      6 (2)
+0057 | MAKE_ARRAY    2
+0058 | CONSTANT      5 (1)
+0059 | CONSTANT      7 (3)
+0060 | MAKE_ARRAY    2
+0061 | EQUAL
+0062 | JUMP         65
+0063 | POP           2
+0064 | CONSTANT      2 (false)
+0065 | CALL          1 false
+0066 | GET_GLOBAL    0 '"println"'
+0067 | CONSTANT      5 (1)
+0068 | CONSTANT      6 (2)
+0069 | MAKE_ARRAY    2
+0070 | CONSTANT      5 (1)
+0071 | CONSTANT      6 (2)
+0072 | MAKE_ARRAY    2
+0073 | NOT_EQUAL
+0074 | JUMP         77
+0075 | POP           2
+0076 | CONSTANT      2 (false)
+0077 | CALL          1 false
+0078 | GET_GLOBAL    0 '"println"'
+0079 | CONSTANT      5 (1)
+0080 | CONSTANT      6 (2)
+0081 | CONSTANT      7 (3)
+0082 | MAKE_ARRAY    2
+0083 | MAKE_ARRAY    2
+0084 | CONSTANT      5 (1)
+0085 | CONSTANT      6 (2)
+0086 | CONSTANT      7 (3)
+0087 | MAKE_ARRAY    2
+0088 | MAKE_ARRAY    2
+0089 | EQUAL
+0090 | JUMP         93
+0091 | POP           2
+0092 | CONSTANT      2 (false)
+0093 | CALL          1 false
+0094 | CONSTANT      5 (1)
+0095 | CONSTANT      6 (2)
+0096 | CONSTANT      7 (3)
+0097 | MAKE_ARRAY    3
+0098 | GET_GLOBAL    0 '"println"'
+0099 | GET_LOCAL     2
+0100 | GET_LOCAL     2
+0101 | EQUAL
+0102 | JUMP        105
+0103 | POP           2
+0104 | CONSTANT      2 (false)
+0105 | CALL          1 false
+0106 | GET_GLOBAL    0 '"println"'
+0107 | CONSTANT      1 ("a")
+0108 | CONSTANT      5 (1)
+0109 | MAKE_ARRAY    1
+0110 | EQUAL
+0111 | JUMP        114
+0112 | POP           2
+0113 | CONSTANT      2 (false)
+0114 | CALL          1 false
+0115 | GET_GLOBAL    0 '"println"'
+0116 | CONSTANT      5 (1)
+0117 | MAKE_ARRAY    1
+0118 | CONSTANT      1 ("a")
+0119 | EQUAL
+0120 | JUMP        123
+0121 | POP           2
+0122 | CONSTANT      2 (false)
+0123 | CALL          1 false
+0124 | GET_GLOBAL    0 '"println"'
+0125 | CONSTANT      5 (1)
+0126 | CONSTANT      8 (1)
+0127 | EQUAL
+0128 | JUMP        131
+0129 | POP           2
+0130 | CONSTANT      2 (false)
+0131 | CALL          1 false
+0132 | POP           3
+0133 | RETURN

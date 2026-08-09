@@ -1,0 +1,178 @@
+Block
+▏ ForLoop (Immutable)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'x'
+▏ ▏ Collection
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ Number 4
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'x'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Continue
+▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'x'
+▏ Declaration Mutable
+▏ ▏ Identifier 'i'
+▏ ▏ Number 0
+▏ While
+▏ ▏ Condition
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Number 10
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ Declaration Immutable
+▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ BinaryExpression Multiply
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ ▏ Number 100
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'a'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Greater
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 100
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Break
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'i'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ Declaration Immutable
+▏ ▏ Identifier 'y'
+▏ ▏ Number 7
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'y'
+▏ Declaration Mutable
+▏ ▏ Identifier 'j'
+▏ ▏ Number 0
+▏ Declaration Mutable
+▏ ▏ Identifier 'total'
+▏ ▏ Number 0
+▏ While
+▏ ▏ Condition
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'j'
+▏ ▏ ▏ ▏ Less
+▏ ▏ ▏ ▏ ▏ Number 6
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'j'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'j'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Continue
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'total'
+▏ ▏ ▏ ▏ ▏ Identifier 'j'
+▏ Declaration Immutable
+▏ ▏ Identifier 'after'
+▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ Identifier 'total'
+▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'after'
+▏ RangeForLoop (Immutable, Exclusive)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'k'
+▏ ▏ Start
+▏ ▏ ▏ Number 0
+▏ ▏ End
+▏ ▏ ▏ Number 6
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Modulo
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'k'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 0
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Continue
+▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'k'
+▏ RangeForLoop (Immutable, Exclusive)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'k'
+▏ ▏ Start
+▏ ▏ ▏ Number 0
+▏ ▏ End
+▏ ▏ ▏ Number 6
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'k'
+▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'k'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Break
+▏ ForLoop (Immutable)
+▏ ▏ Variable
+▏ ▏ ▏ Identifier 'm'
+▏ ▏ Collection
+▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Number 2
+▏ ▏ Block
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ForLoop (Immutable)
+▏ ▏ ▏ ▏ ▏ Variable
+▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ Collection
+▏ ▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 10
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 20
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 30
+▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ IfStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Condition
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 20
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ LastStatement
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Continue
+▏ ▏ ▏ ▏ ▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'println'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ BinaryExpression Plus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'm'
+▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ ▏ Identifier 'n'

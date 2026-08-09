@@ -1,0 +1,43 @@
+Block
+▏ Declaration Mutable
+▏ ▏ Identifier 'x'
+▏ ▏ Number 5
+▏ Declaration Immutable
+▏ ▏ Identifier 'bump'
+▏ ▏ AnonymousFunction
+▏ ▏ ▏ Parameters
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'x'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'bump'
+▏ ▏ Arguments
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'x'
+▏ Declaration Mutable
+▏ ▏ Identifier 'counter'
+▏ ▏ Number 0
+▏ Declaration Immutable
+▏ ▏ Identifier 'tick'
+▏ ▏ AnonymousFunction
+▏ ▏ ▏ Parameters
+▏ ▏ ▏ Block
+▏ ▏ ▏ ▏ OperatorAssignment Plus
+▏ ▏ ▏ ▏ ▏ Identifier 'counter'
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'tick'
+▏ ▏ Arguments
+▏ FunctionCall
+▏ ▏ Identifier 'tick'
+▏ ▏ Arguments
+▏ FunctionCall
+▏ ▏ Identifier 'tick'
+▏ ▏ Arguments
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ Identifier 'counter'

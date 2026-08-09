@@ -1,0 +1,7 @@
+3
+5
+6
+3.5
+0
+TypeError: builtin error: TypeError: sum requires numeric elements, got string
+  at tests/snapshot/inputs/builtin_strictness.l3:6.9-25

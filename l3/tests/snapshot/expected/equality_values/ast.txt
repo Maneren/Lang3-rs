@@ -1,0 +1,126 @@
+Block
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ String "a"
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ String "a"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ String "a"
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ String "b"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ String "a"
+▏ ▏ ▏ ▏ NotEqual
+▏ ▏ ▏ ▏ ▏ String "b"
+▏ Declaration Immutable
+▏ ▏ Identifier 's1'
+▏ ▏ String "hello"
+▏ Declaration Immutable
+▏ ▏ Identifier 's2'
+▏ ▏ String "hello"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 's1'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 's2'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 's1'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 's1'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ NotEqual
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ Declaration Immutable
+▏ ▏ Identifier 'v'
+▏ ▏ Array
+▏ ▏ ▏ Number 1
+▏ ▏ ▏ Number 2
+▏ ▏ ▏ Number 3
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Identifier 'v'
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Identifier 'v'
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ String "a"
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ String "a"
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ ChainedComparison
+▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ Equal
+▏ ▏ ▏ ▏ ▏ Float 1

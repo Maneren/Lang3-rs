@@ -11,3 +11,6 @@ l3_ast = { path = "../l3_ast" }
 l3_bytecode = { path = "../l3_bytecode" }
 l3_runtime = { path = "../l3_runtime" }
 l3_location = { path = "../l3_location" }
+
+[dev-dependencies]
+l3_parser = { path = "../l3_parser" }

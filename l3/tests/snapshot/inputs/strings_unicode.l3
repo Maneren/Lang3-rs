@@ -1,0 +1,9 @@
+println(len("héllo"))
+println(len(""))
+println(head("héllo"))
+println(tail("héllo"))
+println(drop("héllo", 2))
+println(take("héllo", 2))
+for c in "hé" do
+  println(c)
+end

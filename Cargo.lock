@@ -358,6 +358,7 @@ dependencies = [
  "l3_ast",
  "l3_bytecode",
  "l3_location",
+ "l3_parser",
  "l3_runtime",
 ]
 

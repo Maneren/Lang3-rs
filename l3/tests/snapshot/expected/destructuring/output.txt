@@ -1,0 +1,7 @@
+1
+2
+hi
+there
+24
+TypeError: cannot index a int value
+  at tests/snapshot/inputs/destructuring.l3:9.1-13

@@ -1,0 +1,37 @@
+== Chunk 0 ==
+0000 | CONSTANT      0 (5)
+0001 | CLOSURE       3 (function <<anon_0>>)
+0001 |            local 0
+0002 | GET_LOCAL     1
+0003 | CALL          0 false
+0004 | GET_GLOBAL    4 '"println"'
+0005 | GET_LOCAL     0
+0006 | CALL          1 false
+0007 | CONSTANT      5 (0)
+0008 | CLOSURE       6 (function <<anon_1>>)
+0008 |            local 2
+0009 | GET_LOCAL     3
+0010 | CALL          0 false
+0011 | GET_LOCAL     3
+0012 | CALL          0 false
+0013 | GET_LOCAL     3
+0014 | CALL          0 false
+0015 | GET_GLOBAL    4 '"println"'
+0016 | GET_LOCAL     2
+0017 | CALL          1 false
+0018 | POP           4
+0019 | RETURN
+== Chunk 1 ==
+0000 | GET_UPVALUE    0
+0001 | CONSTANT      1 (1)
+0002 | ADD
+0003 | SET_UPVALUE    0
+0004 | CONSTANT      2 (nil)
+0005 | RETURN
+== Chunk 2 ==
+0000 | GET_UPVALUE    0
+0001 | CONSTANT      1 (1)
+0002 | ADD
+0003 | SET_UPVALUE    0
+0004 | CONSTANT      2 (nil)
+0005 | RETURN

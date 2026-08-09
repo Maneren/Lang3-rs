@@ -1,0 +1,43 @@
+== Chunk 0 ==
+0000 | GET_GLOBAL    0 '"println"'
+0001 | GET_GLOBAL    1 '"len"'
+0002 | CONSTANT      2 (1)
+0003 | CONSTANT      3 (2)
+0004 | CONSTANT      4 (3)
+0005 | MAKE_ARRAY    3
+0006 | CALL          1 true
+0007 | CALL          1 false
+0008 | GET_GLOBAL    0 '"println"'
+0009 | GET_GLOBAL    1 '"len"'
+0010 | CONSTANT      5 ("héllo")
+0011 | CALL          1 true
+0012 | CALL          1 false
+0013 | GET_GLOBAL    0 '"println"'
+0014 | GET_GLOBAL    6 '"sum"'
+0015 | CONSTANT      2 (1)
+0016 | CONSTANT      3 (2)
+0017 | CONSTANT      4 (3)
+0018 | MAKE_ARRAY    3
+0019 | CALL          1 true
+0020 | CALL          1 false
+0021 | GET_GLOBAL    0 '"println"'
+0022 | GET_GLOBAL    6 '"sum"'
+0023 | CONSTANT      2 (1)
+0024 | CONSTANT      7 (2.5)
+0025 | MAKE_ARRAY    2
+0026 | CALL          1 true
+0027 | CALL          1 false
+0028 | GET_GLOBAL    0 '"println"'
+0029 | GET_GLOBAL    6 '"sum"'
+0030 | MAKE_ARRAY    0
+0031 | CALL          1 true
+0032 | CALL          1 false
+0033 | GET_GLOBAL    0 '"println"'
+0034 | GET_GLOBAL    6 '"sum"'
+0035 | CONSTANT      2 (1)
+0036 | CONSTANT      8 ("x")
+0037 | CONSTANT      3 (2)
+0038 | MAKE_ARRAY    3
+0039 | CALL          1 true
+0040 | CALL          1 false
+0041 | RETURN
