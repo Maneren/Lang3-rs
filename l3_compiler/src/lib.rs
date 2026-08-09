@@ -506,13 +506,36 @@ impl Compiler {
             let nil_idx = self.make_constant(HeapData::Nil);
             self.emit(Instruction::Constant { index: nil_idx });
         }
+        if decl.names.len() > 1 {
+            // Destructuring: bind name i to element i of the RHS. The source is
+            // kept alive in a hidden local so the extractions do not strand it
+            // on the stack (it is reclaimed by the enclosing scope's end).
+            let source_name = format!("<destructure_{}>", self.synthetic_counter);
+            self.synthetic_counter += 1;
+            self.add_local(&source_name);
+            self.set_local_aliased(&source_name, true);
+            let source_idx = self.current_context().locals.len() - 1;
+            for (i, name) in decl.names.iter().enumerate() {
+                self.emit(Instruction::GetLocal {
+                    index: LocalIndex(u32_index(source_idx)),
+                });
+                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(i as i64)));
+                self.emit(Instruction::Constant { index: idx });
+                self.emit(Instruction::GetIndex);
+                self.add_local(&name.name);
+                // Extracted elements share heap cells with the source container.
+                self.set_local_aliased(&name.name, true);
+            }
+            return Ok(());
+        }
         let fresh = decl
             .expression
             .as_deref()
             .is_some_and(|expr| matches!(expr, Expression::Literal(_)));
-        for (i, name) in decl.names.iter().enumerate() {
+        let aliased = !fresh;
+        for name in &decl.names {
             self.add_local(&name.name);
-            if i == 0 && !fresh {
+            if aliased {
                 self.set_local_aliased(&name.name, true);
             }
         }
