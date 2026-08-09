@@ -132,18 +132,21 @@ fn builtin_str(args: &[StackValue], heap: &mut Heap) -> StackValue {
     heap.alloc_string(text)
 }
 
-fn builtin_len(args: &[StackValue], heap: &mut Heap) -> StackValue {
-    let zero = StackValue::Primitive(Primitive::Integer(0));
-    match args.first() {
-        Some(StackValue::Heap(key)) => {
-            heap.cells.get(*key).map_or(zero, |cell| match &cell.value {
-                HeapData::String(s) => StackValue::Primitive(Primitive::Integer(s.len() as i64)),
-                HeapData::Vector(v) => StackValue::Primitive(Primitive::Integer(v.len() as i64)),
-                _ => zero,
-            })
+fn builtin_len(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
+    let Some(container) = args.first() else {
+        return Err(RuntimeError::type_error("len requires an argument"));
+    };
+    let len = match heap_data(heap, container) {
+        Ok(HeapData::String(s)) => s.chars().count() as i64,
+        Ok(HeapData::Vector(v)) => v.len() as i64,
+        _ => {
+            return Err(RuntimeError::type_error(format!(
+                "len requires a string or vector, got {}",
+                container.type_name(heap)
+            )));
         },
-        _ => zero,
-    }
+    };
+    Ok(StackValue::Primitive(Primitive::Integer(len)))
 }
 
 fn builtin_head(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
@@ -344,27 +347,43 @@ fn builtin_sleep(args: &[StackValue], _heap: &mut Heap) -> RuntimeResult<StackVa
     Ok(StackValue::Nil)
 }
 
-fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> StackValue {
+fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
+    let Some(container) = args.first() else {
+        return Err(RuntimeError::type_error("sum requires an argument"));
+    };
     let mut total: f64 = 0.0;
     let mut is_int = true;
-    if let Some(arg0) = args.first()
-        && let Ok(HeapData::Vector(v)) = heap_data(heap, arg0)
-    {
-        for sv in v {
-            match sv.as_primitive() {
-                Some(Primitive::Integer(i)) => total += i as f64,
-                Some(Primitive::Double(f)) => {
-                    total += f;
-                    is_int = false;
-                },
-                _ => {},
-            }
+    let HeapData::Vector(v) = heap_data(heap, container).map_err(|_| {
+        RuntimeError::type_error(format!(
+            "sum requires a vector, got {}",
+            container.type_name(heap)
+        ))
+    })?
+    else {
+        return Err(RuntimeError::type_error(format!(
+            "sum requires a vector, got {}",
+            container.type_name(heap)
+        )));
+    };
+    for sv in v {
+        match sv.as_primitive() {
+            Some(Primitive::Integer(i)) => total += i as f64,
+            Some(Primitive::Double(f)) => {
+                total += f;
+                is_int = false;
+            },
+            _ => {
+                return Err(RuntimeError::type_error(format!(
+                    "sum requires numeric elements, got {}",
+                    sv.type_name(heap)
+                )));
+            },
         }
     }
     if is_int && total.fract() == 0.0 {
-        StackValue::Primitive(Primitive::Integer(total as i64))
+        Ok(StackValue::Primitive(Primitive::Integer(total as i64)))
     } else {
-        StackValue::Primitive(Primitive::Double(total))
+        Ok(StackValue::Primitive(Primitive::Double(total)))
     }
 }
 
@@ -382,7 +401,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("error", wrap(builtin_error)),
         ("int", wrap_infallible(builtin_int)),
         ("str", wrap_infallible(builtin_str)),
-        ("len", wrap_infallible(builtin_len)),
+        ("len", wrap(builtin_len)),
         ("head", wrap(builtin_head)),
         ("tail", wrap(builtin_tail)),
         ("drop", wrap(builtin_drop)),
@@ -394,7 +413,7 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("random", wrap(builtin_random)),
         ("input", wrap_infallible(builtin_input)),
         ("sleep", wrap(builtin_sleep)),
-        ("sum", wrap_infallible(builtin_sum)),
+        ("sum", wrap(builtin_sum)),
         ("__trigger_gc", wrap_infallible(builtin_trigger_gc)),
     ]
 }
