@@ -2,8 +2,8 @@ use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
     ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfBase,
     IfExpression, IfStatement, LastStatement, Literal, LogicalExpression, LogicalOperator,
-    NameAssignment, NamedFunction, OperatorAssignment, Program, RangeForLoop, RangeOperator,
-    Statement, UnaryExpression, UnaryOperator, Variable, While,
+    Mutability, NameAssignment, NamedFunction, OperatorAssignment, Program, RangeForLoop,
+    RangeOperator, Statement, UnaryExpression, UnaryOperator, Variable, While,
 };
 use l3_bytecode::{
     Chunk, CodeOffset, ConstantIndex, Instruction, LocalIndex, ProgramBytecode, UpvalueDesc,
@@ -18,6 +18,12 @@ fn u32_index(idx: usize) -> u32 {
     u32::try_from(idx).expect("compiler indices fit in u32")
 }
 
+/// Convert a compiler-internal `usize` index to the `i64` used in constants.
+#[must_use]
+fn i64_index(idx: usize) -> i64 {
+    i64::try_from(idx).expect("compiler indices fit in i64")
+}
+
 pub struct Compiler {
     program: ProgramBytecode,
     contexts: Vec<Context>,
@@ -29,6 +35,10 @@ pub struct Compiler {
 struct Local {
     name: String,
     depth: i32,
+    /// Whether the binding may be reassigned. `let`/`fn`/loop vars without
+    /// `mut` are immutable; assignment to an immutable binding is a compile
+    /// error.
+    mutable: bool,
     /// Set once the local's heap value may be shared with other references
     /// (assignment copy, closure capture, function argument, container
     /// element). Disables the exclusive-ownership `VectorAppend` optimization.
@@ -167,10 +177,19 @@ impl Compiler {
     }
 
     fn add_local(&mut self, name: &str) {
+        self.add_local_with_mutability(name, false);
+    }
+
+    fn add_mutable_local(&mut self, name: &str) {
+        self.add_local_with_mutability(name, true);
+    }
+
+    fn add_local_with_mutability(&mut self, name: &str, mutable: bool) {
         let ctx = self.current_context_mut();
         ctx.locals.push(Local {
             name: name.to_string(),
             depth: ctx.scope_depth,
+            mutable,
             possibly_aliased: false,
         });
     }
@@ -238,6 +257,27 @@ impl Compiler {
             });
         }
         VarType::Global(name.to_string())
+    }
+
+    /// Whether the binding `name` resolves to is mutable. `None` for globals or
+    /// unresolved names, which are always assignable.
+    fn binding_mutability(&self, name: &str) -> Option<bool> {
+        for ctx in self.contexts.iter().rev() {
+            if let Some(idx) = ctx.locals.iter().rposition(|local| local.name == name) {
+                return Some(ctx.locals[idx].mutable);
+            }
+        }
+        None
+    }
+
+    /// Reject assignment to an immutable binding (a local or upvalue).
+    fn ensure_mutable_binding(&self, name: &str) -> Result<(), CompileError> {
+        if self.binding_mutability(name) == Some(false) {
+            return Err(CompileError::new(format!(
+                "cannot assign to immutable binding `{name}`"
+            )));
+        }
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -519,10 +559,13 @@ impl Compiler {
                 self.emit(Instruction::GetLocal {
                     index: LocalIndex(u32_index(source_idx)),
                 });
-                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(i as i64)));
+                let idx = self.make_constant(HeapData::Primitive(Primitive::Integer(i64_index(i))));
                 self.emit(Instruction::Constant { index: idx });
                 self.emit(Instruction::GetIndex);
-                self.add_local(&name.name);
+                self.add_local_with_mutability(
+                    &name.name,
+                    matches!(decl.mutability, Mutability::Mutable),
+                );
                 // Extracted elements share heap cells with the source container.
                 self.set_local_aliased(&name.name, true);
             }
@@ -534,7 +577,10 @@ impl Compiler {
             .is_some_and(|expr| matches!(expr, Expression::Literal(_)));
         let aliased = !fresh;
         for name in &decl.names {
-            self.add_local(&name.name);
+            self.add_local_with_mutability(
+                &name.name,
+                matches!(decl.mutability, Mutability::Mutable),
+            );
             if aliased {
                 self.set_local_aliased(&name.name, true);
             }
@@ -557,7 +603,7 @@ impl Compiler {
         self.with_location(&body.location, |c| {
             let chunk_id = c.push_context();
             for param in &body.parameters {
-                c.add_local(&param.name);
+                c.add_mutable_local(&param.name);
                 // A parameter may be aliased by the caller's own reference.
                 c.set_local_aliased(&param.name, true);
             }
@@ -720,7 +766,10 @@ impl Compiler {
     fn compile_for_loop(&mut self, fl: &ForLoop) -> Result<(), CompileError> {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx });
-        self.add_local(&fl.variable.name);
+        self.add_local_with_mutability(
+            &fl.variable.name,
+            matches!(fl.mutability, Mutability::Mutable),
+        );
         let var_idx = self.current_context().locals.len() - 1;
         self.set_local_aliased(&fl.variable.name, true);
 
@@ -729,13 +778,13 @@ impl Compiler {
         self.mark_expression_aliased(&fl.collection);
         self.compile_expression(&fl.collection)?;
         let coll_idx = self.current_context().locals.len();
-        self.add_local("__collection__");
+        self.add_mutable_local("__collection__");
         self.set_local_aliased("__collection__", true);
 
         let zero_idx = self.make_constant(HeapData::Primitive(Primitive::Integer(0)));
         self.emit(Instruction::Constant { index: zero_idx });
         let idx_idx = self.current_context().locals.len();
-        self.add_local("__index__");
+        self.add_mutable_local("__index__");
 
         // Call len(collection)
         let len_name_idx = self.make_string_constant("len");
@@ -750,7 +799,7 @@ impl Compiler {
             keep_return_value: true,
         });
         let len_idx = self.current_context().locals.len();
-        self.add_local("__length__");
+        self.add_mutable_local("__length__");
 
         let body_locals_snapshot = self.current_context().locals.len();
         let loop_start = self.current_chunk().code.len();
@@ -835,7 +884,10 @@ impl Compiler {
     fn compile_range_for_loop(&mut self, rfl: &RangeForLoop) -> Result<(), CompileError> {
         let nil_idx = self.make_constant(HeapData::Nil);
         self.emit(Instruction::Constant { index: nil_idx });
-        self.add_local(&rfl.variable.name);
+        self.add_local_with_mutability(
+            &rfl.variable.name,
+            matches!(rfl.mutability, Mutability::Mutable),
+        );
         let control_idx = self.current_context().locals.len() - 1;
         self.set_local_aliased(&rfl.variable.name, true);
 
@@ -853,7 +905,7 @@ impl Compiler {
 
         self.compile_expression(&rfl.end)?;
         let limit_idx = self.current_context().locals.len();
-        self.add_local("__limit__");
+        self.add_mutable_local("__limit__");
         self.set_local_aliased("__limit__", true);
 
         if let Some(ref step_expr) = rfl.step {
@@ -863,7 +915,7 @@ impl Compiler {
             self.emit(Instruction::Constant { index: one_idx });
         }
         let step_idx = self.current_context().locals.len();
-        self.add_local("__step__");
+        self.add_mutable_local("__step__");
         self.set_local_aliased("__step__", true);
 
         let body_locals_snapshot = self.current_context().locals.len();
@@ -931,6 +983,9 @@ impl Compiler {
     }
 
     fn compile_name_assign(&mut self, na: &NameAssignment) -> Result<(), CompileError> {
+        if let Some(name) = na.names.first() {
+            self.ensure_mutable_binding(&name.name)?;
+        }
         self.mark_expression_aliased(&na.expression);
         let fresh = matches!(&*na.expression, Expression::Literal(_));
         self.compile_expression(&na.expression)?;
@@ -965,6 +1020,7 @@ impl Compiler {
         match &oa.variable {
             Variable::Identifier(id) => {
                 let name = &id.name;
+                self.ensure_mutable_binding(name)?;
 
                 // `v += [elems]` on an exclusively-owned local vector: append
                 // in place, avoiding the temp array, the full clone and a new

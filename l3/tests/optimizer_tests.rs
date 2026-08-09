@@ -35,7 +35,7 @@ fn folds_variable_arithmetic() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn folds_reassignment() -> Result<(), Box<dyn Error>> {
-    let source = "let a = 42;\na = a + 1;\nprintln(a)\n";
+    let source = "let mut a = 42;\na = a + 1;\nprintln(a)\n";
     assert_eq!(run_optimized(source)?, "43");
     let bytecode = bytecode_optimized(source)?;
     assert!(!bytecode.contains("ADD"));
@@ -55,14 +55,14 @@ fn folds_string_concat_through_local() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn preserves_closure_capture_semantics() -> Result<(), Box<dyn Error>> {
-    let source = "let x = 5;\nlet f = fn() return x end;\nx = x + 1;\nprintln(f())\n";
+    let source = "let mut x = 5;\nlet f = fn() return x end;\nx = x + 1;\nprintln(f())\n";
     assert_eq!(run_optimized(source)?, "6");
     Ok(())
 }
 
 #[test]
 fn preserves_loop_constant_invalidation() -> Result<(), Box<dyn Error>> {
-    let source = "let i = 0;\nwhile i < 3 do\n  i = i + 1;\nend\nprintln(i)\n";
+    let source = "let mut i = 0;\nwhile i < 3 do\n  i = i + 1;\nend\nprintln(i)\n";
     assert_eq!(run_optimized(source)?, "3");
     Ok(())
 }
