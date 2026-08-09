@@ -439,8 +439,18 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::GetLocal { index } => {
                         debug_println!(debug, "    GET_LOCAL {} fp={}", index, fp);
-                        let cell = self.stack.get_local(fp, *index);
-                        self.stack.push(cell);
+                        // A captured local's cell is the authoritative value: a
+                        // closure may have updated it via `SetUpvalue` without
+                        // the owner's stack slot being refreshed.
+                        let val = self
+                            .frames
+                            .last()
+                            .expect("execution continues only while a frame exists")
+                            .captured_locals
+                            .get(&index.as_index())
+                            .and_then(|cell| cell.try_borrow().ok())
+                            .map_or_else(|| self.stack.get_local(fp, *index), |cell| cell.value);
+                        self.stack.push(val);
                         Ok(())
                     },
                     Instruction::SetLocal { index } => {

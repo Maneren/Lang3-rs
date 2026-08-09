@@ -475,6 +475,11 @@ fn transfer_instruction(inst: &Instruction, stack: &mut AbstractStack) {
             let pop_len = arg_count + 1;
             let new_len = stack.len().saturating_sub(pop_len as usize);
             stack.truncate(new_len);
+            // A call may mutate captured locals through upvalues, so no local
+            // value is provably constant afterwards.
+            for slot in stack.iter_mut() {
+                *slot = None;
+            }
             if *keep_return_value {
                 stack.push(None);
             }
