@@ -1,0 +1,35 @@
+Block
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'int'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Float 3.9
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'int'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String " 42 "
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'int'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Boolean true
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'int'
+▏ ▏ ▏ ▏ Arguments
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'int'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "abc"

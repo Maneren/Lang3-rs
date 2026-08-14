@@ -1,0 +1,5 @@
+println(int(3.9))
+println(int(" 42 "))
+println(int(true))
+println(int())
+println(int("abc"))

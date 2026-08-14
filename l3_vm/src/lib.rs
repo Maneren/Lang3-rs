@@ -14,6 +14,7 @@ use l3_ast::Identifier;
 use l3_bytecode::*;
 use l3_location::Location;
 use l3_runtime::{
+    conv::as_integer,
     error::RuntimeResult,
     heap_data::{add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub},
     *,
@@ -510,39 +511,24 @@ impl<'a> BytecodeVM<'a> {
                         step_index,
                     } => {
                         debug_println!(debug, "    FOR_LOOP");
-                        let current = self
-                            .stack
-                            .get(fp + *control_index)
-                            .expect("for-loop control slot is within the current frame")
-                            .as_primitive()
-                            .and_then(|p| match p {
-                                Primitive::Integer(i) => Some(i),
-                                _ => None,
-                            });
-                        let limit_val = self
-                            .stack
-                            .get(fp + *limit_index)
-                            .expect("for-loop limit slot is within the current frame")
-                            .as_primitive()
-                            .and_then(|p| match p {
-                                Primitive::Integer(i) => Some(i),
-                                _ => None,
-                            });
+                        let current = as_integer(
+                            self.stack
+                                .get(fp + *control_index)
+                                .expect("for-loop control slot is within the current frame"),
+                        );
+                        let limit_val = as_integer(
+                            self.stack
+                                .get(fp + *limit_index)
+                                .expect("for-loop limit slot is within the current frame"),
+                        );
 
                         match (current, limit_val) {
                             (Some(current), Some(limit_val)) => {
                                 let step = step_index
                                     .and_then(|si| {
-                                        self.stack
-                                            .get(fp + si)
-                                            .expect(
-                                                "for-loop step slot is within the current frame",
-                                            )
-                                            .as_primitive()
-                                    })
-                                    .and_then(|p| match p {
-                                        Primitive::Integer(i) => Some(i),
-                                        _ => None,
+                                        as_integer(self.stack.get(fp + si).expect(
+                                            "for-loop step slot is within the current frame",
+                                        ))
                                     })
                                     .unwrap_or(1);
 

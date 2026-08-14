@@ -1,0 +1,5 @@
+println(drop([1, 2, 3, 4], 2))
+println(take([1, 2, 3, 4], 2))
+println(drop("hello", 1))
+println(take("hello", 0))
+println(drop([1, 2, 3], -1))

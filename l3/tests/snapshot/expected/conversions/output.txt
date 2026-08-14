@@ -1,0 +1,6 @@
+3
+42
+1
+0
+TypeError: builtin error: ValueError: cannot convert "abc" to int
+  at tests/snapshot/inputs/conversions.l3:5.9-19

@@ -1,0 +1,34 @@
+== Chunk 0 ==
+0000 | GET_GLOBAL    0 '"println"'
+0001 | GET_GLOBAL    1 '"sum"'
+0002 | CONSTANT      2 (9007199254740993)
+0003 | MAKE_ARRAY    1
+0004 | CALL          1 true
+0005 | CALL          1 false
+0006 | GET_GLOBAL    0 '"println"'
+0007 | GET_GLOBAL    1 '"sum"'
+0008 | CONSTANT      3 (20000000000000000)
+0009 | CONSTANT      3 (20000000000000000)
+0010 | MAKE_ARRAY    2
+0011 | CALL          1 true
+0012 | CALL          1 false
+0013 | GET_GLOBAL    0 '"println"'
+0014 | GET_GLOBAL    1 '"sum"'
+0015 | CONSTANT      4 (1)
+0016 | CONSTANT      5 (2.5)
+0017 | MAKE_ARRAY    2
+0018 | CALL          1 true
+0019 | CALL          1 false
+0020 | GET_GLOBAL    0 '"println"'
+0021 | GET_GLOBAL    1 '"sum"'
+0022 | MAKE_ARRAY    0
+0023 | CALL          1 true
+0024 | CALL          1 false
+0025 | GET_GLOBAL    0 '"println"'
+0026 | GET_GLOBAL    1 '"sum"'
+0027 | CONSTANT      6 (-1)
+0028 | CONSTANT      4 (1)
+0029 | MAKE_ARRAY    2
+0030 | CALL          1 true
+0031 | CALL          1 false
+0032 | RETURN

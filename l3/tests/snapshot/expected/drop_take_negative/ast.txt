@@ -1,0 +1,53 @@
+Block
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'drop'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ ▏ ▏ Number 4
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'take'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ ▏ ▏ Number 4
+▏ ▏ ▏ ▏ ▏ Number 2
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'drop'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "hello"
+▏ ▏ ▏ ▏ ▏ Number 1
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'take'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ String "hello"
+▏ ▏ ▏ ▏ ▏ Number 0
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'drop'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 2
+▏ ▏ ▏ ▏ ▏ ▏ Number 3
+▏ ▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ Number 1

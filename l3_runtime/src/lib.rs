@@ -1,3 +1,4 @@
+pub mod conv;
 pub mod error;
 pub mod function;
 pub mod heap;

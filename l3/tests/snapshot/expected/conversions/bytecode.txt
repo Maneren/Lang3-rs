@@ -1,0 +1,26 @@
+== Chunk 0 ==
+0000 | GET_GLOBAL    0 '"println"'
+0001 | GET_GLOBAL    1 '"int"'
+0002 | CONSTANT      2 (3.9)
+0003 | CALL          1 true
+0004 | CALL          1 false
+0005 | GET_GLOBAL    0 '"println"'
+0006 | GET_GLOBAL    1 '"int"'
+0007 | CONSTANT      3 (" 42 ")
+0008 | CALL          1 true
+0009 | CALL          1 false
+0010 | GET_GLOBAL    0 '"println"'
+0011 | GET_GLOBAL    1 '"int"'
+0012 | CONSTANT      4 (true)
+0013 | CALL          1 true
+0014 | CALL          1 false
+0015 | GET_GLOBAL    0 '"println"'
+0016 | GET_GLOBAL    1 '"int"'
+0017 | CALL          0 true
+0018 | CALL          1 false
+0019 | GET_GLOBAL    0 '"println"'
+0020 | GET_GLOBAL    1 '"int"'
+0021 | CONSTANT      5 ("abc")
+0022 | CALL          1 true
+0023 | CALL          1 false
+0024 | RETURN

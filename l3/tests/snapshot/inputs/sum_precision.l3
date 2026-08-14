@@ -1,0 +1,5 @@
+println(sum([9007199254740993]))
+println(sum([20000000000000000, 20000000000000000]))
+println(sum([1, 2.5]))
+println(sum([]))
+println(sum([-1, 1]))

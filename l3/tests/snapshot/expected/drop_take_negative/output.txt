@@ -1,0 +1,6 @@
+[3, 4]
+[1, 2]
+ello
+
+TypeError: builtin error: ValueError: count must be non-negative
+  at tests/snapshot/inputs/drop_take_negative.l3:5.9-28

@@ -1,0 +1,44 @@
+Block
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 9007199254740993
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 20000000000000000
+▏ ▏ ▏ ▏ ▏ ▏ Number 20000000000000000
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Float 2.5
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ FunctionCall
+▏ ▏ Identifier 'println'
+▏ ▏ Arguments
+▏ ▏ ▏ FunctionCall
+▏ ▏ ▏ ▏ Identifier 'sum'
+▏ ▏ ▏ ▏ Arguments
+▏ ▏ ▏ ▏ ▏ Array
+▏ ▏ ▏ ▏ ▏ ▏ UnaryExpression Minus
+▏ ▏ ▏ ▏ ▏ ▏ ▏ Number 1
+▏ ▏ ▏ ▏ ▏ ▏ Number 1

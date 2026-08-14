@@ -204,8 +204,10 @@ snapshot_tests! {
     closures_stateful,
     comparisons_and_logic,
     control_flow,
+    conversions,
     currying_partial_application,
     destructuring,
+    drop_take_negative,
     equality_values,
     expressions,
     functions_closures,
@@ -222,6 +224,7 @@ snapshot_tests! {
     recursion_direct,
     recursion_indirect,
     strings_unicode,
+    sum_precision,
 }
 
 #[test]
