@@ -6,18 +6,26 @@ use std::{
 /// Convert a `usize` index to the typed index stored in bytecode. The target
 /// type is inferred from the use site.
 #[must_use]
+#[inline]
 pub fn idx<T>(v: usize) -> T
 where
     T: TryFrom<usize>,
     T::Error: fmt::Debug,
 {
-    T::try_from(v).expect("indices fit in the target type")
+    if cfg!(debug_assertions) {
+        T::try_from(v).expect("indices fit in the target type")
+    } else {
+        // SAFETY: All indices come from the compiler that is considered
+        // infallible by the VM
+        unsafe { T::try_from(v).unwrap_unchecked() }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct StackIndex(pub u32);
 
 impl StackIndex {
+    #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
@@ -69,7 +77,8 @@ impl Display for StackIndex {
 pub struct ConstantIndex(pub u32);
 
 impl ConstantIndex {
-    pub fn as_index(&self) -> usize {
+    #[must_use]
+    pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
 }
@@ -92,6 +101,7 @@ impl Display for ConstantIndex {
 pub struct LocalIndex(pub u32);
 
 impl LocalIndex {
+    #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
@@ -123,6 +133,7 @@ impl Display for LocalIndex {
 pub struct UpvalueIndex(pub u32);
 
 impl UpvalueIndex {
+    #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
@@ -146,6 +157,7 @@ impl Display for UpvalueIndex {
 pub struct ChunkId(pub u32);
 
 impl ChunkId {
+    #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
@@ -169,6 +181,7 @@ impl Display for ChunkId {
 pub struct CodeOffset(pub u32);
 
 impl CodeOffset {
+    #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }

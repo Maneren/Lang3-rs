@@ -65,6 +65,14 @@ impl HeapData {
         }
     }
 
+    pub const fn as_mut_primitive(&mut self) -> Option<&mut Primitive> {
+        if let Self::Primitive(p) = self {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
     #[must_use]
     pub const fn as_vector(&self) -> Option<&Vec<StackValue>> {
         if let Self::Vector(v) = self {
@@ -94,6 +102,23 @@ impl HeapData {
     pub const fn as_mut_string(&mut self) -> Option<&mut String> {
         if let Self::String(s) = self {
             Some(s)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub const fn as_function(&self) -> Option<&Function> {
+        if let Self::Function(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub const fn as_mut_function(&mut self) -> Option<&mut Function> {
+        if let Self::Function(v) = self {
+            Some(v)
         } else {
             None
         }

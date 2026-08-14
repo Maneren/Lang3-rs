@@ -18,14 +18,19 @@ fn wrap_infallible(f: fn(&[StackValue], &mut Heap) -> StackValue) -> Builtin {
     Rc::new(move |args, heap| Ok(f(args, heap)))
 }
 
-fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> RuntimeResult<&'a HeapData> {
+fn heap_data<'a>(heap: &'a Heap, sv: &StackValue) -> Option<&'a HeapData> {
+    #[expect(
+        clippy::unwrap_in_result,
+        reason = "invalid heap references are impossible for builtin args"
+    )]
     match sv {
-        StackValue::Heap(key) => heap
-            .cells
-            .get(*key)
-            .map(|c| &c.value)
-            .ok_or_else(|| RuntimeError::type_error("invalid heap reference")),
-        _ => Err(RuntimeError::type_error("expected a heap value")),
+        StackValue::Heap(key) => Some(
+            heap.cells
+                .get(*key)
+                .map(|c| &c.value)
+                .expect("the heap reference is valid"),
+        ),
+        _ => None,
     }
 }
 
@@ -36,18 +41,16 @@ const fn int_val(sv: &StackValue) -> Option<i64> {
     }
 }
 
-fn extract_vector(heap: &Heap, sv: &StackValue) -> RuntimeResult<Vec<StackValue>> {
-    match heap_data(heap, sv)? {
-        HeapData::Vector(v) => Ok(v.clone()),
-        _ => Err(RuntimeError::type_error("expected a vector")),
-    }
+fn extract_vector<'a>(heap: &'a Heap, sv: &StackValue) -> RuntimeResult<&'a Vec<StackValue>> {
+    heap_data(heap, sv)
+        .and_then(|d| d.as_vector())
+        .ok_or_else(|| RuntimeError::type_error("expected a vector"))
 }
 
-fn extract_fn(heap: &Heap, sv: &StackValue) -> RuntimeResult<HeapData> {
-    match heap_data(heap, sv)? {
-        data @ HeapData::Function(_) => Ok(data.clone()),
-        _ => Err(RuntimeError::type_error("expected a function")),
-    }
+fn extract_fn<'a>(heap: &'a Heap, sv: &StackValue) -> RuntimeResult<&'a Function> {
+    heap_data(heap, sv)
+        .and_then(|d| d.as_function())
+        .ok_or_else(|| RuntimeError::type_error("expected a function"))
 }
 
 fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> RuntimeResult<()> {
@@ -137,8 +140,8 @@ fn builtin_len(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
         return Err(RuntimeError::type_error("len requires an argument"));
     };
     let len = match heap_data(heap, container) {
-        Ok(HeapData::String(s)) => s.chars().count() as i64,
-        Ok(HeapData::Vector(v)) => v.len() as i64,
+        Some(HeapData::String(s)) => s.chars().count() as i64,
+        Some(HeapData::Vector(v)) => v.len() as i64,
         _ => {
             return Err(RuntimeError::type_error(format!(
                 "len requires a string or vector, got {}",
@@ -153,11 +156,11 @@ fn builtin_head(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValu
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("head requires an argument"));
     };
-    match heap_data(heap, container)? {
-        HeapData::Vector(v) => Ok(*v
+    match heap_data(heap, container) {
+        Some(HeapData::Vector(v)) => Ok(*v
             .first()
             .ok_or_else(|| RuntimeError::value("head of empty vector"))?),
-        HeapData::String(s) => s.chars().next().map_or_else(
+        Some(HeapData::String(s)) => s.chars().next().map_or_else(
             || Err(RuntimeError::value("head of empty string")),
             |c| Ok(heap.alloc_string(c.to_string())),
         ),
@@ -169,13 +172,13 @@ fn builtin_tail(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValu
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("tail requires an argument"));
     };
-    match heap_data(heap, container)? {
-        HeapData::Vector(v) => Ok(heap.alloc_vector(
+    match heap_data(heap, container) {
+        Some(HeapData::Vector(v)) => Ok(heap.alloc_vector(
             v.get(1..)
                 .ok_or_else(|| RuntimeError::value("tail of empty vector"))?
                 .to_vec(),
         )),
-        HeapData::String(s) => {
+        Some(HeapData::String(s)) => {
             if s.is_empty() {
                 return Err(RuntimeError::value("tail of empty string"));
             }
@@ -189,16 +192,16 @@ fn builtin_drop(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValu
     let Some(container) = args.first() else {
         return Err(RuntimeError::type_error("drop requires 2 arguments"));
     };
-    let Some(count) = args.get(1) else {
-        return Err(RuntimeError::type_error("drop requires 2 arguments"));
-    };
-    let Some(count) = int_val(count) else {
-        return Err(RuntimeError::type_error("drop requires integer count"));
+    let count = match args.get(1) {
+        Some(value) => {
+            int_val(value).ok_or_else(|| RuntimeError::type_error("drop requires integer count"))?
+        },
+        _ => 1,
     };
     let n = usize::try_from(count).unwrap_or(usize::MAX);
-    match heap_data(heap, container)? {
-        HeapData::Vector(v) => Ok(heap.alloc_vector(v.get(n..).unwrap_or_default().to_vec())),
-        HeapData::String(s) => Ok(heap.alloc_string(s.chars().skip(n).collect())),
+    match heap_data(heap, container) {
+        Some(HeapData::Vector(v)) => Ok(heap.alloc_vector(v.get(n..).unwrap_or_default().to_vec())),
+        Some(HeapData::String(s)) => Ok(heap.alloc_string(s.chars().skip(n).collect())),
         _ => Err(RuntimeError::type_error("drop requires a vector or string")),
     }
 }
@@ -214,12 +217,12 @@ fn builtin_take(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValu
         return Err(RuntimeError::type_error("take requires integer count"));
     };
     let n = usize::try_from(count).unwrap_or(usize::MAX);
-    match heap_data(heap, container)? {
-        HeapData::Vector(v) => {
+    match heap_data(heap, container) {
+        Some(HeapData::Vector(v)) => {
             let end = n.min(v.len());
             Ok(heap.alloc_vector(v.get(..end).unwrap_or_default().to_vec()))
         },
-        HeapData::String(s) => Ok(heap.alloc_string(s.chars().take(n).collect())),
+        Some(HeapData::String(s)) => Ok(heap.alloc_string(s.chars().take(n).collect())),
         _ => Err(RuntimeError::type_error("take requires a vector or string")),
     }
 }
@@ -270,16 +273,18 @@ fn builtin_map(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
         heap,
         args.get(1)
             .ok_or_else(|| RuntimeError::type_error("map requires a function and a vector"))?,
-    )?;
+    )?
+    .clone();
     match func_data {
-        HeapData::Function(Function::Builtin(b)) => {
+        Function::Builtin(b) => {
             let mut result = Vec::new();
-            for elem in &vec {
-                result.push(b.invoke(slice::from_ref(elem), heap)?);
+            let b = b.clone();
+            for elem in vec {
+                result.push(b.invoke(slice::from_ref(&elem), heap)?);
             }
             Ok(heap.alloc_vector(result))
         },
-        _ => Err(RuntimeError::type_error(
+        Function::Bytecode(_) => Err(RuntimeError::type_error(
             "map currently only supports builtin functions",
         )),
     }
@@ -295,18 +300,20 @@ fn builtin_count(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVal
         heap,
         args.get(1)
             .ok_or_else(|| RuntimeError::type_error("count requires a predicate and a vector"))?,
-    )?;
+    )?
+    .clone();
     match func_data {
-        HeapData::Function(Function::Builtin(b)) => {
+        Function::Builtin(b) => {
             let mut total = 0i64;
-            for elem in &vec {
-                if b.invoke(slice::from_ref(elem), heap)?.is_truthy(heap) {
+            let b = b.clone();
+            for elem in vec {
+                if b.invoke(slice::from_ref(&elem), heap)?.is_truthy(heap) {
                     total += 1;
                 }
             }
             Ok(StackValue::Primitive(Primitive::Integer(total)))
         },
-        _ => Err(RuntimeError::type_error(
+        Function::Bytecode(_) => Err(RuntimeError::type_error(
             "count currently only supports builtin functions",
         )),
     }
@@ -325,7 +332,9 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVa
 
 fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
     let mut line = String::new();
-    heap.input.read_line(&mut line).ok();
+    let Ok(_) = heap.input.read_line(&mut line) else {
+        return StackValue::Nil;
+    };
     if line.ends_with('\n') {
         line.pop();
         if line.ends_with('\r') {
@@ -353,13 +362,7 @@ fn builtin_sum(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
     };
     let mut total: f64 = 0.0;
     let mut is_int = true;
-    let HeapData::Vector(v) = heap_data(heap, container).map_err(|_| {
-        RuntimeError::type_error(format!(
-            "sum requires a vector, got {}",
-            container.type_name(heap)
-        ))
-    })?
-    else {
+    let Some(HeapData::Vector(v)) = heap_data(heap, container) else {
         return Err(RuntimeError::type_error(format!(
             "sum requires a vector, got {}",
             container.type_name(heap)

@@ -62,6 +62,14 @@ impl Function {
         }
     }
 
+    pub const fn as_mut_builtin(&mut self) -> Option<&mut BuiltinFunction> {
+        if let Self::Builtin(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
     #[must_use]
     pub fn as_bytecode(&self) -> Option<&BytecodeFunction> {
         if let Self::Bytecode(b) = self {
