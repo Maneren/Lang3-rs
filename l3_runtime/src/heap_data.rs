@@ -336,14 +336,46 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
 #[must_use]
 #[inline]
 pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> {
-    compare_values(a, b, heap, &mut HashSet::new())
+    match (a, b) {
+        (StackValue::Primitive(pa), StackValue::Primitive(pb)) => compare_primitives(*pa, *pb),
+        (StackValue::Nil, StackValue::Nil) => Some(Ordering::Equal),
+        (StackValue::Heap(ka), StackValue::Heap(kb)) if *ka == *kb => Some(Ordering::Equal),
+        (StackValue::Heap(ka), StackValue::Heap(kb)) => match (
+            heap.cells.get(*ka).map(|c| &c.value),
+            heap.cells.get(*kb).map(|c| &c.value),
+        ) {
+            (Some(HeapData::String(sa)), Some(HeapData::String(sb))) => Some(sa.cmp(sb)),
+            (Some(HeapData::Vector(va)), Some(HeapData::Vector(vb))) => {
+                compare_vectors(va, vb, heap, &mut HashSet::new())
+            },
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
-/// Content-based comparison: strings compare by value, vectors element-wise
-/// (cycle-safe), everything else by reference identity (same heap key).
-/// Ordering of container values is defined only through equality/inequality
-/// outcomes; cross-type compares are `None`.
-#[inline]
+/// Element-wise comparison of vectors (cycle-safe). Only this path needs the
+/// `seen` set, created lazily at the first vector-vs-vector compare.
+fn compare_vectors(
+    va: &[StackValue],
+    vb: &[StackValue],
+    heap: &Heap,
+    seen: &mut HashSet<(DefaultKey, DefaultKey)>,
+) -> Option<Ordering> {
+    let ord = Ordering::Equal;
+    for (ea, eb) in va.iter().zip(vb.iter()) {
+        match compare_values(ea, eb, heap, seen) {
+            Some(Ordering::Equal) => {},
+            Some(o) => return Some(o),
+            None => return None,
+        }
+    }
+    (ord == Ordering::Equal)
+        .then_some(va.len().cmp(&vb.len()))
+        .or(Some(ord))
+}
+
+/// Recursive content comparison with cycle detection via `seen`.
 fn compare_values(
     a: &StackValue,
     b: &StackValue,
@@ -367,20 +399,7 @@ fn compare_values(
             ) {
                 (Some(HeapData::String(sa)), Some(HeapData::String(sb))) => Some(sa.cmp(sb)),
                 (Some(HeapData::Vector(va)), Some(HeapData::Vector(vb))) => {
-                    let mut ord = Ordering::Equal;
-                    for (ea, eb) in va.iter().zip(vb.iter()) {
-                        match compare_values(ea, eb, heap, seen) {
-                            Some(Ordering::Equal) => {},
-                            Some(o) => {
-                                ord = o;
-                                break;
-                            },
-                            None => return None,
-                        }
-                    }
-                    (ord == Ordering::Equal)
-                        .then_some(va.len().cmp(&vb.len()))
-                        .or(Some(ord))
+                    compare_vectors(va, vb, heap, seen)
                 },
                 _ => None,
             };

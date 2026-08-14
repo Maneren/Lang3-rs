@@ -146,6 +146,7 @@ pub struct BytecodeVM<'a> {
     pub stack: VmStack,
     pub global_symbols: HashMap<String, StackValue, FixedState>,
     constant_keys: Vec<slotmap::DefaultKey>,
+    constant_values: Vec<StackValue>,
     frames: CallStack,
     trigger_gc_key: Option<slotmap::DefaultKey>,
     debug: bool,
@@ -178,6 +179,7 @@ impl<'a> BytecodeVM<'a> {
             stack: VmStack::with_capacity(1024),
             global_symbols: HashMap::with_hasher(FixedState::default()),
             constant_keys: Vec::new(),
+            constant_values: Vec::new(),
             frames: CallStack::new(),
             trigger_gc_key: None,
             debug,
@@ -226,6 +228,16 @@ impl<'a> BytecodeVM<'a> {
             .iter()
             .map(|hc| self.heap.cells.insert(hc.clone()))
             .collect();
+        self.constant_values = program
+            .constants
+            .iter()
+            .zip(&self.constant_keys)
+            .map(|(hc, key)| match &hc.value {
+                HeapData::Nil => StackValue::Nil,
+                HeapData::Primitive(p) => StackValue::Primitive(*p),
+                _ => StackValue::Heap(*key),
+            })
+            .collect();
 
         let frame = CallFrame {
             chunk_id: ChunkId(0),
@@ -254,6 +266,7 @@ impl<'a> BytecodeVM<'a> {
         }
 
         self.constant_keys.clear();
+        self.constant_values.clear();
         Ok(())
     }
 
@@ -323,21 +336,13 @@ impl<'a> BytecodeVM<'a> {
                         break;
                     },
                     Instruction::Constant { index } => {
-                        let val = &constants
-                            .get(*index)
+                        let val = self
+                            .constant_values
+                            .get(index.as_index())
+                            .copied()
                             .expect("constant index emitted by the compiler is valid");
-                        let sv = match &val.value {
-                            HeapData::Nil => StackValue::Nil,
-                            HeapData::Primitive(p) => StackValue::Primitive(*p),
-                            _ => StackValue::Heap(
-                                *self
-                                    .constant_keys
-                                    .get(index.as_index())
-                                    .expect("constant was pre-inserted into the heap"),
-                            ),
-                        };
-                        debug_println!(debug, "    CONSTANT({}) -> {:?}", index, sv);
-                        self.stack.push(sv);
+                        debug_println!(debug, "    CONSTANT({}) -> {:?}", index, val);
+                        self.stack.push(val);
                         Ok(())
                     },
                     Instruction::Pop { count } => {
@@ -465,14 +470,19 @@ impl<'a> BytecodeVM<'a> {
                         // A captured local's cell is the authoritative value: a
                         // closure may have updated it via `SetUpvalue` without
                         // the owner's stack slot being refreshed.
-                        let val = self
+                        let frame = self
                             .frames
                             .last()
-                            .expect("execution continues only while a frame exists")
-                            .captured_locals
-                            .get(&index.as_index())
-                            .and_then(|cell| cell.try_borrow().ok())
-                            .map_or_else(|| self.stack.get_local(fp, *index), |cell| cell.value);
+                            .expect("execution continues only while a frame exists");
+                        let val = if frame.captured_locals.is_empty() {
+                            self.stack.get_local(fp, *index)
+                        } else {
+                            frame
+                                .captured_locals
+                                .get(&index.as_index())
+                                .and_then(|cell| cell.try_borrow().ok())
+                                .map_or_else(|| self.stack.get_local(fp, *index), |cell| cell.value)
+                        };
                         self.stack.push(val);
                         Ok(())
                     },
@@ -481,12 +491,12 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
                         self.stack.set_local(fp, *index, val);
 
-                        if let Some(cell) = self
+                        let frame = self
                             .frames
                             .last()
-                            .expect("execution continues only while a frame exists")
-                            .captured_locals
-                            .get(&index.as_index())
+                            .expect("execution continues only while a frame exists");
+                        if !frame.captured_locals.is_empty()
+                            && let Some(cell) = frame.captured_locals.get(&index.as_index())
                         {
                             cell.borrow_mut().value = val;
                         }
