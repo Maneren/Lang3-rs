@@ -109,6 +109,7 @@ impl<'a> Heap<'a> {
         }
     }
 
+    #[inline]
     pub fn alloc(&mut self, value: HeapData) -> StackValue {
         match &value {
             HeapData::Nil => StackValue::Nil,
@@ -121,14 +122,17 @@ impl<'a> Heap<'a> {
         }
     }
 
+    #[inline]
     pub fn alloc_string(&mut self, s: String) -> StackValue {
         self.alloc(HeapData::String(s))
     }
 
+    #[inline]
     pub fn alloc_vector(&mut self, v: Vec<StackValue>) -> StackValue {
         self.alloc(HeapData::Vector(v))
     }
 
+    #[inline]
     pub fn alloc_function(&mut self, f: Function) -> StackValue {
         self.alloc(HeapData::Function(f))
     }

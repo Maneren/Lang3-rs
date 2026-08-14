@@ -31,32 +31,38 @@ impl PartialEq for HeapData {
 }
 
 impl HeapData {
+    #[inline]
     #[must_use]
     pub const fn is_nil(&self) -> bool {
         matches!(self, Self::Nil)
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_primitive(&self) -> bool {
         matches!(self, Self::Primitive(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_vector(&self) -> bool {
         matches!(self, Self::Vector(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_string(&self) -> bool {
         matches!(self, Self::String(_))
     }
 
     #[must_use]
+    #[inline]
     pub const fn as_primitive(&self) -> Option<Primitive> {
         if let Self::Primitive(p) = self {
             Some(*p)
@@ -65,6 +71,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     pub const fn as_mut_primitive(&mut self) -> Option<&mut Primitive> {
         if let Self::Primitive(p) = self {
             Some(p)
@@ -73,6 +80,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_vector(&self) -> Option<&Vec<StackValue>> {
         if let Self::Vector(v) = self {
@@ -82,6 +90,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     pub const fn as_mut_vector(&mut self) -> Option<&mut Vec<StackValue>> {
         if let Self::Vector(v) = self {
             Some(v)
@@ -90,6 +99,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_string(&self) -> Option<&str> {
         if let Self::String(s) = self {
@@ -99,6 +109,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     pub const fn as_mut_string(&mut self) -> Option<&mut String> {
         if let Self::String(s) = self {
             Some(s)
@@ -108,6 +119,7 @@ impl HeapData {
     }
 
     #[must_use]
+    #[inline]
     pub const fn as_function(&self) -> Option<&Function> {
         if let Self::Function(v) = self {
             Some(v)
@@ -116,6 +128,7 @@ impl HeapData {
         }
     }
 
+    #[inline]
     pub const fn as_mut_function(&mut self) -> Option<&mut Function> {
         if let Self::Function(v) = self {
             Some(v)
@@ -190,6 +203,7 @@ enum Resolved<'a> {
 }
 
 /// Resolve a `StackValue` to its effective kind with a single heap lookup.
+#[inline]
 fn resolve<'a>(sv: &'a StackValue, heap: &'a Heap) -> Resolved<'a> {
     match sv {
         StackValue::Primitive(p) => Resolved::Num(*p),
@@ -203,11 +217,13 @@ fn resolve<'a>(sv: &'a StackValue, heap: &'a Heap) -> Resolved<'a> {
     }
 }
 
+#[inline]
 fn numeric_result(r: Result<Primitive, &'static str>) -> RuntimeResult<StackValue> {
     r.map(StackValue::Primitive)
         .map_err(RuntimeError::type_error)
 }
 
+#[inline]
 pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa + pb),
@@ -222,6 +238,7 @@ pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
     }
 }
 
+#[inline]
 pub fn sub(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa - pb),
@@ -249,6 +266,7 @@ fn repeat_vec(v: &[StackValue], n: i64) -> Vec<StackValue> {
     }
 }
 
+#[inline]
 pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa * pb),
@@ -263,6 +281,7 @@ pub fn mul(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
     }
 }
 
+#[inline]
 pub fn div(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa / pb),
@@ -270,6 +289,7 @@ pub fn div(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
     }
 }
 
+#[inline]
 pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa % pb),
@@ -277,6 +297,7 @@ pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<
     }
 }
 
+#[inline]
 pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => {
@@ -313,6 +334,7 @@ pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<Sta
 }
 
 #[must_use]
+#[inline]
 pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> {
     compare_values(a, b, heap, &mut HashSet::new())
 }
@@ -321,6 +343,7 @@ pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> 
 /// (cycle-safe), everything else by reference identity (same heap key).
 /// Ordering of container values is defined only through equality/inequality
 /// outcomes; cross-type compares are `None`.
+#[inline]
 fn compare_values(
     a: &StackValue,
     b: &StackValue,
@@ -368,6 +391,7 @@ fn compare_values(
     }
 }
 
+#[inline]
 pub fn negative(a: &StackValue, heap: &Heap) -> RuntimeResult<StackValue> {
     match resolve(a, heap) {
         Resolved::Num(p) => Ok(StackValue::Primitive(-p)),
@@ -377,11 +401,13 @@ pub fn negative(a: &StackValue, heap: &Heap) -> RuntimeResult<StackValue> {
     }
 }
 
+#[inline]
 #[must_use]
 pub fn not_op(a: &StackValue, heap: &Heap) -> StackValue {
     StackValue::Primitive(Primitive::Bool(!a.is_truthy(heap)))
 }
 
+#[inline]
 fn integer_index(sv: &StackValue, heap: &Heap) -> RuntimeResult<i64> {
     match resolve(sv, heap) {
         Resolved::Num(Primitive::Integer(i)) => Ok(i),
@@ -391,6 +417,7 @@ fn integer_index(sv: &StackValue, heap: &Heap) -> RuntimeResult<i64> {
     }
 }
 
+#[inline]
 fn heap_key(container: &StackValue) -> RuntimeResult<DefaultKey> {
     match container {
         StackValue::Heap(key) => Ok(*key),
@@ -398,6 +425,7 @@ fn heap_key(container: &StackValue) -> RuntimeResult<DefaultKey> {
     }
 }
 
+#[inline]
 pub fn index(
     container: &StackValue,
     index: &StackValue,
@@ -434,6 +462,7 @@ pub fn index(
     }
 }
 
+#[inline]
 pub fn index_mut<'a>(
     container: &'a mut StackValue,
     index: &StackValue,
@@ -455,6 +484,7 @@ pub fn index_mut<'a>(
 }
 
 #[must_use]
+#[inline]
 pub fn to_owned(sv: &StackValue, heap: &Heap) -> HeapData {
     match sv {
         StackValue::Nil => HeapData::Nil,

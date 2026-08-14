@@ -13,16 +13,19 @@ pub enum StackValue {
 }
 
 impl StackValue {
+    #[inline]
     #[must_use]
     pub const fn is_nil(&self) -> bool {
         matches!(self, Self::Nil)
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_primitive(&self) -> bool {
         matches!(self, Self::Primitive(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_primitive(&self) -> Option<Primitive> {
         if let Self::Primitive(p) = self {
@@ -32,11 +35,13 @@ impl StackValue {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn holds_heap_cell(&self) -> bool {
         matches!(self, Self::Heap(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn get_heap_key(&self) -> Option<DefaultKey> {
         if let Self::Heap(k) = self {
@@ -46,6 +51,7 @@ impl StackValue {
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn is_truthy(&self, heap: &Heap) -> bool {
         match self {
@@ -58,6 +64,7 @@ impl StackValue {
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn type_name(&self, heap: &Heap) -> &'static str {
         match self {
@@ -70,6 +77,7 @@ impl StackValue {
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn as_heap_ref<'a>(&self, heap: &'a Heap) -> Option<&'a HeapData> {
         if let Self::Heap(key) = self {
@@ -79,6 +87,7 @@ impl StackValue {
         }
     }
 
+    #[inline]
     pub fn as_heap_mut<'a>(&mut self, heap: &'a mut Heap) -> Option<&'a mut HeapData> {
         if let Self::Heap(key) = self {
             heap.cells.get_mut(*key).map(|c| &mut c.value)

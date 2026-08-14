@@ -830,11 +830,7 @@ impl<'a> BytecodeVM<'a> {
         self.heap.sweep();
     }
 
-    #[expect(
-        clippy::inline_always,
-        reason = "It inlines just the check and helps tremendously"
-    )]
-    #[inline(always)]
+    #[inline]
     fn maybe_gc(&mut self) {
         if self.heap.added_since_last_sweep >= self.heap.next_gc_threshold {
             self.run_gc();
@@ -954,6 +950,7 @@ impl<'a> BytecodeVM<'a> {
         Ok(StackValue::Nil)
     }
 
+    #[inline]
     fn binary_op<F>(&mut self, f: F) -> RuntimeResult<()>
     where
         F: Fn(&StackValue, &StackValue, &mut Heap) -> RuntimeResult<StackValue>,
@@ -965,6 +962,7 @@ impl<'a> BytecodeVM<'a> {
         Ok(())
     }
 
+    #[inline]
     fn compare_op<F>(&mut self, pred: F, keep_rhs: bool)
     where
         F: Fn(Option<Ordering>) -> bool,

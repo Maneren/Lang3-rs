@@ -34,27 +34,32 @@ macro_rules! indexed_vec {
             }
 
             /// Append an item and return the index of the newly pushed slot.
+            #[inline]
             pub fn push(&mut self, item: $item) -> $index {
                 let index = $crate::idx(self.items.len());
                 self.items.push(item);
                 index
             }
 
+            #[inline]
             #[must_use]
             pub fn len(&self) -> $index {
                 $crate::idx(self.items.len())
             }
 
+            #[inline]
             #[must_use]
             pub const fn is_empty(&self) -> bool {
                 self.items.is_empty()
             }
 
+            #[inline]
             #[must_use]
             pub fn get(&self, index: $index) -> Option<&$item> {
                 self.items.get(index.as_index())
             }
 
+            #[inline]
             pub fn get_mut(&mut self, index: $index) -> Option<&mut $item> {
                 self.items.get_mut(index.as_index())
             }
@@ -95,6 +100,7 @@ macro_rules! indexed_vec {
         impl std::ops::Index<$index> for $name {
             type Output = $item;
 
+            #[inline]
             #[expect(
                 clippy::indexing_slicing,
                 reason = "typed index is within bounds by construction"
@@ -105,6 +111,7 @@ macro_rules! indexed_vec {
         }
 
         impl std::ops::IndexMut<$index> for $name {
+            #[inline]
             #[expect(
                 clippy::indexing_slicing,
                 reason = "typed index is within bounds by construction"
@@ -205,6 +212,7 @@ impl ConstantPool {
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn get(&self, index: ConstantIndex) -> Option<&HeapCell> {
         self.constants.get(index.as_index())
@@ -212,6 +220,7 @@ impl ConstantPool {
 
     /// Invariant: Compiler emits a valid string constant index for global
     /// names.
+    #[inline]
     #[must_use]
     pub fn string(&self, index: ConstantIndex) -> &str {
         self.constants[index.as_index()]

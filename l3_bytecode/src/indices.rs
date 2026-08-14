@@ -25,11 +25,13 @@ where
 pub struct StackIndex(pub u32);
 
 impl StackIndex {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
     }
 
+    #[inline]
     pub fn checked_sub(self, rhs: u32) -> Option<Self> {
         self.0.checked_sub(rhs).map(Self)
     }
@@ -77,6 +79,7 @@ impl Display for StackIndex {
 pub struct ConstantIndex(pub u32);
 
 impl ConstantIndex {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
@@ -101,6 +104,7 @@ impl Display for ConstantIndex {
 pub struct LocalIndex(pub u32);
 
 impl LocalIndex {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
@@ -133,6 +137,7 @@ impl Display for LocalIndex {
 pub struct UpvalueIndex(pub u32);
 
 impl UpvalueIndex {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
@@ -157,6 +162,7 @@ impl Display for UpvalueIndex {
 pub struct ChunkId(pub u32);
 
 impl ChunkId {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize
@@ -181,6 +187,7 @@ impl Display for ChunkId {
 pub struct CodeOffset(pub u32);
 
 impl CodeOffset {
+    #[inline]
     #[must_use]
     pub const fn as_index(&self) -> usize {
         self.0 as usize

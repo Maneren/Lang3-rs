@@ -12,21 +12,25 @@ pub enum Primitive {
 }
 
 impl Primitive {
+    #[inline]
     #[must_use]
     pub const fn is_bool(&self) -> bool {
         matches!(self, Self::Bool(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_integer(&self) -> bool {
         matches!(self, Self::Integer(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn is_double(&self) -> bool {
         matches!(self, Self::Double(_))
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_bool(&self) -> Option<bool> {
         if let Self::Bool(b) = self {
@@ -36,6 +40,7 @@ impl Primitive {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_integer(&self) -> Option<i64> {
         if let Self::Integer(i) = self {
@@ -45,6 +50,7 @@ impl Primitive {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_double(&self) -> Option<f64> {
         if let Self::Double(f) = self {
@@ -54,6 +60,7 @@ impl Primitive {
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn is_truthy(&self) -> bool {
         match self {
@@ -63,6 +70,7 @@ impl Primitive {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn type_name(&self) -> &'static str {
         match self {
@@ -87,6 +95,7 @@ impl fmt::Display for Primitive {
 
 impl Add for Primitive {
     type Output = Result<Self, &'static str>;
+    #[inline]
     fn add(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
             (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_add(b))),
@@ -100,6 +109,7 @@ impl Add for Primitive {
 
 impl Sub for Primitive {
     type Output = Result<Self, &'static str>;
+    #[inline]
     fn sub(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
             (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_sub(b))),
@@ -113,6 +123,7 @@ impl Sub for Primitive {
 
 impl Mul for Primitive {
     type Output = Result<Self, &'static str>;
+    #[inline]
     fn mul(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
             (Self::Integer(a), Self::Integer(b)) => Ok(Self::Integer(a.wrapping_mul(b))),
@@ -126,6 +137,7 @@ impl Mul for Primitive {
 
 impl Div for Primitive {
     type Output = Result<Self, &'static str>;
+    #[inline]
     fn div(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
             (Self::Integer(_), Self::Integer(0)) => Err("division by zero"),
@@ -140,6 +152,7 @@ impl Div for Primitive {
 
 impl Rem for Primitive {
     type Output = Result<Self, &'static str>;
+    #[inline]
     fn rem(self, rhs: Self) -> Result<Self, &'static str> {
         match (self, rhs) {
             (Self::Integer(_), Self::Integer(0)) => Err("modulo by zero"),
@@ -154,6 +167,7 @@ impl Rem for Primitive {
 
 impl Neg for Primitive {
     type Output = Self;
+    #[inline]
     fn neg(self) -> Self {
         match self {
             Self::Integer(i) => Self::Integer(i.wrapping_neg()),
@@ -165,6 +179,7 @@ impl Neg for Primitive {
 
 /// Three-way comparison between primitives. Cross-type compares promote integer
 /// to double.
+#[inline]
 #[must_use]
 pub fn compare_primitives(a: Primitive, b: Primitive) -> Option<Ordering> {
     match (a, b) {
