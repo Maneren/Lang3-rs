@@ -175,7 +175,7 @@ pub struct CallFrame {
     chunk_id: ChunkId,
     ip: CodeOffset,
     frame_pointer: StackIndex,
-    closure_info: Option<(BytecodeFunction, StackValue)>,
+    closure_info: Option<(Rc<str>, StackValue)>,
     call_site: Option<(ChunkId, CodeOffset)>,
     upvalues: Box<[Rc<RefCell<UpvalueCell>>]>,
     captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
@@ -315,7 +315,7 @@ impl<'a> BytecodeVM<'a> {
                 let function_name = frame
                     .closure_info
                     .as_ref()
-                    .map_or_else(|| "<toplevel>".to_string(), |(bc, _)| bc.name.clone());
+                    .map_or_else(|| "<toplevel>".to_string(), |(name, _)| name.to_string());
                 Some(StacktraceFrame {
                     function_name,
                     call_location,
@@ -942,7 +942,7 @@ impl<'a> BytecodeVM<'a> {
             chunk_id: ChunkId(bc.id),
             ip: CodeOffset(0),
             frame_pointer,
-            closure_info: Some((*bc.clone(), func_sv)),
+            closure_info: Some((bc.name.clone(), func_sv)),
             call_site: Some(call_site),
             upvalues: bc.captured_upvalues.clone().into(),
             captured_locals: HashMap::with_hasher(FixedState::default()),

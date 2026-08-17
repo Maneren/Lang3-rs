@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{ops::ControlFlow, rc::Rc};
 
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
@@ -624,7 +624,7 @@ impl Compiler {
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id.0,
-            name: nf.name.name.clone(),
+            name: Rc::from(nf.name.name.clone()),
             arity: idx(arity),
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),
@@ -1511,7 +1511,7 @@ impl Compiler {
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id.0,
-            name,
+name: Rc::from(name),
             arity: idx(arity),
             curried_args: Vec::new(),
             captured_upvalues: Vec::new(),

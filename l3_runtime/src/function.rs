@@ -41,7 +41,7 @@ impl fmt::Debug for BuiltinFunction {
 pub struct BytecodeFunction {
     pub id: u32,
     pub arity: u32,
-    pub name: String,
+    pub name: Rc<str>,
     pub curried_args: Vec<StackValue>,
     pub captured_upvalues: Vec<Rc<RefCell<UpvalueCell>>>,
 }
