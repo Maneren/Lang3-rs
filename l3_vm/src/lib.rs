@@ -54,12 +54,34 @@ impl VmStack {
             .expect("compiler invariant: stack non-empty")
     }
 
+    #[inline]
     fn get_local(&self, fp: StackIndex, index: LocalIndex) -> StackValue {
-        self.values[fp.as_index() + index.as_index()]
+        let index = fp.as_index() + index.as_index();
+        if cfg!(debug_assertions) {
+            *self
+                .values
+                .get(index)
+                .expect("compiler invariant: stack non-empty")
+        } else {
+            // SAFETY: All indices come from the compiler that is considered infallible by
+            // the VM
+            unsafe { *self.values.get_unchecked(index) }
+        }
     }
 
+    #[inline]
     fn set_local(&mut self, fp: StackIndex, index: LocalIndex, val: StackValue) {
-        self.values[fp.as_index() + index.as_index()] = val;
+        let index = fp.as_index() + index.as_index();
+        if cfg!(debug_assertions) {
+            *self
+                .values
+                .get_mut(index)
+                .expect("compiler invariant: stack non-empty") = val;
+        } else {
+            // SAFETY: All indices come from the compiler that is considered infallible by
+            // the VM
+            unsafe { *self.values.get_unchecked_mut(index) = val };
+        }
     }
 
     fn truncate(&mut self, len: StackIndex) {
@@ -72,10 +94,6 @@ impl VmStack {
 
     fn get(&self, index: StackIndex) -> Option<&StackValue> {
         self.values.get(index.as_index())
-    }
-
-    fn get_mut(&mut self, index: StackIndex) -> Option<&mut StackValue> {
-        self.values.get_mut(index.as_index())
     }
 
     fn drain_from(&mut self, from: StackIndex) -> Vec<StackValue> {
@@ -511,33 +529,21 @@ impl<'a> BytecodeVM<'a> {
                         step_index,
                     } => {
                         debug_println!(debug, "    FOR_LOOP");
-                        let current = as_integer(
-                            self.stack
-                                .get(fp + *control_index)
-                                .expect("for-loop control slot is within the current frame"),
-                        );
-                        let limit_val = as_integer(
-                            self.stack
-                                .get(fp + *limit_index)
-                                .expect("for-loop limit slot is within the current frame"),
-                        );
+                        let current = as_integer(&self.stack.get_local(fp, *control_index));
+                        let limit_val = as_integer(&self.stack.get_local(fp, *limit_index));
 
                         match (current, limit_val) {
                             (Some(current), Some(limit_val)) => {
                                 let step = step_index
-                                    .and_then(|si| {
-                                        as_integer(self.stack.get(fp + si).expect(
-                                            "for-loop step slot is within the current frame",
-                                        ))
-                                    })
+                                    .and_then(|si| as_integer(&self.stack.get_local(fp, si)))
                                     .unwrap_or(1);
 
                                 let next = current + step;
-                                *self
-                                    .stack
-                                    .get_mut(fp + *control_index)
-                                    .expect("for-loop control slot is within the current frame") =
-                                    StackValue::Primitive(Primitive::Integer(next));
+                                self.stack.set_local(
+                                    fp,
+                                    *control_index,
+                                    StackValue::Primitive(Primitive::Integer(next)),
+                                );
 
                                 let keep_going = if *inclusive {
                                     next <= limit_val
@@ -747,10 +753,7 @@ impl<'a> BytecodeVM<'a> {
                                                 .entry(index as usize)
                                                 .or_insert_with(|| {
                                                     let captured =
-                                                        *self.stack.get(fp + index).expect(
-                                                            "captured local slot is within the \
-                                                             current frame",
-                                                        );
+                                                        self.stack.get_local(fp, LocalIndex(index));
                                                     Rc::new(RefCell::new(UpvalueCell::new(
                                                         captured,
                                                     )))
