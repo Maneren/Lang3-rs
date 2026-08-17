@@ -176,7 +176,7 @@ pub struct CallFrame {
     ip: CodeOffset,
     frame_pointer: StackIndex,
     closure_info: Option<(BytecodeFunction, StackValue)>,
-    call_location: Option<Location>,
+    call_site: Option<(ChunkId, CodeOffset)>,
     upvalues: Box<[Rc<RefCell<UpvalueCell>>]>,
     captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
     discard_return: bool,
@@ -263,7 +263,7 @@ impl<'a> BytecodeVM<'a> {
             ip: CodeOffset(0),
             frame_pointer: StackIndex(0),
             closure_info: None,
-            call_location: None,
+            call_site: None,
             upvalues: Box::new([]),
             captured_locals: HashMap::with_hasher(FixedState::default()),
             discard_return: false,
@@ -280,7 +280,7 @@ impl<'a> BytecodeVM<'a> {
                     .map_or_default(|frame| self.instruction_location(&program.chunks, frame.ip));
                 err = err.with_location(loc);
             }
-            err.set_stacktrace(self.build_stacktrace());
+            err.set_stacktrace(self.build_stacktrace(&program.chunks));
             return Err(err);
         }
 
@@ -302,18 +302,23 @@ impl<'a> BytecodeVM<'a> {
             .unwrap_or_default()
     }
 
-    fn build_stacktrace(&self) -> Vec<StacktraceFrame> {
+    fn build_stacktrace(&self, chunks: &Chunks) -> Vec<StacktraceFrame> {
         self.frames
             .iter()
             .filter_map(|frame| {
-                let call_location = frame.call_location.as_ref()?;
+                let (call_chunk, call_ip) = frame.call_site?;
+                let call_location = chunks
+                    .get(call_chunk)
+                    .and_then(|chunk| chunk.locations.get(call_ip.as_index()))
+                    .cloned()
+                    .unwrap_or_default();
                 let function_name = frame
                     .closure_info
                     .as_ref()
                     .map_or_else(|| "<toplevel>".to_string(), |(bc, _)| bc.name.clone());
                 Some(StacktraceFrame {
                     function_name,
-                    call_location: call_location.clone(),
+                    call_location,
                 })
             })
             .collect()
@@ -616,8 +621,7 @@ impl<'a> BytecodeVM<'a> {
                         // stack = …… base arg1 arg2 arg3 end
                         if let Some(base) = self.stack.len().checked_sub(*arg_count + 1) {
                             let frame_count = self.frames.len();
-                            let call_location =
-                                self.instruction_location(&program.chunks, CodeOffset(ip.0 - 1));
+                            let call_site = (chunk_id, CodeOffset(ip.0 - 1));
                             self.frames
                                 .last_mut()
                                 .expect("execution continues only while a frame exists")
@@ -630,7 +634,7 @@ impl<'a> BytecodeVM<'a> {
                                 base,
                                 *arg_count,
                                 *keep_return_value,
-                                &call_location,
+                                call_site,
                             ) {
                                 Err(e) => Err(e),
                                 Ok(result) => {
@@ -871,7 +875,7 @@ impl<'a> BytecodeVM<'a> {
         base: StackIndex,
         arg_count: u32,
         keep_return_value: bool,
-        call_location: &Location,
+        call_site: (ChunkId, CodeOffset),
     ) -> RuntimeResult<StackValue> {
         let func_key = match &func_sv {
             StackValue::Heap(key) => *key,
@@ -939,7 +943,7 @@ impl<'a> BytecodeVM<'a> {
             ip: CodeOffset(0),
             frame_pointer,
             closure_info: Some((*bc.clone(), func_sv)),
-            call_location: Some(call_location.clone()),
+            call_site: Some(call_site),
             upvalues: bc.captured_upvalues.clone().into(),
             captured_locals: HashMap::with_hasher(FixedState::default()),
             discard_return: !keep_return_value,
