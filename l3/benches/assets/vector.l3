@@ -1,0 +1,25 @@
+# vector/array work - stresses heap allocation, GC, indexing
+let mut vec = []
+let mut i = 0
+while i < 10000 do
+  vec = vec + [i]
+  i += 1
+end
+
+fn sum(v)
+  let mut total = 0
+  let mut j = 0
+  while j < len(v) do
+    total += v[j]
+    j += 1
+  end
+  return total
+end
+
+let mut total = 0
+let mut k = 0
+while k < 400 do
+  total += sum(vec)
+  k += 1
+end
+println(total)

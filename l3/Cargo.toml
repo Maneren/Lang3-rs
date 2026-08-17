@@ -16,3 +16,8 @@ l3_bytecode = { path = "../l3_bytecode" }
 
 [dev-dependencies]
 paste = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "pipeline"
+harness = false

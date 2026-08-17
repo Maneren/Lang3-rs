@@ -1,0 +1,23 @@
+# closures / stateful counter - stresses closure allocation, upvalue access
+fn make_counter()
+  let mut count = 0
+  let counter = fn()
+    count += 1
+    return count
+  end
+  return counter
+end
+
+let mut total = 0
+let mut k = 0
+while k < 400 do
+  let c = make_counter()
+  let mut j = 0
+  while j < 1000 do
+    c()
+    j += 1
+  end
+  total += len([1, 2, 3])
+  k += 1
+end
+println(total)

@@ -1,0 +1,18 @@
+# string concat / building - stresses heap string allocation
+fn build(n)
+  let mut s = ""
+  let mut i = 0
+  while i < n do
+    s = s + "ab"
+    i += 1
+  end
+  return len(s)
+end
+
+let mut total = 0
+let mut k = 0
+while k < 60 do
+  total += build(2000)
+  k += 1
+end
+println(total)
