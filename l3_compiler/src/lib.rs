@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
     ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfBase,
@@ -1112,8 +1114,8 @@ impl Compiler {
                     self.emit(Instruction::Return);
                 }
             },
-            LastStatement::Break(_) => self.compile_loop_control(true)?,
-            LastStatement::Continue(_) => self.compile_loop_control(false)?,
+            LastStatement::Break(_) => self.compile_loop_control(ControlFlow::Break(()))?,
+            LastStatement::Continue(_) => self.compile_loop_control(ControlFlow::Continue(()))?,
         }
         Ok(())
     }
@@ -1122,21 +1124,26 @@ impl Compiler {
     /// enclosing loop in the *same chunk* is a valid target; anything else is
     /// a compile error (a `break` inside a nested function body, or outside any
     /// loop, would otherwise compile into an unpatched `Jump { offset: 0 }`).
-    fn compile_loop_control(&mut self, is_break: bool) -> Result<(), CompileError> {
-        let chunk_id = self.current_context().chunk_id;
+    fn compile_loop_control(&mut self, keyword: ControlFlow<()>) -> Result<(), CompileError> {
+        let context = self.current_context();
+        let chunk_id = context.chunk_id;
         let Some(lc_pos) = self
             .loop_contexts
             .iter()
             .rposition(|lc| lc.chunk_id == chunk_id)
         else {
-            let keyword = if is_break { "break" } else { "continue" };
+            let keyword = match keyword {
+                ControlFlow::Break(()) => "break",
+                ControlFlow::Continue(()) => "continue",
+            };
+
             return Err(CompileError::new(format!(
                 "{keyword} outside of a loop is not allowed"
             )));
         };
         {
             let lc = &self.loop_contexts[lc_pos];
-            let body_locals = self.current_context().locals.len() - lc.body_locals_snapshot;
+            let body_locals = context.locals.len() - lc.body_locals_snapshot;
             if body_locals.0 > 0 {
                 self.emit(Instruction::Pop {
                     count: body_locals.0,
@@ -1147,12 +1154,11 @@ impl Compiler {
         self.emit(Instruction::Jump {
             offset: CodeOffset(0),
         });
-        let targets = if is_break {
-            &mut self.loop_contexts[lc_pos].break_jumps
-        } else {
-            &mut self.loop_contexts[lc_pos].continue_jumps
-        };
-        targets.push(jump);
+        let lc = &mut self.loop_contexts[lc_pos];
+        match keyword {
+            ControlFlow::Break(()) => lc.break_jumps.push(jump),
+            ControlFlow::Continue(()) => lc.continue_jumps.push(jump),
+        }
         Ok(())
     }
 
