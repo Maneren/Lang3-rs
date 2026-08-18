@@ -24,6 +24,30 @@ pub struct VmStack {
     values: Vec<StackValue>,
 }
 
+#[inline]
+fn slice_get<T>(slice: &[T], index: usize) -> &T {
+    if cfg!(debug_assertions) {
+        slice.get(index).expect("Index from the compiler is valid")
+    } else {
+        // SAFETY: All indices come from the compiler that is considered infallible by
+        // the VM
+        unsafe { slice.get_unchecked(index) }
+    }
+}
+
+#[inline]
+fn slice_get_mut<T>(slice: &mut [T], index: usize) -> &mut T {
+    if cfg!(debug_assertions) {
+        slice
+            .get_mut(index)
+            .expect("Index from the compiler is valid")
+    } else {
+        // SAFETY: All indices come from the compiler that is considered infallible by
+        // the VM
+        unsafe { slice.get_unchecked_mut(index) }
+    }
+}
+
 impl VmStack {
     fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -56,32 +80,13 @@ impl VmStack {
 
     #[inline]
     fn get_local(&self, fp: StackIndex, index: LocalIndex) -> StackValue {
-        let index = fp.as_index() + index.as_index();
-        if cfg!(debug_assertions) {
-            *self
-                .values
-                .get(index)
-                .expect("compiler invariant: stack non-empty")
-        } else {
-            // SAFETY: All indices come from the compiler that is considered infallible by
-            // the VM
-            unsafe { *self.values.get_unchecked(index) }
-        }
+        *slice_get(&self.values, fp.as_index() + index.as_index())
     }
 
     #[inline]
     fn set_local(&mut self, fp: StackIndex, index: LocalIndex, val: StackValue) {
         let index = fp.as_index() + index.as_index();
-        if cfg!(debug_assertions) {
-            *self
-                .values
-                .get_mut(index)
-                .expect("compiler invariant: stack non-empty") = val;
-        } else {
-            // SAFETY: All indices come from the compiler that is considered infallible by
-            // the VM
-            unsafe { *self.values.get_unchecked_mut(index) = val };
-        }
+        *slice_get_mut(&mut self.values, index) = val;
     }
 
     fn truncate(&mut self, len: StackIndex) {
@@ -329,10 +334,10 @@ impl<'a> BytecodeVM<'a> {
 
         while let Some(frame) = self.frames.last() {
             let (mut ip, chunk_id, fp) = (frame.ip, frame.chunk_id, frame.frame_pointer);
-            let code = &program[chunk_id];
+            let code = program.chunks[chunk_id].code.as_slice();
 
             loop {
-                let instruction = &code[ip];
+                let instruction = slice_get(code, ip.as_index());
                 // Advance first so that jumps set `ip` directly to their target.
                 debug_println!(debug, "  IP={} {:?}", ip, instruction);
                 ip.0 += 1;
@@ -360,11 +365,7 @@ impl<'a> BytecodeVM<'a> {
                         break;
                     },
                     Instruction::Constant { index } => {
-                        let val = self
-                            .constant_values
-                            .get(index.as_index())
-                            .copied()
-                            .expect("constant index emitted by the compiler is valid");
+                        let val = *slice_get(&self.constant_values, index.as_index());
                         debug_println!(debug, "    CONSTANT({}) -> {:?}", index, val);
                         self.stack.push(val);
                         Ok(())
