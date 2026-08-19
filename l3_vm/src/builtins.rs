@@ -122,8 +122,10 @@ fn builtin_len(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
         return Err(RuntimeError::type_error("len requires an argument"));
     };
     let len = match heap_data(heap, container) {
-        Some(HeapData::String(s)) => s.chars().count() as i64,
-        Some(HeapData::Vector(v)) => v.len() as i64,
+        Some(HeapData::String(s)) => i64::try_from(s.chars().count())
+            .map_err(|_e| RuntimeError::value("length of string is too large"))?,
+        Some(HeapData::Vector(v)) => i64::try_from(v.len())
+            .map_err(|_e| RuntimeError::value("length of vector is too large"))?,
         _ => {
             return Err(RuntimeError::type_error(format!(
                 "len requires a string or vector, got {}",
