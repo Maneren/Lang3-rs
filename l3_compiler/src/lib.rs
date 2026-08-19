@@ -627,7 +627,7 @@ impl Compiler {
             name: Rc::from(nf.name.name.clone()),
             arity: idx(arity),
             curried_args: Vec::new(),
-            captured_upvalues: Rc::new(Vec::new()),
+            captured_upvalues: Rc::default(),
         })));
         let func_idx = self.make_constant(func_data);
 
@@ -1511,10 +1511,10 @@ impl Compiler {
 
         let func_data = HeapData::Function(Function::Bytecode(Box::new(BytecodeFunction {
             id: chunk_id.0,
-name: Rc::from(name),
+            name: Rc::from(name),
             arity: idx(arity),
             curried_args: Vec::new(),
-            captured_upvalues: Rc::new(Vec::new()),
+            captured_upvalues: Rc::default(),
         })));
         let func_idx = self.make_constant(func_data);
 

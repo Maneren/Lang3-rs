@@ -182,7 +182,7 @@ pub struct CallFrame {
     frame_pointer: StackIndex,
     closure_info: Option<(Rc<str>, StackValue)>,
     call_site: Option<(ChunkId, CodeOffset)>,
-    upvalues: Rc<Vec<Rc<RefCell<UpvalueCell>>>>,
+    upvalues: Rc<Box<[Rc<RefCell<UpvalueCell>>]>>,
     captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
     discard_return: bool,
 }
@@ -269,7 +269,7 @@ impl<'a> BytecodeVM<'a> {
             frame_pointer: StackIndex(0),
             closure_info: None,
             call_site: None,
-            upvalues: Rc::new(Vec::new()),
+            upvalues: Rc::default(),
             captured_locals: HashMap::with_hasher(FixedState::default()),
             discard_return: false,
         };
@@ -758,8 +758,9 @@ impl<'a> BytecodeVM<'a> {
                                                     .captured_locals
                                                     .entry(index as usize)
                                                     .or_insert_with(|| {
-                                                        let captured =
-                                                            self.stack.get_local(fp, LocalIndex(index));
+                                                        let captured = self
+                                                            .stack
+                                                            .get_local(fp, LocalIndex(index));
                                                         Rc::new(RefCell::new(UpvalueCell::new(
                                                             captured,
                                                         )))
@@ -770,7 +771,8 @@ impl<'a> BytecodeVM<'a> {
                                                     .upvalues
                                                     .get(index as usize)
                                                     .expect(
-                                                        "upvalue index is within the captured upvalues",
+                                                        "upvalue index is within the captured \
+                                                         upvalues",
                                                     )
                                                     .clone()
                                             }

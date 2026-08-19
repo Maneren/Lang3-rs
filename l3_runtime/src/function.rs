@@ -43,7 +43,7 @@ pub struct BytecodeFunction {
     pub arity: u32,
     pub name: Rc<str>,
     pub curried_args: Vec<StackValue>,
-    pub captured_upvalues: Rc<Vec<Rc<RefCell<UpvalueCell>>>>,
+    pub captured_upvalues: Rc<Box<[Rc<RefCell<UpvalueCell>>]>>,
 }
 
 #[derive(Debug, Clone)]
