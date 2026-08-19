@@ -1330,29 +1330,14 @@ impl Compiler {
         match (lhs, rhs) {
             (HeapData::Primitive(a), HeapData::Primitive(b)) => {
                 let result = match be.op {
-                    BinaryOperator::Plus => a + b,
-                    BinaryOperator::Minus => a - b,
-                    BinaryOperator::Multiply => a * b,
-                    BinaryOperator::Divide => a / b,
-                    BinaryOperator::Modulo => a % b,
-                    BinaryOperator::Power => match (a, b) {
-                        (Primitive::Integer(a), Primitive::Integer(b)) => u32::try_from(b)
-                            .ok()
-                            .ok_or("exponent must be a non-negative 32-bit integer")
-                            .map(|exp| Primitive::Integer(a.wrapping_pow(exp))),
-                        (Primitive::Double(a), Primitive::Double(b)) => {
-                            Ok(Primitive::Double(a.powf(b)))
-                        },
-                        (Primitive::Integer(a), Primitive::Double(b)) => {
-                            Ok(Primitive::Double((a as f64).powf(b)))
-                        },
-                        (Primitive::Double(a), Primitive::Integer(b)) => {
-                            Ok(Primitive::Double(a.powi(b as i32)))
-                        },
-                        _ => Err("unsupported operand types for ^"),
-                    },
+                    BinaryOperator::Plus => (a + b).ok(),
+                    BinaryOperator::Minus => (a - b).ok(),
+                    BinaryOperator::Multiply => (a * b).ok(),
+                    BinaryOperator::Divide => (a / b).ok(),
+                    BinaryOperator::Modulo => (a % b).ok(),
+                    BinaryOperator::Power => a.pow(b).ok(),
                 };
-                result.ok().map(HeapData::Primitive)
+                result.map(HeapData::Primitive)
             },
             _ => None,
         }

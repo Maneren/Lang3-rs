@@ -6,7 +6,7 @@ use crate::{
     error::{RuntimeError, RuntimeResult},
     function::Function,
     heap::Heap,
-    primitive::{Primitive, compare_primitives},
+    primitive::{PowError, Primitive, compare_primitives},
     stack_value::StackValue,
 };
 
@@ -300,35 +300,15 @@ pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<
 #[inline]
 pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
-        (Resolved::Num(pa), Resolved::Num(pb)) => {
-            let result = match (pa, pb) {
-                (Primitive::Integer(a), Primitive::Integer(b)) => {
-                    if b < 0 {
-                        // Promote negative integer exponents to double so that
-                        // `2 ^ -1` is `0.5` (uniform with mixed-type promotion).
-                        Primitive::Double((a as f64).powi(b as i32))
-                    } else {
-                        let Ok(exp) = u32::try_from(b) else {
-                            return Err(RuntimeError::value(format!(
-                                "exponent must be a non-negative 32-bit integer, got {b}"
-                            )));
-                        };
-                        Primitive::Integer(a.wrapping_pow(exp))
-                    }
-                },
-                (Primitive::Double(a), Primitive::Double(b)) => Primitive::Double(a.powf(b)),
-                (Primitive::Integer(a), Primitive::Double(b)) => {
-                    Primitive::Double((a as f64).powf(b))
-                },
-                (Primitive::Double(a), Primitive::Integer(b)) => {
-                    Primitive::Double(a.powi(b as i32))
-                },
-                _ => {
-                    return Err(RuntimeError::type_error("unsupported operand types for ^"));
-                },
-            };
-            Ok(StackValue::Primitive(result))
-        },
+        (Resolved::Num(pa), Resolved::Num(pb)) => pa
+            .pow(pb)
+            .map(StackValue::Primitive)
+            .map_err(|e| match e {
+                PowError::ExponentTooLarge(exp) => RuntimeError::value(format!(
+                    "exponent must be a non-negative 32-bit integer, got {exp}"
+                )),
+                PowError::Unsupported => RuntimeError::type_error("unsupported operand types for ^"),
+            }),
         _ => Err(RuntimeError::type_error("unsupported operand types for ^")),
     }
 }

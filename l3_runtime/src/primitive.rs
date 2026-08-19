@@ -177,6 +177,39 @@ impl Neg for Primitive {
     }
 }
 
+/// Error returned by `Primitive::pow`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PowError {
+    /// The integer exponent does not fit a non-negative `u32`.
+    ExponentTooLarge(i64),
+    /// The operand pair has no `^` semantics.
+    Unsupported,
+}
+
+impl Primitive {
+    /// `^` with uniform mixed-type promotion. Negative integer exponents are
+    /// promoted to double so that `2 ^ -1` is `0.5`.
+    #[inline]
+    pub fn pow(self, rhs: Self) -> Result<Self, PowError> {
+        match (self, rhs) {
+            (Self::Integer(base), Self::Integer(exp)) => {
+                if exp < 0 {
+                    Ok(Self::Double((base as f64).powi(exp as i32)))
+                } else {
+                    let Ok(exp) = u32::try_from(exp) else {
+                        return Err(PowError::ExponentTooLarge(exp));
+                    };
+                    Ok(Self::Integer(base.wrapping_pow(exp)))
+                }
+            },
+            (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a.powf(b))),
+            (Self::Integer(a), Self::Double(b)) => Ok(Self::Double((a as f64).powf(b))),
+            (Self::Double(a), Self::Integer(b)) => Ok(Self::Double(a.powi(b as i32))),
+            _ => Err(PowError::Unsupported),
+        }
+    }
+}
+
 /// Three-way comparison between primitives. Cross-type compares promote integer
 /// to double.
 #[inline]

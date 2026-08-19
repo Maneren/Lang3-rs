@@ -12,20 +12,18 @@
 0010 | CONSTANT      4 (8)
 0011 | CALL          1 false
 0012 | GET_GLOBAL    0 '"println"'
-0013 | CONSTANT      5 (2)
-0014 | CONSTANT      6 (-1)
-0015 | POWER
-0016 | CALL          1 false
-0017 | GET_GLOBAL    0 '"println"'
-0018 | CONSTANT      7 (0.5)
-0019 | CALL          1 false
-0020 | GET_GLOBAL    0 '"println"'
-0021 | CONSTANT      8 (4)
-0022 | CALL          1 false
-0023 | GET_GLOBAL    0 '"println"'
-0024 | CONSTANT      5 (2)
-0025 | CALL          1 false
-0026 | GET_GLOBAL    0 '"println"'
-0027 | CONSTANT      9 (2.5)
-0028 | CALL          1 false
-0029 | RETURN
+0013 | CONSTANT      5 (0.5)
+0014 | CALL          1 false
+0015 | GET_GLOBAL    0 '"println"'
+0016 | CONSTANT      5 (0.5)
+0017 | CALL          1 false
+0018 | GET_GLOBAL    0 '"println"'
+0019 | CONSTANT      6 (4)
+0020 | CALL          1 false
+0021 | GET_GLOBAL    0 '"println"'
+0022 | CONSTANT      7 (2)
+0023 | CALL          1 false
+0024 | GET_GLOBAL    0 '"println"'
+0025 | CONSTANT      8 (2.5)
+0026 | CALL          1 false
+0027 | RETURN
