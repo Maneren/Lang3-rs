@@ -578,7 +578,6 @@ dependencies = [
 name = "l3_runtime"
 version = "0.1.0"
 dependencies = [
- "l3_ast",
  "l3_location",
  "rand",
  "slotmap",
@@ -589,7 +588,6 @@ name = "l3_vm"
 version = "0.1.0"
 dependencies = [
  "foldhash",
- "l3_ast",
  "l3_bytecode",
  "l3_location",
  "l3_runtime",

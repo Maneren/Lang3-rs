@@ -10,7 +10,6 @@ use std::{
 };
 
 use foldhash::fast::FixedState;
-use l3_ast::Identifier;
 use l3_bytecode::*;
 use l3_location::Location;
 use l3_runtime::{
@@ -214,7 +213,7 @@ impl<'a> BytecodeVM<'a> {
             let func = vm
                 .heap
                 .alloc_function(Function::Builtin(BuiltinFunction::new(
-                    Identifier::new(name.to_string(), Location::default()),
+                    Rc::from(name.to_string()),
                     body,
                 )));
             vm.global_symbols.insert(name.to_string(), func);
@@ -226,7 +225,7 @@ impl<'a> BytecodeVM<'a> {
         let trigger_key = vm
             .heap
             .alloc_function(Function::Builtin(BuiltinFunction::new(
-                Identifier::new("__trigger_gc".to_string(), Location::default()),
+                Rc::from("__trigger_gc".to_string()),
                 Rc::new(|_: &[StackValue], _: &mut Heap| {
                     Err(RuntimeError::type_error(
                         "__trigger_gc is handled by the VM",

@@ -1,7 +1,5 @@
 use std::{cell::RefCell, fmt, rc::Rc};
 
-use l3_ast::Identifier;
-
 use crate::{
     error::RuntimeResult,
     heap::{Heap, UpvalueCell},
@@ -15,12 +13,12 @@ pub type BuiltinBody =
 
 #[derive(Clone)]
 pub struct BuiltinFunction {
-    pub name: Identifier,
+    pub name: Rc<str>,
     pub body: BuiltinBody,
 }
 
 impl BuiltinFunction {
-    pub fn new(name: Identifier, body: BuiltinBody) -> Self {
+    pub fn new(name: Rc<str>, body: BuiltinBody) -> Self {
         Self { name, body }
     }
 

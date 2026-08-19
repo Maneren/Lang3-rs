@@ -7,7 +7,6 @@ edition.workspace = true
 workspace = true
 
 [dependencies]
-l3_ast = { path = "../l3_ast" }
 l3_location = { path = "../l3_location" }
 slotmap.workspace = true
 rand.workspace = true
