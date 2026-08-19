@@ -182,7 +182,7 @@ pub struct CallFrame {
     frame_pointer: StackIndex,
     closure_info: Option<(Rc<str>, StackValue)>,
     call_site: Option<(ChunkId, CodeOffset)>,
-    upvalues: Box<[Rc<RefCell<UpvalueCell>>]>,
+    upvalues: Rc<Vec<Rc<RefCell<UpvalueCell>>>>,
     captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
     discard_return: bool,
 }
@@ -269,7 +269,7 @@ impl<'a> BytecodeVM<'a> {
             frame_pointer: StackIndex(0),
             closure_info: None,
             call_site: None,
-            upvalues: Box::new([]),
+            upvalues: Rc::new(Vec::new()),
             captured_locals: HashMap::with_hasher(FixedState::default()),
             discard_return: false,
         };
@@ -745,36 +745,38 @@ impl<'a> BytecodeVM<'a> {
                         match bc {
                             Err(e) => Err(e),
                             Ok(mut bc) => {
-                                bc.captured_upvalues = upvalues
-                                    .iter()
-                                    .map(|&UpvalueDesc { is_local, index }| {
-                                        let current_frame = self.frames.last_mut().expect(
-                                            "execution continues only while a frame exists",
-                                        );
+                                bc.captured_upvalues = Rc::new(
+                                    upvalues
+                                        .iter()
+                                        .map(|&UpvalueDesc { is_local, index }| {
+                                            let current_frame = self.frames.last_mut().expect(
+                                                "execution continues only while a frame exists",
+                                            );
 
-                                        if is_local {
-                                            current_frame
-                                                .captured_locals
-                                                .entry(index as usize)
-                                                .or_insert_with(|| {
-                                                    let captured =
-                                                        self.stack.get_local(fp, LocalIndex(index));
-                                                    Rc::new(RefCell::new(UpvalueCell::new(
-                                                        captured,
-                                                    )))
-                                                })
-                                                .clone()
-                                        } else {
-                                            current_frame
-                                                .upvalues
-                                                .get(index as usize)
-                                                .expect(
-                                                    "upvalue index is within the captured upvalues",
-                                                )
-                                                .clone()
-                                        }
-                                    })
-                                    .collect();
+                                            if is_local {
+                                                current_frame
+                                                    .captured_locals
+                                                    .entry(index as usize)
+                                                    .or_insert_with(|| {
+                                                        let captured =
+                                                            self.stack.get_local(fp, LocalIndex(index));
+                                                        Rc::new(RefCell::new(UpvalueCell::new(
+                                                            captured,
+                                                        )))
+                                                    })
+                                                    .clone()
+                                            } else {
+                                                current_frame
+                                                    .upvalues
+                                                    .get(index as usize)
+                                                    .expect(
+                                                        "upvalue index is within the captured upvalues",
+                                                    )
+                                                    .clone()
+                                            }
+                                        })
+                                        .collect(),
+                                );
                                 let sv = self.heap.alloc_function(Function::Bytecode(bc));
                                 debug_println!(debug, "      -> allocated function {:?}", sv);
                                 self.stack.push(sv);
@@ -849,7 +851,7 @@ impl<'a> BytecodeVM<'a> {
             if let Some((_, ref sv)) = frame.closure_info {
                 mark_stack_value(sv, &self.heap.cells);
             }
-            for uv in &frame.upvalues {
+            for uv in frame.upvalues.iter() {
                 if let Ok(uv) = uv.try_borrow() {
                     mark_stack_value(&uv.value, &self.heap.cells);
                 }
@@ -945,7 +947,7 @@ impl<'a> BytecodeVM<'a> {
             frame_pointer,
             closure_info: Some((bc.name.clone(), func_sv)),
             call_site: Some(call_site),
-            upvalues: bc.captured_upvalues.clone().into(),
+            upvalues: Rc::clone(&bc.captured_upvalues),
             captured_locals: HashMap::with_hasher(FixedState::default()),
             discard_return: !keep_return_value,
         };

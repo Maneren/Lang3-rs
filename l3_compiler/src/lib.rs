@@ -627,7 +627,7 @@ impl Compiler {
             name: Rc::from(nf.name.name.clone()),
             arity: idx(arity),
             curried_args: Vec::new(),
-            captured_upvalues: Vec::new(),
+            captured_upvalues: Rc::new(Vec::new()),
         })));
         let func_idx = self.make_constant(func_data);
 
@@ -1514,7 +1514,7 @@ impl Compiler {
 name: Rc::from(name),
             arity: idx(arity),
             curried_args: Vec::new(),
-            captured_upvalues: Vec::new(),
+            captured_upvalues: Rc::new(Vec::new()),
         })));
         let func_idx = self.make_constant(func_data);
 

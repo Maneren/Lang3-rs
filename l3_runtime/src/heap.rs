@@ -43,7 +43,7 @@ impl HeapCell {
                 for arg in &bc.curried_args {
                     mark_stack_value(arg, heap);
                 }
-                for uv in &bc.captured_upvalues {
+                for uv in bc.captured_upvalues.iter() {
                     if let Ok(uv) = uv.try_borrow()
                         && let Some(key) = uv.value.get_heap_key()
                         && let Some(cell) = heap.get(key)
