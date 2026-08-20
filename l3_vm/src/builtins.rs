@@ -54,12 +54,12 @@ fn extract_fn<'a>(heap: &'a Heap, sv: &StackValue) -> RuntimeResult<&'a Function
 fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> RuntimeResult<()> {
     for (i, arg) in args.iter().enumerate() {
         if i > 0 {
-            write!(heap.output, " ")?;
+            write!(heap.env.output, " ")?;
         }
-        write!(heap.output, "{}", stringify_stack_value(arg, heap))?;
+        write!(heap.env.output, "{}", stringify_stack_value(arg, heap))?;
     }
     if newline {
-        writeln!(heap.output)?;
+        writeln!(heap.env.output)?;
     }
     Ok(())
 }
@@ -86,7 +86,7 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVa
             |message| stringify_stack_value(message, heap),
         );
         let err_msg = format!("AssertionError: {msg}");
-        writeln!(heap.output, "{err_msg}")?;
+        writeln!(heap.env.output, "{err_msg}")?;
         return Err(RuntimeError::value(format!("assertion failed: {msg}")));
     }
     Ok(StackValue::Nil)
@@ -98,7 +98,7 @@ fn builtin_error(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVal
         |arg0| stringify_stack_value(arg0, heap),
     );
     let err_msg = format!("Error: {msg}");
-    writeln!(heap.output, "{err_msg}")?;
+    writeln!(heap.env.output, "{err_msg}")?;
     Err(RuntimeError::value(format!("error: {msg}")))
 }
 
@@ -313,13 +313,13 @@ fn builtin_random(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVa
             "random requires a positive integer argument",
         )),
     })?;
-    let val = heap.rng.random_range(0..limit);
+    let val = heap.env.rng.random_range(0..limit);
     Ok(StackValue::Primitive(Primitive::Integer(val)))
 }
 
 fn builtin_input(_args: &[StackValue], heap: &mut Heap) -> StackValue {
     let mut line = String::new();
-    let Ok(_) = heap.input.read_line(&mut line) else {
+    let Ok(_) = heap.env.input.read_line(&mut line) else {
         return StackValue::Nil;
     };
     if line.ends_with('\n') {

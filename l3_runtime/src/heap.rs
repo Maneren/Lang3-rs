@@ -1,12 +1,11 @@
 use std::{
     cell::Cell,
-    io::{self, BufRead, BufReader, LineWriter, Read, Write},
+    io::{self, Read, Write},
 };
 
-use rand::{SeedableRng as _, rngs::StdRng};
 use slotmap::{DefaultKey, SlotMap};
 
-use crate::{function::Function, heap_data::HeapData, stack_value::StackValue};
+use crate::{env::RuntimeEnv, function::Function, heap_data::HeapData, stack_value::StackValue};
 
 /// A GC-managed cell on the heap. The `marked` flag uses `Cell<bool>` so
 /// the mark phase can traverse the object graph without exclusive `&mut` access
@@ -90,9 +89,7 @@ pub struct Heap<'a> {
     pub added_since_last_sweep: usize,
     pub next_gc_threshold: usize,
     pub sweep_count: usize,
-    pub input: Box<dyn BufRead + 'a>,
-    pub output: Box<dyn Write + 'a>,
-    pub rng: StdRng,
+    pub env: RuntimeEnv<'a>,
 }
 
 impl<'a> Heap<'a> {
@@ -103,9 +100,7 @@ impl<'a> Heap<'a> {
             added_since_last_sweep: 0,
             next_gc_threshold: 1024,
             sweep_count: 0,
-            input: Box::new(BufReader::new(reader)),
-            output: Box::new(LineWriter::new(writer)),
-            rng: StdRng::seed_from_u64(42),
+            env: RuntimeEnv::new(writer, reader),
         }
     }
 
@@ -148,7 +143,7 @@ impl<'a> Heap<'a> {
     }
 
     pub fn flush_print(&mut self) -> Result<(), io::Error> {
-        self.output.flush()
+        self.env.output.flush()
     }
 
     /// Whether allocations since the last sweep have crossed the collection

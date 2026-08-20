@@ -27,7 +27,7 @@ fn run(
         vm.execute(bytecode)
     };
     if let Err(e) = result {
-        let _ = writeln!(vm.heap.output, "{e}");
+        let _ = writeln!(vm.heap.env.output, "{e}");
     }
     Ok(())
 }

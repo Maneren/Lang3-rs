@@ -1,4 +1,5 @@
 pub mod conv;
+pub mod env;
 pub mod error;
 pub mod function;
 pub mod heap;
@@ -6,6 +7,7 @@ pub mod heap_data;
 pub mod primitive;
 pub mod stack_value;
 
+pub use env::RuntimeEnv;
 pub use error::{RuntimeError, StacktraceFrame};
 pub use function::{BuiltinBody, BuiltinFunction, BytecodeFunction, Function, L3Args};
 pub use heap::{Heap, HeapCell, UpvalueCell};
