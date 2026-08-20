@@ -1,5 +1,6 @@
 use std::{ops::ControlFlow, rc::Rc};
 
+use error::CompileError;
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
     ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfBase,
@@ -12,7 +13,9 @@ use l3_bytecode::{
     UpvalueDesc, UpvalueIndex, Upvalues, idx, indexed_vec,
 };
 use l3_location::Location;
-use l3_runtime::{BytecodeFunction, CompileError, Function, HeapData, Primitive};
+use l3_runtime::{BytecodeFunction, Function, HeapData, Primitive};
+
+mod error;
 
 indexed_vec! {
     /// The locals of a single compilation context, indexed by `LocalIndex`.
