@@ -1,2 +1,8 @@
 [env]
-RUSTFLAGS = { value = "-C force-frame-pointers=yes -C symbol-mangling-version=v0 -C target-cpu=native", relative = false }
+RUSTFLAGS = { value = "-C force-frame-pointers=yes -C symbol-mangling-version=v0 -C target-cpu=native -Z threads=8", relative = false }
+
+[unstable]
+codegen-backend = true
+
+[profile.dev]
+codegen-backend = "cranelift"

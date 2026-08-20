@@ -11,6 +11,9 @@ members = [
   "l3",
 ]
 
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 lto = "fat"
 
