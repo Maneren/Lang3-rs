@@ -1,4 +1,5 @@
 pub mod builtins;
+mod stack;
 
 use std::{
     cell::RefCell,
@@ -6,7 +7,6 @@ use std::{
     collections::HashMap,
     io::{Read, Write},
     rc::Rc,
-    slice::Iter,
 };
 
 use foldhash::fast::FixedState;
@@ -18,151 +18,7 @@ use l3_runtime::{
     heap_data::{add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub},
     *,
 };
-
-pub struct VmStack {
-    values: Vec<StackValue>,
-}
-
-#[inline]
-fn slice_get<T>(slice: &[T], index: usize) -> &T {
-    if cfg!(debug_assertions) {
-        slice.get(index).expect("Index from the compiler is valid")
-    } else {
-        // SAFETY: All indices come from the compiler that is considered infallible by
-        // the VM
-        unsafe { slice.get_unchecked(index) }
-    }
-}
-
-#[inline]
-fn slice_get_mut<T>(slice: &mut [T], index: usize) -> &mut T {
-    if cfg!(debug_assertions) {
-        slice
-            .get_mut(index)
-            .expect("Index from the compiler is valid")
-    } else {
-        // SAFETY: All indices come from the compiler that is considered infallible by
-        // the VM
-        unsafe { slice.get_unchecked_mut(index) }
-    }
-}
-
-impl VmStack {
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            values: Vec::with_capacity(capacity),
-        }
-    }
-
-    fn push(&mut self, val: StackValue) {
-        self.values.push(val);
-    }
-
-    fn pop(&mut self) -> StackValue {
-        self.values
-            .pop()
-            .expect("compiler invariant: stack non-empty")
-    }
-
-    fn top(&self) -> StackValue {
-        *self
-            .values
-            .last()
-            .expect("compiler invariant: stack non-empty")
-    }
-
-    fn top_mut(&mut self) -> &mut StackValue {
-        self.values
-            .last_mut()
-            .expect("compiler invariant: stack non-empty")
-    }
-
-    #[inline]
-    fn get_local(&self, fp: StackIndex, index: LocalIndex) -> StackValue {
-        *slice_get(&self.values, fp.as_index() + index.as_index())
-    }
-
-    #[inline]
-    fn set_local(&mut self, fp: StackIndex, index: LocalIndex, val: StackValue) {
-        let index = fp.as_index() + index.as_index();
-        *slice_get_mut(&mut self.values, index) = val;
-    }
-
-    fn truncate(&mut self, len: StackIndex) {
-        self.values.truncate(len.as_index());
-    }
-
-    const fn len(&self) -> StackIndex {
-        StackIndex(self.values.len() as u32)
-    }
-
-    fn get(&self, index: StackIndex) -> Option<&StackValue> {
-        self.values.get(index.as_index())
-    }
-
-    fn drain_from(&mut self, from: StackIndex) -> Vec<StackValue> {
-        self.values.drain(from.as_index()..).collect()
-    }
-
-    fn get_range(&self, from: StackIndex, count: StackIndex) -> Option<&[StackValue]> {
-        let from = from.as_index();
-        self.values.get(from..from + count.as_index())
-    }
-
-    fn get_mut_from(&mut self, from: StackIndex) -> Option<&mut [StackValue]> {
-        self.values.get_mut(from.as_index()..)
-    }
-
-    fn extend_from_slice(&mut self, other: &[StackValue]) {
-        self.values.extend_from_slice(other);
-    }
-}
-
-pub struct CallStack {
-    frames: Vec<CallFrame>,
-}
-
-impl CallStack {
-    const fn new() -> Self {
-        Self { frames: Vec::new() }
-    }
-
-    fn last_mut(&mut self) -> Option<&mut CallFrame> {
-        self.frames.last_mut()
-    }
-
-    fn push(&mut self, frame: CallFrame) {
-        self.frames.push(frame);
-    }
-
-    fn pop(&mut self) -> CallFrame {
-        self.frames.pop().expect("active frame exists")
-    }
-
-    const fn is_empty(&self) -> bool {
-        self.frames.is_empty()
-    }
-
-    const fn len(&self) -> usize {
-        self.frames.len()
-    }
-
-    fn iter(&self) -> Iter<'_, CallFrame> {
-        self.frames.iter()
-    }
-
-    fn last(&self) -> Option<&CallFrame> {
-        self.frames.last()
-    }
-}
-
-impl<'a> IntoIterator for &'a CallStack {
-    type Item = &'a CallFrame;
-    type IntoIter = Iter<'a, CallFrame>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
+use stack::{slice_get, slice_get_mut};
 
 pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
@@ -175,16 +31,7 @@ pub struct BytecodeVM<'a> {
     debug: bool,
 }
 
-pub struct CallFrame {
-    chunk_id: ChunkId,
-    ip: CodeOffset,
-    frame_pointer: StackIndex,
-    closure_info: Option<(Rc<str>, StackValue)>,
-    call_site: Option<(ChunkId, CodeOffset)>,
-    upvalues: Rc<Box<[Rc<RefCell<UpvalueCell>>]>>,
-    captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
-    discard_return: bool,
-}
+pub use stack::{CallFrame, CallStack, VmStack};
 
 macro_rules! debug_println {
     ($debug:expr, $($arg:tt)*) => {
@@ -851,7 +698,7 @@ impl<'a> BytecodeVM<'a> {
     }
 
     fn gc_mark_roots(&self) {
-        for sv in &self.stack.values {
+        for sv in self.stack.iter() {
             mark_stack_value(sv, &self.heap.cells);
         }
         for frame in &self.frames {
