@@ -151,9 +151,11 @@ impl<'a> Heap<'a> {
         self.output.flush()
     }
 
-    pub fn maybe_gc(&mut self) {
-        if self.added_since_last_sweep >= self.next_gc_threshold {
-            self.sweep();
-        }
+    /// Whether allocations since the last sweep have crossed the collection
+    /// threshold. The VM decides when to run the mark phase against its roots.
+    #[inline]
+    #[must_use]
+    pub const fn should_collect(&self) -> bool {
+        self.added_since_last_sweep >= self.next_gc_threshold
     }
 }

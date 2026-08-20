@@ -249,7 +249,7 @@ impl<'a> BytecodeVM<'a> {
         // the heap so `Constant` dispatch is a cached key, not a linear scan.
         self.constant_keys.clear();
         self.constant_values.clear();
-        for data in program.constants.iter() {
+        for data in &program.constants {
             match data {
                 HeapData::Nil => {
                     self.constant_keys.push(None);
@@ -845,7 +845,7 @@ impl<'a> BytecodeVM<'a> {
 
     #[inline]
     fn maybe_gc(&mut self) {
-        if self.heap.added_since_last_sweep >= self.heap.next_gc_threshold {
+        if self.heap.should_collect() {
             self.run_gc();
         }
     }
