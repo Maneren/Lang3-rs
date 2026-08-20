@@ -83,6 +83,14 @@ impl VmStack {
     }
 }
 
+impl<'a> IntoIterator for &'a VmStack {
+    type Item = &'a StackValue;
+    type IntoIter = Iter<'a, StackValue>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 pub struct CallFrame {
     pub(crate) chunk_id: ChunkId,
     pub(crate) ip: CodeOffset,
@@ -141,7 +149,7 @@ impl<'a> IntoIterator for &'a CallStack {
 }
 
 #[inline]
-pub(crate) fn slice_get<T>(slice: &[T], index: usize) -> &T {
+pub fn slice_get<T>(slice: &[T], index: usize) -> &T {
     if cfg!(debug_assertions) {
         slice.get(index).expect("Index from the compiler is valid")
     } else {
@@ -152,7 +160,7 @@ pub(crate) fn slice_get<T>(slice: &[T], index: usize) -> &T {
 }
 
 #[inline]
-pub(crate) fn slice_get_mut<T>(slice: &mut [T], index: usize) -> &mut T {
+pub fn slice_get_mut<T>(slice: &mut [T], index: usize) -> &mut T {
     if cfg!(debug_assertions) {
         slice
             .get_mut(index)

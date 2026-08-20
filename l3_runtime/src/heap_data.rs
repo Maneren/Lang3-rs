@@ -326,15 +326,16 @@ pub fn modulo(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<
 #[inline]
 pub fn pow(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
-        (Resolved::Num(pa), Resolved::Num(pb)) => pa
-            .pow(pb)
-            .map(StackValue::Primitive)
-            .map_err(|e| match e {
+        (Resolved::Num(pa), Resolved::Num(pb)) => {
+            pa.pow(pb).map(StackValue::Primitive).map_err(|e| match e {
                 PowError::ExponentTooLarge(exp) => RuntimeError::value(format!(
                     "exponent must be a non-negative 32-bit integer, got {exp}"
                 )),
-                PowError::Unsupported => RuntimeError::type_error("unsupported operand types for ^"),
-            }),
+                PowError::Unsupported => {
+                    RuntimeError::type_error("unsupported operand types for ^")
+                },
+            })
+        },
         _ => Err(RuntimeError::type_error("unsupported operand types for ^")),
     }
 }

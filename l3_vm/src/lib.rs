@@ -18,7 +18,7 @@ use l3_runtime::{
     heap_data::{add, compare, div, index, index_mut, modulo, mul, negative, not_op, pow, sub},
     *,
 };
-use stack::{slice_get, slice_get_mut};
+use stack::slice_get;
 
 pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
@@ -698,7 +698,7 @@ impl<'a> BytecodeVM<'a> {
     }
 
     fn gc_mark_roots(&self) {
-        for sv in self.stack.iter() {
+        for sv in &self.stack {
             mark_stack_value(sv, &self.heap.cells);
         }
         for frame in &self.frames {

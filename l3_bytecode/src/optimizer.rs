@@ -1,8 +1,6 @@
 use std::{cmp::Ordering, collections::VecDeque, mem};
 
-use l3_runtime::{
-    Function, HeapData, Primitive, primitive::compare_primitives,
-};
+use l3_runtime::{Function, HeapData, Primitive, primitive::compare_primitives};
 
 use crate::{
     Chunk, Code, CodeOffset, ConstantIndex, ConstantPool, Instruction, LocalIndex, ProgramBytecode,
@@ -616,11 +614,7 @@ pub fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
     )
 }
 
-fn fold_window(
-    code: &[Instruction],
-    i: usize,
-    pool: &ConstantPool,
-) -> Option<(HeapData, usize)> {
+fn fold_window(code: &[Instruction], i: usize, pool: &ConstantPool) -> Option<(HeapData, usize)> {
     if let (
         Some(Instruction::Constant { index: lhs }),
         Some(Instruction::Constant { index: rhs }),
@@ -659,21 +653,21 @@ fn fold_binary(
         Instruction::Divide => fold_numeric(lhs, rhs, |a, b| (a / b).ok()),
         Instruction::Modulo => fold_numeric(lhs, rhs, |a, b| (a % b).ok()),
         Instruction::Power => fold_numeric(lhs, rhs, |a, b| a.pow(b).ok()),
-        Instruction::Equal { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
-            c == Some(Ordering::Equal)
-        })),
-        Instruction::NotEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
-            c != Some(Ordering::Equal)
-        })),
-        Instruction::Less { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
-            c == Some(Ordering::Less)
-        })),
+        Instruction::Equal { keep_rhs: false } => {
+            Some(fold_compare(lhs, rhs, |c| c == Some(Ordering::Equal)))
+        },
+        Instruction::NotEqual { keep_rhs: false } => {
+            Some(fold_compare(lhs, rhs, |c| c != Some(Ordering::Equal)))
+        },
+        Instruction::Less { keep_rhs: false } => {
+            Some(fold_compare(lhs, rhs, |c| c == Some(Ordering::Less)))
+        },
         Instruction::LessEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
             matches!(c, Some(Ordering::Less | Ordering::Equal))
         })),
-        Instruction::Greater { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
-            c == Some(Ordering::Greater)
-        })),
+        Instruction::Greater { keep_rhs: false } => {
+            Some(fold_compare(lhs, rhs, |c| c == Some(Ordering::Greater)))
+        },
         Instruction::GreaterEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
             matches!(c, Some(Ordering::Greater | Ordering::Equal))
         })),
@@ -717,7 +711,9 @@ fn fold_unary(op: &Instruction, operand: ConstantIndex, pool: &ConstantPool) -> 
             HeapData::Primitive(p) => Some(HeapData::Primitive(-*p)),
             _ => None,
         },
-        Instruction::Not => Some(HeapData::Primitive(Primitive::Bool(!is_truthy_data(operand)))),
+        Instruction::Not => Some(HeapData::Primitive(Primitive::Bool(!is_truthy_data(
+            operand,
+        )))),
         _ => None,
     }
 }
