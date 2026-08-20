@@ -168,7 +168,7 @@ pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
     pub stack: VmStack,
     pub global_symbols: HashMap<String, StackValue, FixedState>,
-    constant_keys: Vec<slotmap::DefaultKey>,
+    constant_keys: Vec<Option<slotmap::DefaultKey>>,
     constant_values: Vec<StackValue>,
     frames: CallStack,
     trigger_gc_key: Option<slotmap::DefaultKey>,
@@ -244,23 +244,28 @@ impl<'a> BytecodeVM<'a> {
     pub fn execute(&mut self, program: &ProgramBytecode) -> RuntimeResult<()> {
         let debug = self.debug;
 
-        // Pre-insert all program constants into the heap so the Constant
-        // dispatch can use a cached slotmap key instead of a linear scan.
-        self.constant_keys = program
-            .constants
-            .iter()
-            .map(|hc| self.heap.cells.insert(hc.clone()))
-            .collect();
-        self.constant_values = program
-            .constants
-            .iter()
-            .zip(&self.constant_keys)
-            .map(|(hc, key)| match &hc.value {
-                HeapData::Nil => StackValue::Nil,
-                HeapData::Primitive(p) => StackValue::Primitive(*p),
-                _ => StackValue::Heap(*key),
-            })
-            .collect();
+        // Materialize the constant pool: primitives and nil stay inline,
+        // heap-resident values (strings, vectors, functions) are inserted into
+        // the heap so `Constant` dispatch is a cached key, not a linear scan.
+        self.constant_keys.clear();
+        self.constant_values.clear();
+        for data in program.constants.iter() {
+            match data {
+                HeapData::Nil => {
+                    self.constant_keys.push(None);
+                    self.constant_values.push(StackValue::Nil);
+                },
+                HeapData::Primitive(p) => {
+                    self.constant_keys.push(None);
+                    self.constant_values.push(StackValue::Primitive(*p));
+                },
+                _ => {
+                    let key = self.heap.cells.insert(HeapCell::new(data.clone()));
+                    self.constant_keys.push(Some(key));
+                    self.constant_values.push(StackValue::Heap(key));
+                },
+            }
+        }
 
         let frame = CallFrame {
             chunk_id: ChunkId(0),
@@ -724,9 +729,10 @@ impl<'a> BytecodeVM<'a> {
                             function_index,
                             upvalues.len()
                         );
-                        let constant_key = *self
+                        let constant_key = self
                             .constant_keys
                             .get(function_index.as_index())
+                            .and_then(|key| *key)
                             .expect("closure constant was pre-inserted into the heap");
                         let bc = self.heap.cells.get(constant_key).map_or_else(
                             || {
@@ -867,7 +873,9 @@ impl<'a> BytecodeVM<'a> {
             mark_stack_value(sv, &self.heap.cells);
         }
         for key in &self.constant_keys {
-            if let Some(cell) = self.heap.cells.get(*key) {
+            if let Some(key) = *key
+                && let Some(cell) = self.heap.cells.get(key)
+            {
                 cell.mark(&self.heap.cells);
             }
         }

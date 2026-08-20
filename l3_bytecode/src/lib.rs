@@ -13,7 +13,7 @@ use std::{
 pub use indices::{ChunkId, CodeOffset, ConstantIndex, LocalIndex, StackIndex, UpvalueIndex, idx};
 pub use instructions::{Instruction, UpvalueDesc};
 use l3_location::Location;
-use l3_runtime::{BytecodeFunction, Function, HeapCell, HeapData};
+use l3_runtime::{BytecodeFunction, Function, HeapData};
 
 /// A `Vec<T>` whose `len`/`push` return the strongly typed index into the
 /// collection, removing the `usize` ↔ typed-index conversions at every use
@@ -199,9 +199,12 @@ impl IndexMut<CodeOffset> for Chunk {
 // ConstantPool -- type-aware constant table wrapper
 // ---------------------------------------------------------------------------
 
+/// Constant table storing plain `HeapData` values, decoupled from the
+/// runtime's GC cell representation. The VM materializes the cells that live
+/// on the heap (strings, vectors, functions) on demand.
 #[derive(Debug, Clone, Default)]
 pub struct ConstantPool {
-    pub constants: Vec<HeapCell>,
+    pub constants: Vec<HeapData>,
 }
 
 impl ConstantPool {
@@ -214,7 +217,7 @@ impl ConstantPool {
 
     #[inline]
     #[must_use]
-    pub fn get(&self, index: ConstantIndex) -> Option<&HeapCell> {
+    pub fn get(&self, index: ConstantIndex) -> Option<&HeapData> {
         self.constants.get(index.as_index())
     }
 
@@ -224,7 +227,6 @@ impl ConstantPool {
     #[must_use]
     pub fn string(&self, index: ConstantIndex) -> &str {
         self.constants[index.as_index()]
-            .value
             .as_string()
             .expect("compiler invariant: constant is string")
     }
@@ -233,15 +235,15 @@ impl ConstantPool {
     /// closures.
     #[must_use]
     pub fn bytecode_function(&self, index: ConstantIndex) -> &BytecodeFunction {
-        match &self.constants[index.as_index()].value {
+        match &self.constants[index.as_index()] {
             HeapData::Function(Function::Bytecode(bc)) => bc,
             _ => unreachable!("compiler invariant: constant is BytecodeFunction"),
         }
     }
 
-    pub fn push(&mut self, cell: HeapCell) -> ConstantIndex {
+    pub fn push(&mut self, data: HeapData) -> ConstantIndex {
         let index = idx(self.constants.len());
-        self.constants.push(cell);
+        self.constants.push(data);
         index
     }
 
@@ -255,17 +257,17 @@ impl ConstantPool {
         self.constants.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<'_, HeapCell> {
+    pub fn iter(&self) -> Iter<'_, HeapData> {
         self.constants.iter()
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<'_, HeapCell> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, HeapData> {
         self.constants.iter_mut()
     }
 }
 
 impl Index<ConstantIndex> for ConstantPool {
-    type Output = HeapCell;
+    type Output = HeapData;
 
     fn index(&self, index: ConstantIndex) -> &Self::Output {
         &self.constants[index.as_index()]
@@ -273,8 +275,8 @@ impl Index<ConstantIndex> for ConstantPool {
 }
 
 impl IntoIterator for ConstantPool {
-    type Item = HeapCell;
-    type IntoIter = IntoIter<HeapCell>;
+    type Item = HeapData;
+    type IntoIter = IntoIter<HeapData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.constants.into_iter()
@@ -282,8 +284,8 @@ impl IntoIterator for ConstantPool {
 }
 
 impl<'a> IntoIterator for &'a ConstantPool {
-    type Item = &'a HeapCell;
-    type IntoIter = Iter<'a, HeapCell>;
+    type Item = &'a HeapData;
+    type IntoIter = Iter<'a, HeapData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.constants.iter()
@@ -291,8 +293,8 @@ impl<'a> IntoIterator for &'a ConstantPool {
 }
 
 impl<'a> IntoIterator for &'a mut ConstantPool {
-    type Item = &'a mut l3_runtime::HeapCell;
-    type IntoIter = IterMut<'a, l3_runtime::HeapCell>;
+    type Item = &'a mut HeapData;
+    type IntoIter = IterMut<'a, HeapData>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
     }

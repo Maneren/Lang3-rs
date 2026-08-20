@@ -41,9 +41,9 @@ fn write_operand(out: &mut String, val: impl Display) {
     append(out, format_args!(" {val:>OPERAND_WIDTH$}"));
 }
 
-fn write_value(out: &mut String, cell: Option<&l3_runtime::HeapCell>) {
-    match cell {
-        Some(c) => append(out, format_args!(" ({})", c.value)),
+fn write_value(out: &mut String, data: Option<&l3_runtime::HeapData>) {
+    match data {
+        Some(data) => append(out, format_args!(" ({data})")),
         None => out.push_str(" ?"),
     }
 }
@@ -240,6 +240,6 @@ fn format_instruction(
     }
 }
 
-fn display_constant(cell: Option<&l3_runtime::HeapCell>) -> String {
-    cell.map_or_else(|| "?".to_string(), |c| format!("{}", c.value))
+fn display_constant(data: Option<&l3_runtime::HeapData>) -> String {
+    data.map_or_else(|| "?".to_string(), |data| format!("{data}"))
 }

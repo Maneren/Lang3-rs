@@ -1,8 +1,7 @@
-use std::{cmp::Ordering, collections::VecDeque, io, mem};
+use std::{cmp::Ordering, collections::VecDeque, mem};
 
 use l3_runtime::{
-    Function, Heap, HeapCell, HeapData, Primitive, StackValue,
-    heap_data::{add, compare, div, modulo, mul, negative, not_op, pow, sub, to_owned},
+    Function, HeapData, Primitive, primitive::compare_primitives,
 };
 
 use crate::{
@@ -56,8 +55,8 @@ impl Optimizer {
 /// reserve that many unknown entries at the bottom.
 fn chunk_arities(program: &ProgramBytecode) -> Vec<u32> {
     let mut arities = vec![0; program.chunks.len().as_index()];
-    for cell in &program.constants {
-        if let HeapData::Function(Function::Bytecode(bc)) = &cell.value
+    for data in &program.constants {
+        if let HeapData::Function(Function::Bytecode(bc)) = data
             && let Some(slot) = arities.get_mut(bc.id as usize)
         {
             *slot = bc.arity;
@@ -550,16 +549,12 @@ fn transfer_instruction(inst: &Instruction, stack: &mut AbstractStack) {
 // ---------------------------------------------------------------------------
 // Constant folding over adjacent Constant + op sequences
 // ---------------------------------------------------------------------------
+//
+// Folds directly on constant-pool `HeapData` values, so no runtime heap is
+// needed. Only results that can be represented standalone (nil, primitives,
+// strings) are folded; vector/function results are left to the interpreter.
 
-fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
-    let mut sink = io::sink();
-    let mut empty = io::empty();
-    let mut heap = Heap::new(&mut sink, &mut empty);
-    let mut values: Vec<StackValue> = pool
-        .iter()
-        .map(|cell| heap.alloc(cell.value.clone()))
-        .collect();
-
+pub fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
     let len = chunk.code.len().as_index();
     let mut new_code = Vec::with_capacity(len);
     let mut new_locations = Vec::with_capacity(len);
@@ -568,10 +563,10 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
 
     let mut i = 0;
     while i < len {
-        let fold = fold_window(chunk.code.as_slice(), i, &values, &mut heap);
+        let fold = fold_window(chunk.code.as_slice(), i, pool);
         if let Some((data, count)) = fold {
             changed = true;
-            let idx = add_constant(pool, &mut values, &mut heap, data);
+            let idx = add_constant(pool, data);
             new_code.push(Instruction::Constant { index: idx });
             new_locations.push(
                 chunk
@@ -624,20 +619,19 @@ fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
 fn fold_window(
     code: &[Instruction],
     i: usize,
-    values: &[StackValue],
-    heap: &mut Heap,
+    pool: &ConstantPool,
 ) -> Option<(HeapData, usize)> {
     if let (
         Some(Instruction::Constant { index: lhs }),
         Some(Instruction::Constant { index: rhs }),
         Some(op),
     ) = (code.get(i), code.get(i + 1), code.get(i + 2))
-        && let Some(data) = fold_binary(op, *lhs, *rhs, values, heap)
+        && let Some(data) = fold_binary(op, *lhs, *rhs, pool)
     {
         return Some((data, 3));
     }
     if let (Some(Instruction::Constant { index }), Some(op)) = (code.get(i), code.get(i + 1))
-        && let Some(data) = fold_unary(op, *index, values, heap)
+        && let Some(data) = fold_unary(op, *index, pool)
     {
         return Some((data, 2));
     }
@@ -648,100 +642,101 @@ fn fold_binary(
     op: &Instruction,
     lhs: ConstantIndex,
     rhs: ConstantIndex,
-    values: &[StackValue],
-    heap: &mut Heap,
+    pool: &ConstantPool,
 ) -> Option<HeapData> {
-    let lhs = values.get(lhs.as_index()).copied()?;
-    let rhs = values.get(rhs.as_index()).copied()?;
-    let result = match op {
-        Instruction::Add => add(&lhs, &rhs, heap),
-        Instruction::Subtract => sub(&lhs, &rhs, heap),
-        Instruction::Multiply => mul(&lhs, &rhs, heap),
-        Instruction::Divide => div(&lhs, &rhs, heap),
-        Instruction::Modulo => modulo(&lhs, &rhs, heap),
-        Instruction::Power => pow(&lhs, &rhs, heap),
-        Instruction::Equal { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                c == Some(Ordering::Equal)
-            }));
+    let lhs = pool.get(lhs)?;
+    let rhs = pool.get(rhs)?;
+    match op {
+        Instruction::Add => match (lhs, rhs) {
+            (HeapData::Primitive(a), HeapData::Primitive(b)) => {
+                (*a + *b).ok().map(HeapData::Primitive)
+            },
+            (HeapData::String(a), HeapData::String(b)) => Some(HeapData::String(format!("{a}{b}"))),
+            _ => None,
         },
-        Instruction::NotEqual { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                c != Some(Ordering::Equal)
-            }));
-        },
-        Instruction::Less { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                c == Some(Ordering::Less)
-            }));
-        },
-        Instruction::LessEqual { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                matches!(c, Some(Ordering::Less | Ordering::Equal))
-            }));
-        },
-        Instruction::Greater { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                c == Some(Ordering::Greater)
-            }));
-        },
-        Instruction::GreaterEqual { keep_rhs: false } => {
-            return Some(compare_result(&lhs, &rhs, heap, |c| {
-                matches!(c, Some(Ordering::Greater | Ordering::Equal))
-            }));
-        },
-        _ => return None,
-    };
-    result.as_ref().ok().and_then(|sv| foldable_data(sv, heap))
-}
-
-fn compare_result(
-    lhs: &StackValue,
-    rhs: &StackValue,
-    heap: &Heap,
-    pred: impl FnOnce(Option<Ordering>) -> bool,
-) -> HeapData {
-    let ordering = compare(lhs, rhs, heap);
-    HeapData::Primitive(Primitive::Bool(pred(ordering)))
-}
-
-fn fold_unary(
-    op: &Instruction,
-    operand: ConstantIndex,
-    values: &[StackValue],
-    heap: &mut Heap,
-) -> Option<HeapData> {
-    let operand = values.get(operand.as_index()).copied()?;
-    let result = match op {
-        Instruction::Negate => negative(&operand, heap),
-        Instruction::Not => Ok(not_op(&operand, heap)),
-        _ => return None,
-    };
-    result.as_ref().ok().and_then(|sv| foldable_data(sv, heap))
-}
-
-/// Foldable results are only values that do not reference optimizer-internal
-/// heap cells (vectors and functions embed cell keys and are therefore
-/// skipped).
-fn foldable_data(result: &StackValue, heap: &Heap) -> Option<HeapData> {
-    let data = to_owned(result, heap);
-    match data {
-        HeapData::Nil | HeapData::Primitive(_) | HeapData::String(_) => Some(data),
+        Instruction::Subtract => fold_numeric(lhs, rhs, |a, b| (a - b).ok()),
+        Instruction::Multiply => fold_numeric(lhs, rhs, |a, b| (a * b).ok()),
+        Instruction::Divide => fold_numeric(lhs, rhs, |a, b| (a / b).ok()),
+        Instruction::Modulo => fold_numeric(lhs, rhs, |a, b| (a % b).ok()),
+        Instruction::Power => fold_numeric(lhs, rhs, |a, b| a.pow(b).ok()),
+        Instruction::Equal { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            c == Some(Ordering::Equal)
+        })),
+        Instruction::NotEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            c != Some(Ordering::Equal)
+        })),
+        Instruction::Less { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            c == Some(Ordering::Less)
+        })),
+        Instruction::LessEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            matches!(c, Some(Ordering::Less | Ordering::Equal))
+        })),
+        Instruction::Greater { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            c == Some(Ordering::Greater)
+        })),
+        Instruction::GreaterEqual { keep_rhs: false } => Some(fold_compare(lhs, rhs, |c| {
+            matches!(c, Some(Ordering::Greater | Ordering::Equal))
+        })),
         _ => None,
     }
 }
 
-fn add_constant(
-    pool: &mut ConstantPool,
-    values: &mut Vec<StackValue>,
-    heap: &mut Heap,
-    data: HeapData,
-) -> ConstantIndex {
-    if let Some(i) = pool.iter().position(|cell| cell.value == data) {
+fn fold_numeric(
+    lhs: &HeapData,
+    rhs: &HeapData,
+    f: impl FnOnce(Primitive, Primitive) -> Option<Primitive>,
+) -> Option<HeapData> {
+    match (lhs, rhs) {
+        (HeapData::Primitive(a), HeapData::Primitive(b)) => f(*a, *b).map(HeapData::Primitive),
+        _ => None,
+    }
+}
+
+fn fold_compare(
+    lhs: &HeapData,
+    rhs: &HeapData,
+    pred: impl FnOnce(Option<Ordering>) -> bool,
+) -> HeapData {
+    HeapData::Primitive(Primitive::Bool(pred(compare_data(lhs, rhs))))
+}
+
+/// Value comparison over foldable data: primitives, strings and nil only.
+fn compare_data(a: &HeapData, b: &HeapData) -> Option<Ordering> {
+    match (a, b) {
+        (HeapData::Primitive(x), HeapData::Primitive(y)) => compare_primitives(*x, *y),
+        (HeapData::String(x), HeapData::String(y)) => Some(x.cmp(y)),
+        (HeapData::Nil, HeapData::Nil) => Some(Ordering::Equal),
+        _ => None,
+    }
+}
+
+fn fold_unary(op: &Instruction, operand: ConstantIndex, pool: &ConstantPool) -> Option<HeapData> {
+    let operand = pool.get(operand)?;
+    match op {
+        Instruction::Negate => match operand {
+            HeapData::Primitive(p) => Some(HeapData::Primitive(-*p)),
+            _ => None,
+        },
+        Instruction::Not => Some(HeapData::Primitive(Primitive::Bool(!is_truthy_data(operand)))),
+        _ => None,
+    }
+}
+
+/// Truthiness over foldable data, mirroring `HeapData::is_truthy`.
+fn is_truthy_data(data: &HeapData) -> bool {
+    match data {
+        HeapData::Nil => false,
+        HeapData::Primitive(p) => p.is_truthy(),
+        HeapData::Function(_) => true,
+        HeapData::Vector(v) => !v.is_empty(),
+        HeapData::String(s) => !s.is_empty(),
+    }
+}
+
+/// Append `data` to the pool if absent; reuse the existing slot otherwise.
+fn add_constant(pool: &mut ConstantPool, data: HeapData) -> ConstantIndex {
+    if let Some(i) = pool.iter().position(|existing| *existing == data) {
         return idx(i);
     }
-    let idx = pool.push(HeapCell::new(data.clone()));
-    let stack_value = heap.alloc(data);
-    values.push(stack_value);
-    idx
+    pool.push(data)
 }

@@ -12,7 +12,7 @@ use l3_bytecode::{
     UpvalueDesc, UpvalueIndex, Upvalues, idx, indexed_vec,
 };
 use l3_location::Location;
-use l3_runtime::{BytecodeFunction, CompileError, Function, HeapCell, HeapData, Primitive};
+use l3_runtime::{BytecodeFunction, CompileError, Function, HeapData, Primitive};
 
 indexed_vec! {
     /// The locals of a single compilation context, indexed by `LocalIndex`.
@@ -477,11 +477,11 @@ impl Compiler {
             .program
             .constants
             .iter()
-            .position(|cell| cell.value == value)
+            .position(|data| *data == value)
         {
             return idx(i);
         }
-        self.program.constants.push(HeapCell::new(value))
+        self.program.constants.push(value)
     }
 
     fn make_string_constant(&mut self, s: &str) -> ConstantIndex {
