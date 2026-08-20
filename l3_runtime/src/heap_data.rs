@@ -161,6 +161,10 @@ impl HeapData {
 
     #[must_use]
     pub fn fmt_with_heap(&self, heap: &Heap) -> String {
+        self.fmt_with_heap_mode(heap, true)
+    }
+
+    fn fmt_with_heap_mode(&self, heap: &Heap, quote_strings: bool) -> String {
         match self {
             Self::Nil => "nil".to_string(),
             Self::Primitive(p) => format!("{p}"),
@@ -169,25 +173,47 @@ impl HeapData {
                 Function::Bytecode(bc) => format!("<fn {}>", bc.name),
             },
             Self::Vector(v) => {
-                let elems: Vec<String> = v.iter().map(|sv| format_stack_value(sv, heap)).collect();
+                let elems: Vec<String> = v
+                    .iter()
+                    .map(|sv| format_stack_value_mode(sv, heap, quote_strings))
+                    .collect();
                 format!("[{}]", elems.join(", "))
             },
-            Self::String(s) => format!("\"{s}\""),
+            Self::String(s) => {
+                if quote_strings {
+                    format!("\"{s}\"")
+                } else {
+                    s.clone()
+                }
+            },
         }
     }
 }
 
-// Display free function using heap
-#[must_use]
-pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
+/// The one value formatter. `quote_strings` selects between the display form
+/// (`"a"`) and the stringify form (`a`, used by `str()` and printing).
+fn format_stack_value_mode(sv: &StackValue, heap: &Heap, quote_strings: bool) -> String {
     match sv {
         StackValue::Nil => "nil".to_string(),
         StackValue::Primitive(p) => format!("{p}"),
         StackValue::Heap(key) => heap.cells.get(*key).map_or_else(
             || "<dead>".to_string(),
-            |cell| cell.value.fmt_with_heap(heap),
+            |cell| cell.value.fmt_with_heap_mode(heap, quote_strings),
         ),
     }
+}
+
+/// Display a value: strings are quoted, matching the constant-pool / debug
+/// output.
+#[must_use]
+pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
+    format_stack_value_mode(sv, heap, true)
+}
+
+/// Stringify a value: strings are emitted raw, matching `str()` semantics.
+#[must_use]
+pub fn stringify_stack_value(sv: &StackValue, heap: &Heap) -> String {
+    format_stack_value_mode(sv, heap, false)
 }
 
 // ---------------------------------------------------------------------------

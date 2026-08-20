@@ -8,6 +8,7 @@ use std::{
 use l3_runtime::{
     conv::{as_integer, non_negative_count, to_integer},
     error::RuntimeResult,
+    heap_data::stringify_stack_value,
     *,
 };
 use rand::RngExt as _;
@@ -55,7 +56,7 @@ fn write_output(args: &[StackValue], heap: &mut Heap, newline: bool) -> RuntimeR
         if i > 0 {
             write!(heap.output, " ")?;
         }
-        write!(heap.output, "{}", format_stack_value(arg, heap))?;
+        write!(heap.output, "{}", stringify_stack_value(arg, heap))?;
     }
     if newline {
         writeln!(heap.output)?;
@@ -82,7 +83,7 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVa
     if !condition.is_truthy(heap) {
         let msg = args.get(1).map_or_else(
             || "assertion failed".to_string(),
-            |message| format_stack_value(message, heap),
+            |message| stringify_stack_value(message, heap),
         );
         let err_msg = format!("AssertionError: {msg}");
         writeln!(heap.output, "{err_msg}")?;
@@ -94,7 +95,7 @@ fn builtin_assert(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackVa
 fn builtin_error(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue> {
     let msg = args.first().map_or_else(
         || "error".to_string(),
-        |arg0| format_stack_value(arg0, heap),
+        |arg0| stringify_stack_value(arg0, heap),
     );
     let err_msg = format!("Error: {msg}");
     writeln!(heap.output, "{err_msg}")?;
@@ -113,7 +114,7 @@ fn builtin_int(args: &[StackValue], heap: &mut Heap) -> RuntimeResult<StackValue
 fn builtin_str(args: &[StackValue], heap: &mut Heap) -> StackValue {
     let text = args
         .first()
-        .map_or_else(String::new, |value| format_stack_value(value, heap));
+        .map_or_else(String::new, |value| stringify_stack_value(value, heap));
     heap.alloc_string(text)
 }
 
@@ -409,29 +410,4 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("sleep", wrap(builtin_sleep)),
         ("sum", wrap(builtin_sum)),
     ]
-}
-
-#[must_use]
-pub fn format_stack_value(sv: &StackValue, heap: &Heap) -> String {
-    match sv {
-        StackValue::Nil => "nil".to_string(),
-        StackValue::Primitive(p) => format!("{p}"),
-        StackValue::Heap(key) => heap.cells.get(*key).map_or_else(
-            || "<dead>".to_string(),
-            |cell| match &cell.value {
-                HeapData::Nil => "nil".to_string(),
-                HeapData::Primitive(p) => format!("{p}"),
-                HeapData::Function(f) => match f {
-                    Function::Builtin(b) => format!("<builtin {}>", b.name),
-                    Function::Bytecode(bc) => format!("<fn {}>", bc.name),
-                },
-                HeapData::Vector(v) => {
-                    let elems: Vec<String> =
-                        v.iter().map(|sv| format_stack_value(sv, heap)).collect();
-                    format!("[{}]", elems.join(", "))
-                },
-                HeapData::String(s) => s.clone(),
-            },
-        ),
-    }
 }
