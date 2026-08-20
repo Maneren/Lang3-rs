@@ -4,23 +4,22 @@ A Rust port of the L3 language — a dynamically-typed, Lua/Python-inspired scri
 
 ## Code Structure
 
-Workspace with 9 crates (topologically sorted):
+Workspace with 8 crates (topologically sorted):
 
 | Crate         | Purpose                                                                      |
 | ------------- | ---------------------------------------------------------------------------- |
 | `l3_location` | Source location types (`Position`, `Location`)                               |
 | `l3_ast`      | AST node definitions + pretty-printer                                        |
-| `l3_runtime`  | Runtime types: `Heap`, `StackValue`, `Primitive`, `Function`, `RuntimeError` |
-| `l3_bytecode` | Bytecode `Instruction` enum + formatter                                      |
+| `l3_runtime`  | Runtime types: `Heap`, `RuntimeEnv` (stdio + rng), `StackValue`, `Primitive`, `Function`, `RuntimeError` |
+| `l3_bytecode` | Bytecode `Instruction` enum + formatter + optimizer                          |
 | `l3_parser`   | Lexer (logos) + LALRPOP grammar                                              |
 | `l3_compiler` | AST → Bytecode compiler                                                      |
 | `l3_vm`       | Bytecode VM loop + builtin functions                                         |
-| `l3_cli`      | CLI argument parser (clap)                                                   |
 | `l3`          | Top-level binary + lib (pipeline: parse → compile → execute)                 |
 
-Dependency flow: `l3_location → l3_ast → l3_runtime → l3_bytecode → (l3_parser, l3_compiler, l3_vm) → l3_cli → l3`
+Dependency flow: `l3_location → l3_ast → l3_runtime → l3_bytecode → (l3_parser, l3_compiler, l3_vm) → l3`
 
-Key files: `l3_parser/src/grammar.lalrpop` (815 lines of grammar), `l3_vm/src/builtins.rs` (20 builtins), `plan/` directory has bytecode optimization docs.
+Key files: `l3_parser/src/grammar.lalrpop` (815 lines of grammar), `l3_vm/src/builtins.rs` (20 builtins), `l3_vm/src/lib.rs` (dispatch loop; `stack.rs` holds `VmStack`/`CallStack`/`CallFrame`), `l3_compiler/src/{lib.rs, context.rs, alias.rs, fold.rs, compile.rs}` (compiler split by concern), `plan/` directory has bytecode optimization docs.
 
 ## Tests
 
