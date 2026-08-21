@@ -361,11 +361,18 @@ fn build_blocks(code: &[Instruction]) -> Vec<Block> {
 fn merge_stack(dst: &mut AbstractStack, src: &AbstractStack) -> bool {
     let mut changed = false;
     let n = dst.len().min(src.len());
-    dst.truncate(n);
+    if dst.len() != n {
+        dst.truncate(n);
+        changed = true;
+    }
     for (d, s) in dst.iter_mut().zip(src.as_slice()) {
-        if *d != *s && d.is_some() {
-            *d = None;
-            changed = true;
+        if *d != *s {
+            if d.is_some() {
+                *d = None;
+                changed = true;
+            } else if s.is_some() {
+                // dst is already unknown, stays unknown; no change
+            }
         }
     }
     changed
