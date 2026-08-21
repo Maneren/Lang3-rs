@@ -121,7 +121,7 @@ impl<'a> BytecodeVM<'a> {
             closure_info: None,
             call_site: None,
             upvalues: Rc::default(),
-            captured_locals: HashMap::with_hasher(FixedState::default()),
+            captured_locals: None,
             discard_return: false,
         };
         self.frames.push(frame);
@@ -350,15 +350,12 @@ impl<'a> BytecodeVM<'a> {
                             .frames
                             .last()
                             .expect("execution continues only while a frame exists");
-                        let val = if frame.captured_locals.is_empty() {
-                            self.stack.get_local(fp, *index)
-                        } else {
-                            frame
-                                .captured_locals
-                                .get(&index.as_index())
-                                .and_then(|cell| cell.try_borrow().ok())
-                                .map_or_else(|| self.stack.get_local(fp, *index), |cell| cell.value)
-                        };
+                        let val = frame
+                            .captured_locals
+                            .as_ref()
+                            .and_then(|map| map.get(&index.as_index()))
+                            .and_then(|cell| cell.try_borrow().ok())
+                            .map_or_else(|| self.stack.get_local(fp, *index), |cell| cell.value);
                         self.stack.push(val);
                         Ok(())
                     },
@@ -367,12 +364,13 @@ impl<'a> BytecodeVM<'a> {
                         debug_println!(debug, "    SET_LOCAL {} fp={} val={:?}", index, fp, val);
                         self.stack.set_local(fp, *index, val);
 
-                        let frame = self
+                        if let Some(map) = self
                             .frames
                             .last()
-                            .expect("execution continues only while a frame exists");
-                        if !frame.captured_locals.is_empty()
-                            && let Some(cell) = frame.captured_locals.get(&index.as_index())
+                            .expect("execution continues only while a frame exists")
+                            .captured_locals
+                            .as_ref()
+                            && let Some(cell) = map.get(&index.as_index())
                         {
                             cell.borrow_mut().value = val;
                         }
@@ -608,6 +606,9 @@ impl<'a> BytecodeVM<'a> {
                                             if is_local {
                                                 current_frame
                                                     .captured_locals
+                                                    .get_or_insert_with(|| {
+                                                        HashMap::with_hasher(FixedState::default())
+                                                    })
                                                     .entry(index as usize)
                                                     .or_insert_with(|| {
                                                         let captured = self
@@ -710,9 +711,11 @@ impl<'a> BytecodeVM<'a> {
                     mark_stack_value(&uv.value, &self.heap.cells);
                 }
             }
-            for cell in frame.captured_locals.values() {
-                if let Ok(cell) = cell.try_borrow() {
-                    mark_stack_value(&cell.value, &self.heap.cells);
+            if let Some(map) = &frame.captured_locals {
+                for cell in map.values() {
+                    if let Ok(cell) = cell.try_borrow() {
+                        mark_stack_value(&cell.value, &self.heap.cells);
+                    }
                 }
             }
         }
@@ -804,7 +807,7 @@ impl<'a> BytecodeVM<'a> {
             closure_info: Some((bc.name.clone(), func_sv)),
             call_site: Some(call_site),
             upvalues: Rc::clone(&bc.captured_upvalues),
-            captured_locals: HashMap::with_hasher(FixedState::default()),
+            captured_locals: None,
             discard_return: !keep_return_value,
         };
         self.frames.push(new_frame);

@@ -98,7 +98,7 @@ pub struct CallFrame {
     pub(crate) closure_info: Option<(Rc<str>, StackValue)>,
     pub(crate) call_site: Option<(ChunkId, CodeOffset)>,
     pub(crate) upvalues: Rc<Box<[Rc<RefCell<UpvalueCell>>]>>,
-    pub(crate) captured_locals: HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>,
+    pub(crate) captured_locals: Option<HashMap<usize, Rc<RefCell<UpvalueCell>>, FixedState>>,
     pub(crate) discard_return: bool,
 }
 
