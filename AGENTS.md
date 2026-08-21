@@ -29,6 +29,13 @@ Key files: `l3_parser/src/grammar.lalrpop` (815 lines of grammar), `l3_vm/src/bu
 - Run: `cargo test`
 - Update snapshots: `L3_UPDATE_SNAPSHOTS=1 cargo test`
 
+## Benchmarks
+
+- Criterion benchmarks in `l3/benches/pipeline.rs`, benchmarking the full L3
+  pipeline on `bench/*.l3` scripts.
+- Run: `cargo bench` (or `cargo bench -- --quick` for a fast pass during
+  iteration or non-performance-critical changes).
+
 ## Coding Practices
 
 - **Formatting:** `cargo fmt` (default rustfmt, no config file).
