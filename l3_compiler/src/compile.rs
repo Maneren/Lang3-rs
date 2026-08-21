@@ -409,6 +409,35 @@ impl Compiler {
         if let Some(name) = na.names.first() {
             self.ensure_mutable_binding(&name.name)?;
         }
+        if let Some(target) = na.names.first()
+            && let Expression::BinaryExpression(be) = &*na.expression
+            && be.op == BinaryOperator::Plus
+            && let Expression::Variable(var) = &*be.lhs
+            && let Variable::Identifier(id) = var
+            && id.name == target.name
+            && let Expression::Literal(Literal::Array(arr)) = &*be.rhs
+            && let VarType::Local(slot) = self.resolve_variable(&target.name)
+            && self
+                .current_context()
+                .locals
+                .get(slot)
+                .is_some_and(|local| !local.possibly_aliased)
+            && !arr
+                .elements
+                .iter()
+                .any(|elem| self.expression_references_name(elem, &target.name))
+        {
+            self.emit(Instruction::GetLocal { index: slot });
+            for elem in &arr.elements {
+                self.mark_expression_aliased(elem);
+                self.compile_expression(elem)?;
+            }
+            self.emit(Instruction::VectorAppend {
+                count: idx(arr.elements.len()),
+            });
+            self.emit(Instruction::SetLocal { index: slot });
+            return Ok(());
+        }
         self.mark_expression_aliased(&na.expression);
         let fresh = matches!(&*na.expression, Expression::Literal(_));
         self.compile_expression(&na.expression)?;
