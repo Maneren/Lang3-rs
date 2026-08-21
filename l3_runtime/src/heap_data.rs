@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, fmt};
+use std::{cmp::Ordering, fmt};
 
 use slotmap::DefaultKey;
 
@@ -358,7 +358,7 @@ pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> 
         ) {
             (Some(HeapData::String(sa)), Some(HeapData::String(sb))) => Some(sa.cmp(sb)),
             (Some(HeapData::Vector(va)), Some(HeapData::Vector(vb))) => {
-                compare_vectors(va, vb, heap, &mut HashSet::new())
+                compare_vectors(va, vb, heap, &mut Vec::new())
             },
             _ => None,
         },
@@ -367,12 +367,12 @@ pub fn compare(a: &StackValue, b: &StackValue, heap: &Heap) -> Option<Ordering> 
 }
 
 /// Element-wise comparison of vectors (cycle-safe). Only this path needs the
-/// `seen` set, created lazily at the first vector-vs-vector compare.
+/// `seen` stack, created lazily at the first vector-vs-vector compare.
 fn compare_vectors(
     va: &[StackValue],
     vb: &[StackValue],
     heap: &Heap,
-    seen: &mut HashSet<(DefaultKey, DefaultKey)>,
+    seen: &mut Vec<(DefaultKey, DefaultKey)>,
 ) -> Option<Ordering> {
     let ord = Ordering::Equal;
     for (ea, eb) in va.iter().zip(vb.iter()) {
@@ -392,7 +392,7 @@ fn compare_values(
     a: &StackValue,
     b: &StackValue,
     heap: &Heap,
-    seen: &mut HashSet<(DefaultKey, DefaultKey)>,
+    seen: &mut Vec<(DefaultKey, DefaultKey)>,
 ) -> Option<Ordering> {
     match (a, b) {
         (StackValue::Primitive(pa), StackValue::Primitive(pb)) => compare_primitives(*pa, *pb),
@@ -402,9 +402,10 @@ fn compare_values(
                 return Some(Ordering::Equal);
             }
             // Revisiting a pair means the structure is cyclic; assume equal.
-            if !seen.insert((*ka, *kb)) {
+            if seen.contains(&(*ka, *kb)) {
                 return Some(Ordering::Equal);
             }
+            seen.push((*ka, *kb));
             let result = match (
                 heap.cells.get(*ka).map(|c| &c.value),
                 heap.cells.get(*kb).map(|c| &c.value),
@@ -415,7 +416,7 @@ fn compare_values(
                 },
                 _ => None,
             };
-            seen.remove(&(*ka, *kb));
+            seen.pop();
             result
         },
         _ => None,
