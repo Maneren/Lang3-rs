@@ -34,6 +34,7 @@ impl Compiler {
                 Literal::Boolean(b) => Some(HeapData::Primitive(Primitive::Bool(b.value))),
                 Literal::Number(n) => Some(HeapData::Primitive(Primitive::Integer(n.value))),
                 Literal::Float(f) => Some(HeapData::Primitive(Primitive::Double(f.value))),
+                Literal::String(s) => Some(HeapData::String(s.value.clone())),
                 _ => None,
             },
             Expression::UnaryExpression(ue) => self.try_fold_unary(ue),
@@ -68,17 +69,20 @@ impl Compiler {
     pub(crate) fn try_fold_binary(&mut self, be: &BinaryExpression) -> Option<HeapData> {
         let lhs = self.try_fold_expression(&be.lhs)?;
         let rhs = self.try_fold_expression(&be.rhs)?;
-        match (lhs, rhs) {
+        match (&lhs, &rhs) {
             (HeapData::Primitive(a), HeapData::Primitive(b)) => {
                 let result = match be.op {
-                    BinaryOperator::Plus => (a + b).ok(),
-                    BinaryOperator::Minus => (a - b).ok(),
-                    BinaryOperator::Multiply => (a * b).ok(),
-                    BinaryOperator::Divide => (a / b).ok(),
-                    BinaryOperator::Modulo => (a % b).ok(),
-                    BinaryOperator::Power => a.pow(b).ok(),
+                    BinaryOperator::Plus => (*a + *b).ok(),
+                    BinaryOperator::Minus => (*a - *b).ok(),
+                    BinaryOperator::Multiply => (*a * *b).ok(),
+                    BinaryOperator::Divide => (*a / *b).ok(),
+                    BinaryOperator::Modulo => (*a % *b).ok(),
+                    BinaryOperator::Power => a.pow(*b).ok(),
                 };
                 result.map(HeapData::Primitive)
+            },
+            (HeapData::String(a), HeapData::String(b)) if be.op == BinaryOperator::Plus => {
+                Some(HeapData::String(format!("{a}{b}")))
             },
             _ => None,
         }
