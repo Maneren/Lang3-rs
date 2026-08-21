@@ -24,10 +24,11 @@ pub struct BytecodeVM<'a> {
     pub heap: Heap<'a>,
     pub stack: VmStack,
     pub global_symbols: HashMap<String, StackValue, FixedState>,
+    builtin_values: Vec<StackValue>,
+    builtin_bodies: Vec<builtins::Builtin>,
     constant_keys: Vec<Option<slotmap::DefaultKey>>,
     constant_values: Vec<StackValue>,
     frames: CallStack,
-    trigger_gc_key: Option<slotmap::DefaultKey>,
     debug: bool,
 }
 
@@ -48,42 +49,34 @@ impl<'a> BytecodeVM<'a> {
             heap: Heap::new(writer, reader),
             stack: VmStack::with_capacity(1024),
             global_symbols: HashMap::with_hasher(FixedState::default()),
+            builtin_values: Vec::new(),
+            builtin_bodies: Vec::new(),
             constant_keys: Vec::new(),
             constant_values: Vec::new(),
             frames: CallStack::new(),
-            trigger_gc_key: None,
             debug,
         };
 
-        // Register builtins
-        for (name, body) in builtins::builtins() {
+        // Register builtins — pre-resolve to indices for fast dispatch.
+        let mut builtin_values = vec![StackValue::Nil; BuiltinId::COUNT];
+        let mut builtin_bodies: Vec<builtins::Builtin> = Vec::with_capacity(BuiltinId::COUNT);
+        // Fill bodies in id order; placeholder for now, will be overwritten.
+        builtin_bodies.resize(BuiltinId::COUNT, builtins::builtin_for_id(BuiltinId::Print));
+        for id in BuiltinId::ALL {
+            let body = builtins::builtin_for_id(id);
             let func = vm
                 .heap
                 .alloc_function(Function::Builtin(BuiltinFunction::new(
-                    Rc::from(name.to_string()),
-                    body,
+                    Rc::from(id.name().to_string()),
+                    Rc::clone(&body),
                 )));
-            vm.global_symbols.insert(name.to_string(), func);
+            vm.global_symbols.insert(id.name().to_string(), func);
+            let idx = id.as_usize();
+            builtin_values[idx] = func;
+            builtin_bodies[idx] = body;
         }
-
-        // __trigger_gc runs a full mark-and-sweep over VM roots (stack, frames,
-        // upvalues, globals, constants), which a builtin body cannot reach, so the
-        // VM registers it here and intercepts calls to it in `call_function`.
-        let trigger_key = vm
-            .heap
-            .alloc_function(Function::Builtin(BuiltinFunction::new(
-                Rc::from("__trigger_gc".to_string()),
-                Rc::new(|_: &[StackValue], _: &mut Heap| {
-                    Err(RuntimeError::type_error(
-                        "__trigger_gc is handled by the VM",
-                    ))
-                }),
-            )))
-            .get_heap_key()
-            .expect("allocated function lives on the heap");
-        vm.global_symbols
-            .insert("__trigger_gc".to_string(), StackValue::Heap(trigger_key));
-        vm.trigger_gc_key = Some(trigger_key);
+        vm.builtin_values = builtin_values;
+        vm.builtin_bodies = builtin_bodies;
 
         vm
     }
@@ -249,27 +242,51 @@ impl<'a> BytecodeVM<'a> {
                     },
                     Instruction::Add => {
                         debug_println!(debug, "    ADD");
-                        self.binary_op(add)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = add(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Subtract => {
                         debug_println!(debug, "    SUB");
-                        self.binary_op(sub)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = sub(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Multiply => {
                         debug_println!(debug, "    MUL");
-                        self.binary_op(mul)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = mul(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Divide => {
                         debug_println!(debug, "    DIV");
-                        self.binary_op(div)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = div(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Modulo => {
                         debug_println!(debug, "    MOD");
-                        self.binary_op(modulo)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = modulo(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Power => {
                         debug_println!(debug, "    POW");
-                        self.binary_op(pow)
+                        let b = self.stack.pop();
+                        let a = self.stack.top_mut();
+                        let res = pow(a, &b, &mut self.heap)?;
+                        *a = res;
+                        Ok(())
                     },
                     Instruction::Negate => {
                         debug_println!(debug, "    NEGATE");
@@ -564,6 +581,52 @@ impl<'a> BytecodeVM<'a> {
                             Err(e) => Err(e),
                         }
                     },
+                    Instruction::GetBuiltin { builtin } => {
+                        debug_println!(debug, "    GET_BUILTIN {}", builtin);
+                        let val = self.builtin_values[builtin.as_usize()];
+                        self.stack.push(val);
+                        Ok(())
+                    },
+                    Instruction::CallBuiltin {
+                        builtin,
+                        arg_count,
+                        keep_return_value,
+                    } => {
+                        debug_println!(
+                            debug,
+                            "    CALL_BUILTIN {} argc={} keep={}",
+                            builtin,
+                            arg_count,
+                            keep_return_value
+                        );
+                        let len = self.stack.len().as_index();
+                        let argc = *arg_count as usize;
+                        if len < argc {
+                            Err(RuntimeError::generic("stack underflow"))
+                        } else {
+                            let start = StackIndex((len - argc) as u32);
+                            // Clone args to avoid borrowing `stack` across `heap` mutable borrow.
+                            let args: Vec<StackValue> = self
+                                .stack
+                                .get_range(start, StackIndex(*arg_count))
+                                .expect("stack underflow")
+                                .to_vec();
+                            let body = &self.builtin_bodies[builtin.as_usize()];
+                            match body(&args, &mut self.heap) {
+                                Ok(result) => {
+                                    self.stack.truncate(start);
+                                    if *keep_return_value {
+                                        self.stack.push(result);
+                                    }
+                                    self.maybe_gc();
+                                    Ok(())
+                                },
+                                Err(e) => {
+                                    Err(RuntimeError::type_error(format!("builtin error: {e}")))
+                                },
+                            }
+                        }
+                    },
                     Instruction::Closure {
                         function_index,
                         upvalues,
@@ -722,6 +785,9 @@ impl<'a> BytecodeVM<'a> {
         for sv in self.global_symbols.values() {
             mark_stack_value(sv, &self.heap.cells);
         }
+        for sv in &self.builtin_values {
+            mark_stack_value(sv, &self.heap.cells);
+        }
         for key in &self.constant_keys {
             if let Some(key) = *key
                 && let Some(cell) = self.heap.cells.get(key)
@@ -760,13 +826,6 @@ impl<'a> BytecodeVM<'a> {
         .ok_or_else(|| RuntimeError::type_error("invalid function reference"))?;
 
         if let Function::Builtin(builtin_function) = function {
-            if Some(func_key) == self.trigger_gc_key {
-                let before = self.heap.cells.len();
-                self.run_gc();
-                let erased = before - self.heap.cells.len();
-                self.stack.truncate(base);
-                return Ok(self.heap.alloc_string(format!("GC swept {erased} cells")));
-            }
             let body = Rc::clone(&builtin_function.body);
             let result = body(args, &mut self.heap);
             self.stack.truncate(base);
@@ -813,18 +872,6 @@ impl<'a> BytecodeVM<'a> {
         self.frames.push(new_frame);
 
         Ok(StackValue::Nil)
-    }
-
-    #[inline]
-    fn binary_op<F>(&mut self, f: F) -> RuntimeResult<()>
-    where
-        F: Fn(&StackValue, &StackValue, &mut Heap) -> RuntimeResult<StackValue>,
-    {
-        let b = self.stack.pop();
-        let a = self.stack.top_mut();
-        let result = f(a, &b, &mut self.heap)?;
-        *a = result;
-        Ok(())
     }
 
     #[inline]

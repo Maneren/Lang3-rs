@@ -6,209 +6,200 @@
 0004 | CONSTANT      4 (4)
 0005 | MAKE_ARRAY    4
 0006 | CONSTANT      5 (0)
-0007 | GET_GLOBAL    6 '"len"'
-0008 | GET_LOCAL     1
-0009 | CALL          1 true
-0010 | GET_LOCAL     2
-0011 | GET_LOCAL     3
-0012 | LESS
-0013 | JUMP_IF      36 false
-0014 | GET_LOCAL     1
-0015 | GET_LOCAL     2
-0016 | GET_INDEX
-0017 | SET_LOCAL     0
-0018 | GET_LOCAL     0
-0019 | CONSTANT      2 (2)
-0020 | EQUAL
-0021 | JUMP         24
-0022 | POP           2
-0023 | CONSTANT      7 (false)
-0024 | JUMP_IF      28 false keep after stay
-0025 | POP           1
-0026 | JUMP         31
-0027 | JUMP         28
-0028 | GET_GLOBAL    8 '"println"'
-0029 | GET_LOCAL     0
-0030 | CALL          1 false
-0031 | GET_LOCAL     2
-0032 | CONSTANT      1 (1)
-0033 | ADD
-0034 | SET_LOCAL     2
-0035 | JUMP         10
-0036 | CONSTANT      5 (0)
-0037 | GET_LOCAL     4
-0038 | CONSTANT      9 (10)
-0039 | LESS
-0040 | JUMP         43
-0041 | POP           2
-0042 | CONSTANT      7 (false)
-0043 | JUMP_IF      65 false keep after stay
-0044 | POP           1
-0045 | GET_LOCAL     4
-0046 | CONSTANT     10 (100)
-0047 | MULTIPLY
-0048 | GET_LOCAL     5
-0049 | CONSTANT     10 (100)
-0050 | GREATER
-0051 | JUMP         54
-0052 | POP           2
-0053 | CONSTANT      7 (false)
-0054 | JUMP_IF      59 false keep after stay
-0055 | POP           1
-0056 | POP           1
-0057 | JUMP         65
-0058 | JUMP         59
-0059 | GET_LOCAL     4
-0060 | CONSTANT      1 (1)
-0061 | ADD
-0062 | SET_LOCAL     4
-0063 | POP           1
-0064 | JUMP         37
-0065 | CONSTANT     11 (7)
-0066 | GET_GLOBAL    8 '"println"'
-0067 | GET_LOCAL     5
-0068 | CALL          1 false
-0069 | CONSTANT      5 (0)
-0070 | CONSTANT      5 (0)
-0071 | GET_LOCAL     6
-0072 | CONSTANT     12 (6)
-0073 | LESS
-0074 | JUMP         77
-0075 | POP           2
-0076 | CONSTANT      7 (false)
-0077 | JUMP_IF      98 false keep after stay
-0078 | POP           1
-0079 | GET_LOCAL     6
-0080 | CONSTANT      1 (1)
-0081 | ADD
-0082 | SET_LOCAL     6
-0083 | GET_LOCAL     6
-0084 | CONSTANT      3 (3)
-0085 | EQUAL
-0086 | JUMP         89
-0087 | POP           2
-0088 | CONSTANT      7 (false)
-0089 | JUMP_IF      93 false keep after stay
-0090 | POP           1
-0091 | JUMP         71
-0092 | JUMP         93
-0093 | GET_LOCAL     7
-0094 | GET_LOCAL     6
-0095 | ADD
-0096 | SET_LOCAL     7
-0097 | JUMP         71
-0098 | GET_LOCAL     7
-0099 | CONSTANT      1 (1)
-0100 | ADD
-0101 | GET_GLOBAL    8 '"println"'
-0102 | GET_LOCAL     8
-0103 | CALL          1 false
-0104 | CONSTANT      0 (nil)
-0105 | CONSTANT      5 (0)
+0007 | GET_LOCAL     1
+0008 | CALL_BUILTIN len 1 true
+0009 | GET_LOCAL     2
+0010 | GET_LOCAL     3
+0011 | LESS
+0012 | JUMP_IF      34 false
+0013 | GET_LOCAL     1
+0014 | GET_LOCAL     2
+0015 | GET_INDEX
+0016 | SET_LOCAL     0
+0017 | GET_LOCAL     0
+0018 | CONSTANT      2 (2)
+0019 | EQUAL
+0020 | JUMP         23
+0021 | POP           2
+0022 | CONSTANT      6 (false)
+0023 | JUMP_IF      27 false keep after stay
+0024 | POP           1
+0025 | JUMP         29
+0026 | JUMP         27
+0027 | GET_LOCAL     0
+0028 | CALL_BUILTIN println 1 false
+0029 | GET_LOCAL     2
+0030 | CONSTANT      1 (1)
+0031 | ADD
+0032 | SET_LOCAL     2
+0033 | JUMP          9
+0034 | CONSTANT      5 (0)
+0035 | GET_LOCAL     4
+0036 | CONSTANT      7 (10)
+0037 | LESS
+0038 | JUMP         41
+0039 | POP           2
+0040 | CONSTANT      6 (false)
+0041 | JUMP_IF      63 false keep after stay
+0042 | POP           1
+0043 | GET_LOCAL     4
+0044 | CONSTANT      8 (100)
+0045 | MULTIPLY
+0046 | GET_LOCAL     5
+0047 | CONSTANT      8 (100)
+0048 | GREATER
+0049 | JUMP         52
+0050 | POP           2
+0051 | CONSTANT      6 (false)
+0052 | JUMP_IF      57 false keep after stay
+0053 | POP           1
+0054 | POP           1
+0055 | JUMP         63
+0056 | JUMP         57
+0057 | GET_LOCAL     4
+0058 | CONSTANT      1 (1)
+0059 | ADD
+0060 | SET_LOCAL     4
+0061 | POP           1
+0062 | JUMP         35
+0063 | CONSTANT      9 (7)
+0064 | GET_LOCAL     5
+0065 | CALL_BUILTIN println 1 false
+0066 | CONSTANT      5 (0)
+0067 | CONSTANT      5 (0)
+0068 | GET_LOCAL     6
+0069 | CONSTANT     10 (6)
+0070 | LESS
+0071 | JUMP         74
+0072 | POP           2
+0073 | CONSTANT      6 (false)
+0074 | JUMP_IF      95 false keep after stay
+0075 | POP           1
+0076 | GET_LOCAL     6
+0077 | CONSTANT      1 (1)
+0078 | ADD
+0079 | SET_LOCAL     6
+0080 | GET_LOCAL     6
+0081 | CONSTANT      3 (3)
+0082 | EQUAL
+0083 | JUMP         86
+0084 | POP           2
+0085 | CONSTANT      6 (false)
+0086 | JUMP_IF      90 false keep after stay
+0087 | POP           1
+0088 | JUMP         68
+0089 | JUMP         90
+0090 | GET_LOCAL     7
+0091 | GET_LOCAL     6
+0092 | ADD
+0093 | SET_LOCAL     7
+0094 | JUMP         68
+0095 | GET_LOCAL     7
+0096 | CONSTANT      1 (1)
+0097 | ADD
+0098 | GET_LOCAL     8
+0099 | CALL_BUILTIN println 1 false
+0100 | CONSTANT      0 (nil)
+0101 | CONSTANT      5 (0)
+0102 | CONSTANT      1 (1)
+0103 | SUBTRACT
+0104 | SET_LOCAL     9
+0105 | CONSTANT     10 (6)
 0106 | CONSTANT      1 (1)
-0107 | SUBTRACT
-0108 | SET_LOCAL     9
-0109 | CONSTANT     12 (6)
-0110 | CONSTANT      1 (1)
-0111 | FOR_LOOP   ctrl=   9 lim=  10 body= 113 LT step=  11
-0112 | JUMP        129
-0113 | GET_LOCAL     9
-0114 | CONSTANT      2 (2)
-0115 | MODULO
-0116 | CONSTANT      5 (0)
-0117 | EQUAL
-0118 | JUMP        121
-0119 | POP           2
-0120 | CONSTANT      7 (false)
-0121 | JUMP_IF     125 false keep after stay
-0122 | POP           1
-0123 | JUMP        111
-0124 | JUMP        125
-0125 | GET_GLOBAL    8 '"println"'
-0126 | GET_LOCAL     9
-0127 | CALL          1 false
-0128 | JUMP        111
-0129 | CONSTANT      0 (nil)
-0130 | CONSTANT      5 (0)
-0131 | CONSTANT      1 (1)
-0132 | SUBTRACT
-0133 | SET_LOCAL    12
-0134 | CONSTANT     12 (6)
-0135 | CONSTANT      1 (1)
-0136 | FOR_LOOP   ctrl=  12 lim=  13 body= 138 LT step=  14
-0137 | JUMP        152
-0138 | GET_GLOBAL    8 '"println"'
-0139 | GET_LOCAL    12
-0140 | CALL          1 false
-0141 | GET_LOCAL    12
-0142 | CONSTANT      2 (2)
-0143 | EQUAL
-0144 | JUMP        147
-0145 | POP           2
-0146 | CONSTANT      7 (false)
-0147 | JUMP_IF     151 false keep after stay
-0148 | POP           1
-0149 | JUMP        152
-0150 | JUMP        151
-0151 | JUMP        136
-0152 | CONSTANT      0 (nil)
-0153 | CONSTANT      1 (1)
-0154 | CONSTANT      2 (2)
-0155 | MAKE_ARRAY    2
-0156 | CONSTANT      5 (0)
-0157 | GET_GLOBAL    6 '"len"'
-0158 | GET_LOCAL    16
-0159 | CALL          1 true
-0160 | GET_LOCAL    17
-0161 | GET_LOCAL    18
-0162 | LESS
-0163 | JUMP_IF     211 false
-0164 | GET_LOCAL    16
-0165 | GET_LOCAL    17
-0166 | GET_INDEX
-0167 | SET_LOCAL    15
-0168 | CONSTANT      0 (nil)
-0169 | CONSTANT      9 (10)
-0170 | CONSTANT     13 (20)
-0171 | CONSTANT     14 (30)
-0172 | MAKE_ARRAY    3
-0173 | CONSTANT      5 (0)
-0174 | GET_GLOBAL    6 '"len"'
-0175 | GET_LOCAL    20
-0176 | CALL          1 true
-0177 | GET_LOCAL    21
-0178 | GET_LOCAL    22
-0179 | LESS
-0180 | JUMP_IF     205 false
-0181 | GET_LOCAL    20
-0182 | GET_LOCAL    21
-0183 | GET_INDEX
-0184 | SET_LOCAL    19
-0185 | GET_LOCAL    19
-0186 | CONSTANT     13 (20)
-0187 | EQUAL
-0188 | JUMP        191
-0189 | POP           2
-0190 | CONSTANT      7 (false)
-0191 | JUMP_IF     195 false keep after stay
-0192 | POP           1
-0193 | JUMP        200
-0194 | JUMP        195
-0195 | GET_GLOBAL    8 '"println"'
-0196 | GET_LOCAL    15
-0197 | GET_LOCAL    19
-0198 | ADD
-0199 | CALL          1 false
-0200 | GET_LOCAL    21
-0201 | CONSTANT      1 (1)
-0202 | ADD
-0203 | SET_LOCAL    21
-0204 | JUMP        177
-0205 | POP           4
-0206 | GET_LOCAL    17
-0207 | CONSTANT      1 (1)
-0208 | ADD
-0209 | SET_LOCAL    17
-0210 | JUMP        160
-0211 | POP          19
-0212 | RETURN
+0107 | FOR_LOOP   ctrl=   9 lim=  10 body= 109 LT step=  11
+0108 | JUMP        124
+0109 | GET_LOCAL     9
+0110 | CONSTANT      2 (2)
+0111 | MODULO
+0112 | CONSTANT      5 (0)
+0113 | EQUAL
+0114 | JUMP        117
+0115 | POP           2
+0116 | CONSTANT      6 (false)
+0117 | JUMP_IF     121 false keep after stay
+0118 | POP           1
+0119 | JUMP        107
+0120 | JUMP        121
+0121 | GET_LOCAL     9
+0122 | CALL_BUILTIN println 1 false
+0123 | JUMP        107
+0124 | CONSTANT      0 (nil)
+0125 | CONSTANT      5 (0)
+0126 | CONSTANT      1 (1)
+0127 | SUBTRACT
+0128 | SET_LOCAL    12
+0129 | CONSTANT     10 (6)
+0130 | CONSTANT      1 (1)
+0131 | FOR_LOOP   ctrl=  12 lim=  13 body= 133 LT step=  14
+0132 | JUMP        146
+0133 | GET_LOCAL    12
+0134 | CALL_BUILTIN println 1 false
+0135 | GET_LOCAL    12
+0136 | CONSTANT      2 (2)
+0137 | EQUAL
+0138 | JUMP        141
+0139 | POP           2
+0140 | CONSTANT      6 (false)
+0141 | JUMP_IF     145 false keep after stay
+0142 | POP           1
+0143 | JUMP        146
+0144 | JUMP        145
+0145 | JUMP        131
+0146 | CONSTANT      0 (nil)
+0147 | CONSTANT      1 (1)
+0148 | CONSTANT      2 (2)
+0149 | MAKE_ARRAY    2
+0150 | CONSTANT      5 (0)
+0151 | GET_LOCAL    16
+0152 | CALL_BUILTIN len 1 true
+0153 | GET_LOCAL    17
+0154 | GET_LOCAL    18
+0155 | LESS
+0156 | JUMP_IF     202 false
+0157 | GET_LOCAL    16
+0158 | GET_LOCAL    17
+0159 | GET_INDEX
+0160 | SET_LOCAL    15
+0161 | CONSTANT      0 (nil)
+0162 | CONSTANT      7 (10)
+0163 | CONSTANT     11 (20)
+0164 | CONSTANT     12 (30)
+0165 | MAKE_ARRAY    3
+0166 | CONSTANT      5 (0)
+0167 | GET_LOCAL    20
+0168 | CALL_BUILTIN len 1 true
+0169 | GET_LOCAL    21
+0170 | GET_LOCAL    22
+0171 | LESS
+0172 | JUMP_IF     196 false
+0173 | GET_LOCAL    20
+0174 | GET_LOCAL    21
+0175 | GET_INDEX
+0176 | SET_LOCAL    19
+0177 | GET_LOCAL    19
+0178 | CONSTANT     11 (20)
+0179 | EQUAL
+0180 | JUMP        183
+0181 | POP           2
+0182 | CONSTANT      6 (false)
+0183 | JUMP_IF     187 false keep after stay
+0184 | POP           1
+0185 | JUMP        191
+0186 | JUMP        187
+0187 | GET_LOCAL    15
+0188 | GET_LOCAL    19
+0189 | ADD
+0190 | CALL_BUILTIN println 1 false
+0191 | GET_LOCAL    21
+0192 | CONSTANT      1 (1)
+0193 | ADD
+0194 | SET_LOCAL    21
+0195 | JUMP        169
+0196 | POP           4
+0197 | GET_LOCAL    17
+0198 | CONSTANT      1 (1)
+0199 | ADD
+0200 | SET_LOCAL    17
+0201 | JUMP        153
+0202 | POP          19
+0203 | RETURN

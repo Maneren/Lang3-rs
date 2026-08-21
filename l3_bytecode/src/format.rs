@@ -163,6 +163,21 @@ fn format_instruction(
             write_operand(out, arg_count);
             append(out, format_args!(" {keep_return_value}"));
         },
+        Instruction::GetBuiltin { builtin } => {
+            pad_op(out, "GET_BUILTIN");
+            append(out, format_args!(" {}", builtin.name()));
+        },
+        Instruction::CallBuiltin {
+            builtin,
+            arg_count,
+            keep_return_value,
+        } => {
+            pad_op(out, "CALL_BUILTIN");
+            append(
+                out,
+                format_args!(" {} {arg_count} {keep_return_value}", builtin.name()),
+            );
+        },
 
         // For loop
         Instruction::ForLoop {

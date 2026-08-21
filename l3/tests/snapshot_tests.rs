@@ -211,7 +211,6 @@ snapshot_tests! {
     equality_values,
     expressions,
     functions_closures,
-    garbage_collection,
     indexing,
     indexing_assignments,
     indexing_bounds,

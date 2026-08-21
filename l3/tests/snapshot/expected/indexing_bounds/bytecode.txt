@@ -3,34 +3,28 @@
 0001 | CONSTANT      1 (8)
 0002 | CONSTANT      2 (9)
 0003 | MAKE_ARRAY    3
-0004 | GET_GLOBAL    3 '"println"'
-0005 | GET_LOCAL     0
-0006 | CONSTANT      4 (0)
-0007 | GET_INDEX
-0008 | CALL          1 false
-0009 | GET_GLOBAL    3 '"println"'
-0010 | GET_LOCAL     0
-0011 | CONSTANT      5 (2)
-0012 | GET_INDEX
-0013 | CALL          1 false
-0014 | CONSTANT      6 ("xyz")
-0015 | GET_GLOBAL    3 '"println"'
-0016 | GET_LOCAL     1
-0017 | CONSTANT      4 (0)
-0018 | GET_INDEX
-0019 | CALL          1 false
-0020 | GET_GLOBAL    3 '"println"'
-0021 | GET_LOCAL     1
-0022 | CONSTANT      5 (2)
+0004 | GET_LOCAL     0
+0005 | CONSTANT      3 (0)
+0006 | GET_INDEX
+0007 | CALL_BUILTIN println 1 false
+0008 | GET_LOCAL     0
+0009 | CONSTANT      4 (2)
+0010 | GET_INDEX
+0011 | CALL_BUILTIN println 1 false
+0012 | CONSTANT      5 ("xyz")
+0013 | GET_LOCAL     1
+0014 | CONSTANT      3 (0)
+0015 | GET_INDEX
+0016 | CALL_BUILTIN println 1 false
+0017 | GET_LOCAL     1
+0018 | CONSTANT      4 (2)
+0019 | GET_INDEX
+0020 | CALL_BUILTIN println 1 false
+0021 | GET_LOCAL     0
+0022 | CONSTANT      6 (3)
 0023 | GET_INDEX
-0024 | CALL          1 false
-0025 | GET_GLOBAL    3 '"println"'
-0026 | GET_LOCAL     0
-0027 | CONSTANT      7 (3)
-0028 | GET_INDEX
-0029 | CALL          1 false
-0030 | GET_GLOBAL    3 '"println"'
-0031 | CONSTANT      8 ("unreachable")
-0032 | CALL          1 false
-0033 | POP           2
-0034 | RETURN
+0024 | CALL_BUILTIN println 1 false
+0025 | CONSTANT      7 ("unreachable")
+0026 | CALL_BUILTIN println 1 false
+0027 | POP           2
+0028 | RETURN

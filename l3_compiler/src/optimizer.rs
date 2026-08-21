@@ -528,11 +528,24 @@ fn transfer_instruction(inst: &Instruction, stack: &mut AbstractStack) {
         },
         Instruction::GetGlobal { .. }
         | Instruction::GetUpvalue { .. }
+        | Instruction::GetBuiltin { .. }
         | Instruction::Closure { .. } => {
             stack.push(None);
         },
         Instruction::SetGlobal { .. } | Instruction::SetUpvalue { .. } => {
             stack.pop();
+        },
+        Instruction::CallBuiltin {
+            arg_count,
+            keep_return_value,
+            ..
+        } => {
+            let pop_len = *arg_count as usize;
+            let new_len = stack.len().saturating_sub(pop_len);
+            stack.truncate(new_len);
+            if *keep_return_value {
+                stack.push(None);
+            }
         },
         Instruction::Equal { keep_rhs: true }
         | Instruction::NotEqual { keep_rhs: true }

@@ -1,3 +1,5 @@
+use l3_runtime::BuiltinId;
+
 use crate::{
     Upvalues,
     indices::{CodeOffset, ConstantIndex, LocalIndex, UpvalueIndex},
@@ -112,6 +114,16 @@ pub enum Instruction {
 
     GetIndex,
     SetIndex,
+
+    GetBuiltin {
+        builtin: BuiltinId,
+    },
+
+    CallBuiltin {
+        builtin: BuiltinId,
+        arg_count: u32,
+        keep_return_value: bool,
+    },
 
     Closure {
         function_index: ConstantIndex,

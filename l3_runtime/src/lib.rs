@@ -1,3 +1,4 @@
+pub mod builtin_id;
 pub mod conv;
 pub mod env;
 pub mod error;
@@ -7,6 +8,7 @@ pub mod heap_data;
 pub mod primitive;
 pub mod stack_value;
 
+pub use builtin_id::BuiltinId;
 pub use env::RuntimeEnv;
 pub use error::{RuntimeError, StacktraceFrame};
 pub use function::{BuiltinBody, BuiltinFunction, BytecodeFunction, Function, L3Args};

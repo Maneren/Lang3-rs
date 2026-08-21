@@ -10,41 +10,38 @@
 0008 | GET_LOCAL     1
 0009 | CONSTANT      4 (3)
 0010 | CALL          1 true
-0011 | GET_GLOBAL    5 '"println"'
-0012 | GET_LOCAL     2
-0013 | CONSTANT      6 (4)
-0014 | CALL          1 true
-0015 | CALL          1 false
-0016 | GET_LOCAL     0
-0017 | CONSTANT      7 (10)
-0018 | CALL          1 true
-0019 | GET_GLOBAL    5 '"println"'
-0020 | GET_LOCAL     3
-0021 | CONSTANT      8 (20)
-0022 | CONSTANT      9 (30)
-0023 | CALL          2 true
-0024 | CALL          1 false
-0025 | CONSTANT      0 (nil)
-0026 | CONSTANT     12 (function <blend>)
-0027 | SET_LOCAL     4
+0011 | GET_LOCAL     2
+0012 | CONSTANT      5 (4)
+0013 | CALL          1 true
+0014 | CALL_BUILTIN println 1 false
+0015 | GET_LOCAL     0
+0016 | CONSTANT      6 (10)
+0017 | CALL          1 true
+0018 | GET_LOCAL     3
+0019 | CONSTANT      7 (20)
+0020 | CONSTANT      8 (30)
+0021 | CALL          2 true
+0022 | CALL_BUILTIN println 1 false
+0023 | CONSTANT      0 (nil)
+0024 | CONSTANT     10 (function <blend>)
+0025 | SET_LOCAL     4
+0026 | GET_LOCAL     4
+0027 | SET_GLOBAL   11 '"blend"'
 0028 | GET_LOCAL     4
-0029 | SET_GLOBAL   13 '"blend"'
-0030 | GET_LOCAL     4
-0031 | CONSTANT     14 ("A")
-0032 | CALL          1 true
-0033 | GET_LOCAL     5
-0034 | CONSTANT     15 ("B")
-0035 | CALL          1 true
-0036 | GET_LOCAL     6
-0037 | CONSTANT     16 ("C")
-0038 | CALL          1 true
-0039 | GET_GLOBAL    5 '"println"'
-0040 | GET_LOCAL     7
-0041 | CONSTANT     17 ("D")
-0042 | CALL          1 true
-0043 | CALL          1 false
-0044 | POP           8
-0045 | RETURN
+0029 | CONSTANT     12 ("A")
+0030 | CALL          1 true
+0031 | GET_LOCAL     5
+0032 | CONSTANT     13 ("B")
+0033 | CALL          1 true
+0034 | GET_LOCAL     6
+0035 | CONSTANT     14 ("C")
+0036 | CALL          1 true
+0037 | GET_LOCAL     7
+0038 | CONSTANT     15 ("D")
+0039 | CALL          1 true
+0040 | CALL_BUILTIN println 1 false
+0041 | POP           8
+0042 | RETURN
 == Chunk 1 ==
 0000 | GET_LOCAL     0
 0001 | GET_LOCAL     1
@@ -54,26 +51,22 @@
 0005 | RETURN
 0006 | RETURN
 == Chunk 2 ==
-0000 | GET_GLOBAL   10 '"str"'
-0001 | GET_LOCAL     0
-0002 | CALL          1 true
-0003 | CONSTANT     11 (":")
-0004 | ADD
-0005 | GET_GLOBAL   10 '"str"'
-0006 | GET_LOCAL     1
-0007 | CALL          1 true
+0000 | GET_LOCAL     0
+0001 | CALL_BUILTIN str 1 true
+0002 | CONSTANT      9 (":")
+0003 | ADD
+0004 | GET_LOCAL     1
+0005 | CALL_BUILTIN str 1 true
+0006 | ADD
+0007 | CONSTANT      9 (":")
 0008 | ADD
-0009 | CONSTANT     11 (":")
-0010 | ADD
-0011 | GET_GLOBAL   10 '"str"'
-0012 | GET_LOCAL     2
-0013 | CALL          1 true
-0014 | ADD
-0015 | CONSTANT     11 (":")
+0009 | GET_LOCAL     2
+0010 | CALL_BUILTIN str 1 true
+0011 | ADD
+0012 | CONSTANT      9 (":")
+0013 | ADD
+0014 | GET_LOCAL     3
+0015 | CALL_BUILTIN str 1 true
 0016 | ADD
-0017 | GET_GLOBAL   10 '"str"'
-0018 | GET_LOCAL     3
-0019 | CALL          1 true
-0020 | ADD
-0021 | RETURN
-0022 | RETURN
+0017 | RETURN
+0018 | RETURN

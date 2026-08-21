@@ -1,29 +1,20 @@
 == Chunk 0 ==
-0000 | GET_GLOBAL    0 '"println"'
-0001 | CONSTANT      1 (1)
-0002 | CALL          1 false
-0003 | GET_GLOBAL    0 '"println"'
-0004 | CONSTANT      2 (1)
-0005 | CALL          1 false
-0006 | GET_GLOBAL    0 '"println"'
-0007 | CONSTANT      3 (1.5)
-0008 | CALL          1 false
-0009 | GET_GLOBAL    0 '"println"'
-0010 | CONSTANT      4 (8)
-0011 | CALL          1 false
-0012 | GET_GLOBAL    0 '"println"'
-0013 | CONSTANT      5 (0.5)
-0014 | CALL          1 false
-0015 | GET_GLOBAL    0 '"println"'
-0016 | CONSTANT      5 (0.5)
-0017 | CALL          1 false
-0018 | GET_GLOBAL    0 '"println"'
-0019 | CONSTANT      6 (4)
-0020 | CALL          1 false
-0021 | GET_GLOBAL    0 '"println"'
-0022 | CONSTANT      7 (2)
-0023 | CALL          1 false
-0024 | GET_GLOBAL    0 '"println"'
-0025 | CONSTANT      8 (2.5)
-0026 | CALL          1 false
-0027 | RETURN
+0000 | CONSTANT      0 (1)
+0001 | CALL_BUILTIN println 1 false
+0002 | CONSTANT      1 (1)
+0003 | CALL_BUILTIN println 1 false
+0004 | CONSTANT      2 (1.5)
+0005 | CALL_BUILTIN println 1 false
+0006 | CONSTANT      3 (8)
+0007 | CALL_BUILTIN println 1 false
+0008 | CONSTANT      4 (0.5)
+0009 | CALL_BUILTIN println 1 false
+0010 | CONSTANT      4 (0.5)
+0011 | CALL_BUILTIN println 1 false
+0012 | CONSTANT      5 (4)
+0013 | CALL_BUILTIN println 1 false
+0014 | CONSTANT      6 (2)
+0015 | CALL_BUILTIN println 1 false
+0016 | CONSTANT      7 (2.5)
+0017 | CALL_BUILTIN println 1 false
+0018 | RETURN

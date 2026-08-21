@@ -1,57 +1,43 @@
 == Chunk 0 ==
-0000 | GET_GLOBAL    0 '"println"'
-0001 | GET_GLOBAL    1 '"len"'
-0002 | CONSTANT      2 ("héllo")
-0003 | CALL          1 true
-0004 | CALL          1 false
-0005 | GET_GLOBAL    0 '"println"'
-0006 | GET_GLOBAL    1 '"len"'
-0007 | CONSTANT      3 ("")
-0008 | CALL          1 true
-0009 | CALL          1 false
-0010 | GET_GLOBAL    0 '"println"'
-0011 | GET_GLOBAL    4 '"head"'
-0012 | CONSTANT      2 ("héllo")
-0013 | CALL          1 true
-0014 | CALL          1 false
-0015 | GET_GLOBAL    0 '"println"'
-0016 | GET_GLOBAL    5 '"tail"'
-0017 | CONSTANT      2 ("héllo")
-0018 | CALL          1 true
-0019 | CALL          1 false
-0020 | GET_GLOBAL    0 '"println"'
-0021 | GET_GLOBAL    6 '"drop"'
-0022 | CONSTANT      2 ("héllo")
-0023 | CONSTANT      7 (2)
-0024 | CALL          2 true
-0025 | CALL          1 false
-0026 | GET_GLOBAL    0 '"println"'
-0027 | GET_GLOBAL    8 '"take"'
-0028 | CONSTANT      2 ("héllo")
-0029 | CONSTANT      7 (2)
-0030 | CALL          2 true
-0031 | CALL          1 false
-0032 | CONSTANT      9 (nil)
-0033 | CONSTANT     10 ("hé")
-0034 | CONSTANT     11 (0)
-0035 | GET_GLOBAL    1 '"len"'
-0036 | GET_LOCAL     1
-0037 | CALL          1 true
-0038 | GET_LOCAL     2
-0039 | GET_LOCAL     3
-0040 | LESS
-0041 | JUMP_IF      54 false
-0042 | GET_LOCAL     1
-0043 | GET_LOCAL     2
-0044 | GET_INDEX
-0045 | SET_LOCAL     0
-0046 | GET_GLOBAL    0 '"println"'
-0047 | GET_LOCAL     0
-0048 | CALL          1 false
-0049 | GET_LOCAL     2
-0050 | CONSTANT     12 (1)
-0051 | ADD
-0052 | SET_LOCAL     2
-0053 | JUMP         38
-0054 | POP           4
-0055 | RETURN
+0000 | CONSTANT      0 ("héllo")
+0001 | CALL_BUILTIN len 1 true
+0002 | CALL_BUILTIN println 1 false
+0003 | CONSTANT      1 ("")
+0004 | CALL_BUILTIN len 1 true
+0005 | CALL_BUILTIN println 1 false
+0006 | CONSTANT      0 ("héllo")
+0007 | CALL_BUILTIN head 1 true
+0008 | CALL_BUILTIN println 1 false
+0009 | CONSTANT      0 ("héllo")
+0010 | CALL_BUILTIN tail 1 true
+0011 | CALL_BUILTIN println 1 false
+0012 | CONSTANT      0 ("héllo")
+0013 | CONSTANT      2 (2)
+0014 | CALL_BUILTIN drop 2 true
+0015 | CALL_BUILTIN println 1 false
+0016 | CONSTANT      0 ("héllo")
+0017 | CONSTANT      2 (2)
+0018 | CALL_BUILTIN take 2 true
+0019 | CALL_BUILTIN println 1 false
+0020 | CONSTANT      3 (nil)
+0021 | CONSTANT      4 ("hé")
+0022 | CONSTANT      5 (0)
+0023 | GET_LOCAL     1
+0024 | CALL_BUILTIN len 1 true
+0025 | GET_LOCAL     2
+0026 | GET_LOCAL     3
+0027 | LESS
+0028 | JUMP_IF      40 false
+0029 | GET_LOCAL     1
+0030 | GET_LOCAL     2
+0031 | GET_INDEX
+0032 | SET_LOCAL     0
+0033 | GET_LOCAL     0
+0034 | CALL_BUILTIN println 1 false
+0035 | GET_LOCAL     2
+0036 | CONSTANT      6 (1)
+0037 | ADD
+0038 | SET_LOCAL     2
+0039 | JUMP         25
+0040 | POP           4
+0041 | RETURN

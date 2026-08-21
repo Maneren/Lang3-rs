@@ -1,43 +1,33 @@
 == Chunk 0 ==
-0000 | GET_GLOBAL    0 '"println"'
-0001 | GET_GLOBAL    1 '"drop"'
-0002 | CONSTANT      2 (1)
-0003 | CONSTANT      3 (2)
-0004 | CONSTANT      4 (3)
-0005 | CONSTANT      5 (4)
-0006 | MAKE_ARRAY    4
-0007 | CONSTANT      3 (2)
-0008 | CALL          2 true
-0009 | CALL          1 false
-0010 | GET_GLOBAL    0 '"println"'
-0011 | GET_GLOBAL    6 '"take"'
-0012 | CONSTANT      2 (1)
-0013 | CONSTANT      3 (2)
-0014 | CONSTANT      4 (3)
-0015 | CONSTANT      5 (4)
-0016 | MAKE_ARRAY    4
-0017 | CONSTANT      3 (2)
-0018 | CALL          2 true
-0019 | CALL          1 false
-0020 | GET_GLOBAL    0 '"println"'
-0021 | GET_GLOBAL    1 '"drop"'
-0022 | CONSTANT      7 ("hello")
-0023 | CONSTANT      2 (1)
-0024 | CALL          2 true
-0025 | CALL          1 false
-0026 | GET_GLOBAL    0 '"println"'
-0027 | GET_GLOBAL    6 '"take"'
-0028 | CONSTANT      7 ("hello")
-0029 | CONSTANT      8 (0)
-0030 | CALL          2 true
-0031 | CALL          1 false
-0032 | GET_GLOBAL    0 '"println"'
-0033 | GET_GLOBAL    1 '"drop"'
-0034 | CONSTANT      2 (1)
-0035 | CONSTANT      3 (2)
-0036 | CONSTANT      4 (3)
-0037 | MAKE_ARRAY    3
-0038 | CONSTANT      9 (-1)
-0039 | CALL          2 true
-0040 | CALL          1 false
-0041 | RETURN
+0000 | CONSTANT      0 (1)
+0001 | CONSTANT      1 (2)
+0002 | CONSTANT      2 (3)
+0003 | CONSTANT      3 (4)
+0004 | MAKE_ARRAY    4
+0005 | CONSTANT      1 (2)
+0006 | CALL_BUILTIN drop 2 true
+0007 | CALL_BUILTIN println 1 false
+0008 | CONSTANT      0 (1)
+0009 | CONSTANT      1 (2)
+0010 | CONSTANT      2 (3)
+0011 | CONSTANT      3 (4)
+0012 | MAKE_ARRAY    4
+0013 | CONSTANT      1 (2)
+0014 | CALL_BUILTIN take 2 true
+0015 | CALL_BUILTIN println 1 false
+0016 | CONSTANT      4 ("hello")
+0017 | CONSTANT      0 (1)
+0018 | CALL_BUILTIN drop 2 true
+0019 | CALL_BUILTIN println 1 false
+0020 | CONSTANT      4 ("hello")
+0021 | CONSTANT      5 (0)
+0022 | CALL_BUILTIN take 2 true
+0023 | CALL_BUILTIN println 1 false
+0024 | CONSTANT      0 (1)
+0025 | CONSTANT      1 (2)
+0026 | CONSTANT      2 (3)
+0027 | MAKE_ARRAY    3
+0028 | CONSTANT      6 (-1)
+0029 | CALL_BUILTIN drop 2 true
+0030 | CALL_BUILTIN println 1 false
+0031 | RETURN

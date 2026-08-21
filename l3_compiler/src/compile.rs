@@ -9,7 +9,7 @@ use l3_ast::{
 };
 use l3_bytecode::{ChunkId, CodeOffset, Instruction, Upvalues, idx};
 use l3_location::Location;
-use l3_runtime::{BytecodeFunction, Function, HeapData, Primitive};
+use l3_runtime::{BuiltinId, BytecodeFunction, Function, HeapData, Primitive};
 
 use crate::{CompileError, Compiler, context::VarType};
 
@@ -276,14 +276,11 @@ impl Compiler {
         self.emit(Instruction::Constant { index: zero_idx });
         let idx_idx = self.add_mutable_local("__index__");
 
-        // Call len(collection)
-        let len_name_idx = self.make_string_constant("len");
-        self.emit(Instruction::GetGlobal {
-            name_index: len_name_idx,
-        });
+        // len(collection) — pre-resolved builtin
         self.emit(Instruction::GetLocal { index: coll_idx });
-        self.emit(Instruction::Call {
-            arg_count: 1,
+        self.emit(Instruction::CallBuiltin {
+            builtin: BuiltinId::Len,
+            arg_count: idx(1),
             keep_return_value: true,
         });
         let len_idx = self.add_mutable_local("__length__");
@@ -687,6 +684,21 @@ impl Compiler {
         fc: &FunctionCall,
         keep_return_value: bool,
     ) -> Result<(), CompileError> {
+        if let Some(builtin) = BuiltinId::from_name(&fc.name.name)
+            && self.binding_mutability(&fc.name.name).is_none()
+        {
+            // Pre-resolved builtin: avoid GetGlobal hash + heap indirection.
+            for arg in &fc.arguments {
+                self.mark_expression_aliased(arg);
+                self.compile_expression(arg)?;
+            }
+            self.emit(Instruction::CallBuiltin {
+                builtin,
+                arg_count: idx(fc.arguments.len()),
+                keep_return_value,
+            });
+            return Ok(());
+        }
         self.emit_variable_get(&fc.name.name);
 
         for arg in &fc.arguments {

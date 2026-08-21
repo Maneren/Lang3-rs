@@ -1,27 +1,25 @@
 == Chunk 0 ==
 0000 | CONSTANT      0 (nil)
-0001 | CONSTANT      4 (function <mid>)
+0001 | CONSTANT      3 (function <mid>)
 0002 | SET_LOCAL     0
 0003 | GET_LOCAL     0
-0004 | SET_GLOBAL    5 '"mid"'
-0005 | GET_GLOBAL    1 '"println"'
-0006 | CONSTANT      6 (0)
-0007 | GET_LOCAL     0
-0008 | CALL          0 true
-0009 | LESS keep rhs
-0010 | JUMP_IF      14 false keep after jump
-0011 | CONSTANT      7 (2)
-0012 | LESS
-0013 | JUMP         16
-0014 | POP           2
-0015 | CONSTANT      8 (false)
-0016 | CALL          1 false
-0017 | POP           1
-0018 | RETURN
+0004 | SET_GLOBAL    4 '"mid"'
+0005 | CONSTANT      5 (0)
+0006 | GET_LOCAL     0
+0007 | CALL          0 true
+0008 | LESS keep rhs
+0009 | JUMP_IF      13 false keep after jump
+0010 | CONSTANT      6 (2)
+0011 | LESS
+0012 | JUMP         15
+0013 | POP           2
+0014 | CONSTANT      7 (false)
+0015 | CALL_BUILTIN println 1 false
+0016 | POP           1
+0017 | RETURN
 == Chunk 1 ==
-0000 | GET_GLOBAL    1 '"println"'
-0001 | CONSTANT      2 ("mid called")
-0002 | CALL          1 false
-0003 | CONSTANT      3 (1)
+0000 | CONSTANT      1 ("mid called")
+0001 | CALL_BUILTIN println 1 false
+0002 | CONSTANT      2 (1)
+0003 | RETURN
 0004 | RETURN
-0005 | RETURN

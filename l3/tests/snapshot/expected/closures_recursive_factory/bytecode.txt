@@ -10,18 +10,16 @@
 0008 | GET_LOCAL     0
 0009 | CONSTANT      8 (3)
 0010 | CALL          1 true
-0011 | GET_GLOBAL    9 '"println"'
-0012 | GET_LOCAL     1
-0013 | CONSTANT     10 (5)
-0014 | CALL          1 true
-0015 | CALL          1 false
-0016 | GET_GLOBAL    9 '"println"'
-0017 | GET_LOCAL     2
-0018 | CONSTANT     11 (4)
-0019 | CALL          1 true
-0020 | CALL          1 false
-0021 | POP           3
-0022 | RETURN
+0011 | GET_LOCAL     1
+0012 | CONSTANT      9 (5)
+0013 | CALL          1 true
+0014 | CALL_BUILTIN println 1 false
+0015 | GET_LOCAL     2
+0016 | CONSTANT     10 (4)
+0017 | CALL          1 true
+0018 | CALL_BUILTIN println 1 false
+0019 | POP           3
+0020 | RETURN
 == Chunk 1 ==
 0000 | CONSTANT      0 (nil)
 0001 | CLOSURE       5 (function <power>)

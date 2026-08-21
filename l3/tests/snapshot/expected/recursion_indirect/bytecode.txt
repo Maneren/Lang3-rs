@@ -10,28 +10,24 @@
 0007 | SET_LOCAL     1
 0008 | GET_LOCAL     1
 0009 | SET_GLOBAL    4 '"is_odd"'
-0010 | GET_GLOBAL    9 '"println"'
-0011 | GET_LOCAL     0
-0012 | CONSTANT     10 (10)
-0013 | CALL          1 true
-0014 | CALL          1 false
-0015 | GET_GLOBAL    9 '"println"'
-0016 | GET_LOCAL     0
-0017 | CONSTANT     11 (7)
-0018 | CALL          1 true
-0019 | CALL          1 false
-0020 | GET_GLOBAL    9 '"println"'
-0021 | GET_LOCAL     1
-0022 | CONSTANT     10 (10)
-0023 | CALL          1 true
-0024 | CALL          1 false
-0025 | GET_GLOBAL    9 '"println"'
-0026 | GET_LOCAL     1
-0027 | CONSTANT     11 (7)
-0028 | CALL          1 true
-0029 | CALL          1 false
-0030 | POP           2
-0031 | RETURN
+0010 | GET_LOCAL     0
+0011 | CONSTANT      9 (10)
+0012 | CALL          1 true
+0013 | CALL_BUILTIN println 1 false
+0014 | GET_LOCAL     0
+0015 | CONSTANT     10 (7)
+0016 | CALL          1 true
+0017 | CALL_BUILTIN println 1 false
+0018 | GET_LOCAL     1
+0019 | CONSTANT      9 (10)
+0020 | CALL          1 true
+0021 | CALL_BUILTIN println 1 false
+0022 | GET_LOCAL     1
+0023 | CONSTANT     10 (7)
+0024 | CALL          1 true
+0025 | CALL_BUILTIN println 1 false
+0026 | POP           2
+0027 | RETURN
 == Chunk 1 ==
 0000 | GET_LOCAL     0
 0001 | CONSTANT      1 (0)

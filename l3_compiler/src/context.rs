@@ -4,6 +4,7 @@ use l3_bytecode::{
     indexed_vec,
 };
 use l3_location::Location;
+use l3_runtime::BuiltinId;
 
 use crate::{CompileError, Compiler};
 
@@ -276,16 +277,21 @@ impl Compiler {
     // Variable load / store helpers
     // -----------------------------------------------------------------------
 
-    /// Emit `GetLocal`, `GetUpvalue`, or `GetGlobal` for the named variable.
+    /// Emit `GetLocal`, `GetUpvalue`, `GetBuiltin` or `GetGlobal` for the named
+    /// variable.
     pub(crate) fn emit_variable_get(&mut self, name: &str) {
         match self.resolve_variable(name) {
             VarType::Local(idx) => self.emit(Instruction::GetLocal { index: idx }),
             VarType::Upvalue(uv) => self.emit(Instruction::GetUpvalue { index: uv }),
             VarType::Global(ref n) => {
-                let name_idx = self.make_string_constant(n);
-                self.emit(Instruction::GetGlobal {
-                    name_index: name_idx,
-                });
+                if let Some(builtin) = BuiltinId::from_name(n) {
+                    self.emit(Instruction::GetBuiltin { builtin });
+                } else {
+                    let name_idx = self.make_string_constant(n);
+                    self.emit(Instruction::GetGlobal {
+                        name_index: name_idx,
+                    });
+                }
             },
         }
     }

@@ -6,6 +6,7 @@ use std::{
 };
 
 use l3_runtime::{
+    BuiltinId,
     conv::{as_integer, non_negative_count, to_integer},
     error::RuntimeResult,
     heap_data::stringify_stack_value,
@@ -13,7 +14,7 @@ use l3_runtime::{
 };
 use rand::RngExt as _;
 
-type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>>;
+pub type Builtin = Rc<dyn Fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>>;
 
 fn wrap(f: fn(&[StackValue], &mut Heap) -> RuntimeResult<StackValue>) -> Builtin {
     Rc::new(f)
@@ -410,4 +411,29 @@ pub fn builtins() -> Vec<(&'static str, Builtin)> {
         ("sleep", wrap(builtin_sleep)),
         ("sum", wrap(builtin_sum)),
     ]
+}
+
+#[must_use]
+pub fn builtin_for_id(id: BuiltinId) -> Builtin {
+    match id {
+        BuiltinId::Print => wrap(builtin_print),
+        BuiltinId::Println => wrap(builtin_println),
+        BuiltinId::Assert => wrap(builtin_assert),
+        BuiltinId::Error => wrap(builtin_error),
+        BuiltinId::Int => wrap(builtin_int),
+        BuiltinId::Str => wrap_infallible(builtin_str),
+        BuiltinId::Len => wrap(builtin_len),
+        BuiltinId::Head => wrap(builtin_head),
+        BuiltinId::Tail => wrap(builtin_tail),
+        BuiltinId::Drop => wrap(builtin_drop),
+        BuiltinId::Take => wrap(builtin_take),
+        BuiltinId::Range => wrap(builtin_range),
+        BuiltinId::Id => wrap(builtin_id),
+        BuiltinId::Map => wrap(builtin_map),
+        BuiltinId::Count => wrap(builtin_count),
+        BuiltinId::Random => wrap(builtin_random),
+        BuiltinId::Input => wrap_infallible(builtin_input),
+        BuiltinId::Sleep => wrap(builtin_sleep),
+        BuiltinId::Sum => wrap(builtin_sum),
+    }
 }

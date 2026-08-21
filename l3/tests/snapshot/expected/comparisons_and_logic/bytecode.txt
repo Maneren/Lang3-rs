@@ -2,69 +2,64 @@
 0000 | CONSTANT      0 (5)
 0001 | CONSTANT      1 (8)
 0002 | CONSTANT      1 (8)
-0003 | GET_GLOBAL    2 '"println"'
-0004 | CONSTANT      3 (0)
-0005 | GET_LOCAL     0
-0006 | LESS keep rhs
-0007 | JUMP_IF      11 false keep after jump
-0008 | GET_LOCAL     1
-0009 | LESS
-0010 | JUMP         13
-0011 | POP           2
-0012 | CONSTANT      4 (false)
-0013 | CALL          1 false
-0014 | GET_GLOBAL    2 '"println"'
-0015 | GET_LOCAL     0
-0016 | GET_LOCAL     1
-0017 | EQUAL
-0018 | JUMP         21
-0019 | POP           2
-0020 | CONSTANT      4 (false)
-0021 | CALL          1 false
-0022 | GET_GLOBAL    2 '"println"'
-0023 | GET_LOCAL     1
-0024 | GET_LOCAL     2
-0025 | EQUAL
-0026 | JUMP         29
-0027 | POP           2
-0028 | CONSTANT      4 (false)
-0029 | CALL          1 false
-0030 | GET_GLOBAL    2 '"println"'
-0031 | GET_LOCAL     0
-0032 | GET_LOCAL     1
-0033 | EQUAL
-0034 | JUMP         37
-0035 | POP           2
-0036 | CONSTANT      4 (false)
-0037 | NOT
-0038 | JUMP_IF      52 false keep after jump
-0039 | GET_LOCAL     1
-0040 | GET_LOCAL     2
-0041 | EQUAL
-0042 | JUMP         45
-0043 | POP           2
-0044 | CONSTANT      4 (false)
-0045 | JUMP_IF      52 true keep after jump
-0046 | GET_LOCAL     0
-0047 | GET_LOCAL     1
-0048 | GREATER
-0049 | JUMP         52
-0050 | POP           2
-0051 | CONSTANT      4 (false)
-0052 | CALL          1 false
-0053 | GET_LOCAL     0
-0054 | GET_LOCAL     1
-0055 | LESS
-0056 | JUMP         59
-0057 | POP           2
-0058 | CONSTANT      4 (false)
-0059 | JUMP_IF      63 false keep after stay
-0060 | POP           1
-0061 | CONSTANT      5 ("ok")
-0062 | JUMP         64
-0063 | CONSTANT      6 ("bad")
-0064 | GET_GLOBAL    2 '"println"'
-0065 | GET_LOCAL     3
-0066 | CALL          1 false
-0067 | POP           1
-0068 | RETURN
+0003 | CONSTANT      2 (0)
+0004 | GET_LOCAL     0
+0005 | LESS keep rhs
+0006 | JUMP_IF      10 false keep after jump
+0007 | GET_LOCAL     1
+0008 | LESS
+0009 | JUMP         12
+0010 | POP           2
+0011 | CONSTANT      3 (false)
+0012 | CALL_BUILTIN println 1 false
+0013 | GET_LOCAL     0
+0014 | GET_LOCAL     1
+0015 | EQUAL
+0016 | JUMP         19
+0017 | POP           2
+0018 | CONSTANT      3 (false)
+0019 | CALL_BUILTIN println 1 false
+0020 | GET_LOCAL     1
+0021 | GET_LOCAL     2
+0022 | EQUAL
+0023 | JUMP         26
+0024 | POP           2
+0025 | CONSTANT      3 (false)
+0026 | CALL_BUILTIN println 1 false
+0027 | GET_LOCAL     0
+0028 | GET_LOCAL     1
+0029 | EQUAL
+0030 | JUMP         33
+0031 | POP           2
+0032 | CONSTANT      3 (false)
+0033 | NOT
+0034 | JUMP_IF      48 false keep after jump
+0035 | GET_LOCAL     1
+0036 | GET_LOCAL     2
+0037 | EQUAL
+0038 | JUMP         41
+0039 | POP           2
+0040 | CONSTANT      3 (false)
+0041 | JUMP_IF      48 true keep after jump
+0042 | GET_LOCAL     0
+0043 | GET_LOCAL     1
+0044 | GREATER
+0045 | JUMP         48
+0046 | POP           2
+0047 | CONSTANT      3 (false)
+0048 | CALL_BUILTIN println 1 false
+0049 | GET_LOCAL     0
+0050 | GET_LOCAL     1
+0051 | LESS
+0052 | JUMP         55
+0053 | POP           2
+0054 | CONSTANT      3 (false)
+0055 | JUMP_IF      59 false keep after stay
+0056 | POP           1
+0057 | CONSTANT      4 ("ok")
+0058 | JUMP         60
+0059 | CONSTANT      5 ("bad")
+0060 | GET_LOCAL     3
+0061 | CALL_BUILTIN println 1 false
+0062 | POP           1
+0063 | RETURN

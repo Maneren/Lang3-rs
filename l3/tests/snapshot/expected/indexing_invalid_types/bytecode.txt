@@ -4,18 +4,15 @@
 0002 | CONSTANT      2 (30)
 0003 | MAKE_ARRAY    3
 0004 | CONSTANT      3 ("1")
-0005 | GET_GLOBAL    4 '"println"'
-0006 | GET_LOCAL     0
-0007 | CONSTANT      5 (0)
-0008 | GET_INDEX
-0009 | CALL          1 false
-0010 | GET_GLOBAL    4 '"println"'
-0011 | GET_LOCAL     0
-0012 | GET_LOCAL     1
-0013 | GET_INDEX
-0014 | CALL          1 false
-0015 | GET_GLOBAL    4 '"println"'
-0016 | CONSTANT      6 ("unreachable")
-0017 | CALL          1 false
-0018 | POP           2
-0019 | RETURN
+0005 | GET_LOCAL     0
+0006 | CONSTANT      4 (0)
+0007 | GET_INDEX
+0008 | CALL_BUILTIN println 1 false
+0009 | GET_LOCAL     0
+0010 | GET_LOCAL     1
+0011 | GET_INDEX
+0012 | CALL_BUILTIN println 1 false
+0013 | CONSTANT      5 ("unreachable")
+0014 | CALL_BUILTIN println 1 false
+0015 | POP           2
+0016 | RETURN
