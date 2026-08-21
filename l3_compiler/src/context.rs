@@ -1,3 +1,4 @@
+use l3_ast::AssignmentOperator;
 use l3_bytecode::{
     Chunk, ChunkId, CodeOffset, Instruction, LocalIndex, UpvalueDesc, UpvalueIndex, Upvalues, idx,
     indexed_vec,
@@ -269,5 +270,90 @@ impl Compiler {
         {
             local.possibly_aliased = aliased;
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Variable load / store helpers
+    // -----------------------------------------------------------------------
+
+    /// Emit `GetLocal`, `GetUpvalue`, or `GetGlobal` for the named variable.
+    pub(crate) fn emit_variable_get(&mut self, name: &str) {
+        match self.resolve_variable(name) {
+            VarType::Local(idx) => self.emit(Instruction::GetLocal { index: idx }),
+            VarType::Upvalue(uv) => self.emit(Instruction::GetUpvalue { index: uv }),
+            VarType::Global(ref n) => {
+                let name_idx = self.make_string_constant(n);
+                self.emit(Instruction::GetGlobal {
+                    name_index: name_idx,
+                });
+            },
+        }
+    }
+
+    /// Emit `SetLocal`, `SetUpvalue`, or `SetGlobal` for the named variable.
+    pub(crate) fn emit_variable_set(&mut self, name: &str) {
+        match self.resolve_variable(name) {
+            VarType::Local(idx) => self.emit(Instruction::SetLocal { index: idx }),
+            VarType::Upvalue(uv) => self.emit(Instruction::SetUpvalue { index: uv }),
+            VarType::Global(ref n) => {
+                let name_idx = self.make_string_constant(n);
+                self.emit(Instruction::SetGlobal {
+                    name_index: name_idx,
+                });
+            },
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Loop context helpers
+    // -----------------------------------------------------------------------
+
+    /// Push a fresh `LoopContext` for the current chunk.
+    pub(crate) fn push_loop_context(&mut self) {
+        self.loop_contexts.push(LoopContext {
+            break_jumps: Vec::new(),
+            continue_jumps: Vec::new(),
+            body_locals_snapshot: self.current_context().locals.len(),
+            chunk_id: self.current_context().chunk_id,
+        });
+    }
+
+    /// Pop the innermost loop context and patch all its `break` jumps to
+    /// `exit_patch` and all `continue` jumps to `continue_target`.
+    pub(crate) fn pop_loop_context(&mut self, exit_patch: CodeOffset, continue_target: CodeOffset) {
+        let lc = self
+            .loop_contexts
+            .pop()
+            .expect("loop context was pushed when entering the loop");
+        let code = &mut self.current_chunk().code;
+        for jump in &lc.break_jumps {
+            if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
+                *offset = exit_patch;
+            }
+        }
+        for jump in &lc.continue_jumps {
+            if let Some(Instruction::Jump { offset }) = code.get_mut(*jump) {
+                *offset = continue_target;
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Assignment operator helper
+    // -----------------------------------------------------------------------
+
+    /// Emit the bytecode instruction corresponding to an `AssignmentOperator`
+    /// applied as a compound assignment (e.g. `+=` → `Add`).
+    pub(crate) fn emit_compound_op(&mut self, op: AssignmentOperator) {
+        let inst = match op {
+            AssignmentOperator::Plus => Instruction::Add,
+            AssignmentOperator::Minus => Instruction::Subtract,
+            AssignmentOperator::Multiply => Instruction::Multiply,
+            AssignmentOperator::Divide => Instruction::Divide,
+            AssignmentOperator::Modulo => Instruction::Modulo,
+            AssignmentOperator::Power => Instruction::Power,
+            AssignmentOperator::Assign => return,
+        };
+        self.emit(inst);
     }
 }
