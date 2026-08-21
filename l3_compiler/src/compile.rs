@@ -3,9 +3,9 @@ use std::{ops::ControlFlow, rc::Rc};
 use l3_ast::{
     AnonymousFunction, AssignmentOperator, BinaryExpression, BinaryOperator, Block, Comparison,
     ComparisonOperator, Declaration, Expression, ForLoop, FunctionBody, FunctionCall, IfExpression,
-    IfStatement, LastStatement, Literal, LogicalExpression, LogicalOperator, Mutability,
-    NameAssignment, NamedFunction, OperatorAssignment, RangeForLoop, RangeOperator, Statement,
-    UnaryExpression, UnaryOperator, Variable, While,
+    IfStatement, IndexExpression, LastStatement, Literal, LogicalExpression, LogicalOperator,
+    Mutability, NameAssignment, NamedFunction, OperatorAssignment, RangeForLoop, RangeOperator,
+    Statement, UnaryExpression, UnaryOperator, Variable, While,
 };
 use l3_bytecode::{ChunkId, CodeOffset, Instruction, Upvalues, idx};
 use l3_location::Location;
@@ -506,81 +506,71 @@ impl Compiler {
         oa: &OperatorAssignment,
     ) -> Result<(), CompileError> {
         match &oa.variable {
-            Variable::Identifier(id) => {
-                let name = &id.name;
-                self.ensure_mutable_binding(name)?;
+            Variable::Identifier(id) => self.compile_indentifier_assignment(oa, &id.name),
+            Variable::IndexExpression(ie) => self.compile_index_expression_assignment(oa, ie),
+        }
+    }
 
-                // `v += [elems]` on an exclusively-owned local vector: append
-                // in place, avoiding the temp array, the full clone and a new
-                // heap allocation.
-                if oa.op == AssignmentOperator::Plus
-                    && let Expression::Literal(Literal::Array(arr)) = &*oa.expression
-                    && let VarType::Local(slot) = self.resolve_variable(name)
-                    && self
-                        .current_context()
-                        .locals
-                        .get(slot)
-                        .is_some_and(|local| !local.possibly_aliased)
-                    && !arr
-                        .elements
-                        .iter()
-                        .any(|elem| self.expression_references_name(elem, name))
-                {
-                    self.compile_variable(&oa.variable)?;
-                    for elem in &arr.elements {
-                        self.mark_expression_aliased(elem);
-                        self.compile_expression(elem)?;
-                    }
-                    self.emit(Instruction::VectorAppend {
-                        count: idx(arr.elements.len()),
-                    });
-                    self.emit(Instruction::SetLocal { index: slot });
-                    return Ok(());
+    fn compile_indentifier_assignment(
+        &mut self,
+        oa: &OperatorAssignment,
+        name: &str,
+    ) -> Result<(), CompileError> {
+        self.ensure_mutable_binding(name)?;
+
+        // `v += [elems]` on an exclusively-owned local vector: append
+        // in place, avoiding the temp array, the full clone and a new
+        // heap allocation.
+        if oa.op == AssignmentOperator::Plus
+            && let Expression::Literal(Literal::Array(arr)) = &*oa.expression
+            && let VarType::Local(slot) = self.resolve_variable(name)
+            && self
+                .current_context()
+                .locals
+                .get(slot)
+                .is_some_and(|local| !local.possibly_aliased)
+            && !arr
+                .elements
+                .iter()
+                .any(|elem| self.expression_references_name(elem, name))
+        {
+            self.compile_variable(&oa.variable)?;
+            for elem in &arr.elements {
+                self.mark_expression_aliased(elem);
+                self.compile_expression(elem)?;
+            }
+            self.emit(Instruction::VectorAppend {
+                count: idx(arr.elements.len()),
+            });
+            self.emit(Instruction::SetLocal { index: slot });
+            return Ok(());
+        }
+
+        self.mark_expression_aliased(&oa.expression);
+        let fresh = matches!(&*oa.expression, Expression::Literal(_));
+        self.compile_variable(&oa.variable)?;
+        self.compile_expression(&oa.expression)?;
+
+        match oa.op {
+            AssignmentOperator::Plus => self.emit(Instruction::Add),
+            AssignmentOperator::Minus => {
+                self.emit(Instruction::Subtract);
+            },
+            AssignmentOperator::Multiply => {
+                self.emit(Instruction::Multiply);
+            },
+            AssignmentOperator::Divide => {
+                self.emit(Instruction::Divide);
+            },
+            AssignmentOperator::Modulo => {
+                self.emit(Instruction::Modulo);
+            },
+            AssignmentOperator::Power => self.emit(Instruction::Power),
+            AssignmentOperator::Assign => {
+                self.emit(Instruction::Pop { count: 1 });
+                if !fresh {
+                    self.set_local_aliased(name, true);
                 }
-
-                self.mark_expression_aliased(&oa.expression);
-                let fresh = matches!(&*oa.expression, Expression::Literal(_));
-                self.compile_variable(&oa.variable)?;
-                self.compile_expression(&oa.expression)?;
-
-                match oa.op {
-                    AssignmentOperator::Plus => self.emit(Instruction::Add),
-                    AssignmentOperator::Minus => {
-                        self.emit(Instruction::Subtract);
-                    },
-                    AssignmentOperator::Multiply => {
-                        self.emit(Instruction::Multiply);
-                    },
-                    AssignmentOperator::Divide => {
-                        self.emit(Instruction::Divide);
-                    },
-                    AssignmentOperator::Modulo => {
-                        self.emit(Instruction::Modulo);
-                    },
-                    AssignmentOperator::Power => self.emit(Instruction::Power),
-                    AssignmentOperator::Assign => {
-                        self.emit(Instruction::Pop { count: 1 });
-                        if !fresh {
-                            self.set_local_aliased(name, true);
-                        }
-                        match self.resolve_variable(name) {
-                            VarType::Local(idx) => {
-                                self.emit(Instruction::SetLocal { index: idx });
-                            },
-                            VarType::Upvalue(uv) => {
-                                self.emit(Instruction::SetUpvalue { index: uv });
-                            },
-                            VarType::Global(_) => {
-                                let name_idx = self.make_string_constant(name);
-                                self.emit(Instruction::SetGlobal {
-                                    name_index: name_idx,
-                                });
-                            },
-                        }
-                        return Ok(());
-                    },
-                }
-
                 match self.resolve_variable(name) {
                     VarType::Local(idx) => {
                         self.emit(Instruction::SetLocal { index: idx });
@@ -595,37 +585,59 @@ impl Compiler {
                         });
                     },
                 }
-                Ok(())
-            },
-            Variable::IndexExpression(ie) => {
-                self.mark_expression_aliased(&oa.expression);
-                self.compile_variable(&ie.base)?;
-                self.compile_expression(&ie.index)?;
-
-                let compound = match oa.op {
-                    AssignmentOperator::Plus => Some(Instruction::Add),
-                    AssignmentOperator::Minus => Some(Instruction::Subtract),
-                    AssignmentOperator::Multiply => Some(Instruction::Multiply),
-                    AssignmentOperator::Divide => Some(Instruction::Divide),
-                    AssignmentOperator::Modulo => Some(Instruction::Modulo),
-                    AssignmentOperator::Power => Some(Instruction::Power),
-                    AssignmentOperator::Assign => None,
-                };
-                if let Some(op) = compound {
-                    self.emit(Instruction::Duplicate { index: 1 });
-                    self.emit(Instruction::Duplicate { index: 1 });
-                    self.emit(Instruction::GetIndex);
-                    self.compile_expression(&oa.expression)?;
-                    self.emit(op);
-                } else {
-                    self.compile_expression(&oa.expression)?;
-                }
-
-                self.emit(Instruction::SetIndex);
-                self.emit(Instruction::Pop { count: 1 });
-                Ok(())
+                return Ok(());
             },
         }
+
+        match self.resolve_variable(name) {
+            VarType::Local(idx) => {
+                self.emit(Instruction::SetLocal { index: idx });
+            },
+            VarType::Upvalue(uv) => {
+                self.emit(Instruction::SetUpvalue { index: uv });
+            },
+            VarType::Global(_) => {
+                let name_idx = self.make_string_constant(name);
+                self.emit(Instruction::SetGlobal {
+                    name_index: name_idx,
+                });
+            },
+        }
+
+        Ok(())
+    }
+
+    fn compile_index_expression_assignment(
+        &mut self,
+        oa: &OperatorAssignment,
+        ie: &IndexExpression,
+    ) -> Result<(), CompileError> {
+        self.mark_expression_aliased(&oa.expression);
+        self.compile_variable(&ie.base)?;
+        self.compile_expression(&ie.index)?;
+
+        let compound = match oa.op {
+            AssignmentOperator::Plus => Some(Instruction::Add),
+            AssignmentOperator::Minus => Some(Instruction::Subtract),
+            AssignmentOperator::Multiply => Some(Instruction::Multiply),
+            AssignmentOperator::Divide => Some(Instruction::Divide),
+            AssignmentOperator::Modulo => Some(Instruction::Modulo),
+            AssignmentOperator::Power => Some(Instruction::Power),
+            AssignmentOperator::Assign => None,
+        };
+        if let Some(op) = compound {
+            self.emit(Instruction::Duplicate { index: 1 });
+            self.emit(Instruction::Duplicate { index: 1 });
+            self.emit(Instruction::GetIndex);
+            self.compile_expression(&oa.expression)?;
+            self.emit(op);
+        } else {
+            self.compile_expression(&oa.expression)?;
+        }
+
+        self.emit(Instruction::SetIndex);
+        self.emit(Instruction::Pop { count: 1 });
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
