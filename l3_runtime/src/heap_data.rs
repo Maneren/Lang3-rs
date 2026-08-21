@@ -462,8 +462,7 @@ pub fn index(
     };
     match resolve(container, heap) {
         Resolved::Str(s) => {
-            let chars: Vec<char> = s.chars().collect();
-            let Some(c) = chars.get(i) else {
+            let Some(c) = s.chars().nth(i) else {
                 return Err(RuntimeError::value("index out of bounds"));
             };
             Ok(heap.alloc_string(c.to_string()))
