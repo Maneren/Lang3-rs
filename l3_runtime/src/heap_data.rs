@@ -253,7 +253,12 @@ fn numeric_result(r: Result<Primitive, &'static str>) -> RuntimeResult<StackValu
 pub fn add(a: &StackValue, b: &StackValue, heap: &mut Heap) -> RuntimeResult<StackValue> {
     match (resolve(a, heap), resolve(b, heap)) {
         (Resolved::Num(pa), Resolved::Num(pb)) => numeric_result(pa + pb),
-        (Resolved::Str(sa), Resolved::Str(sb)) => Ok(heap.alloc_string(format!("{sa}{sb}"))),
+        (Resolved::Str(sa), Resolved::Str(sb)) => {
+            let mut s = String::with_capacity(sa.len() + sb.len());
+            s.push_str(sa);
+            s.push_str(sb);
+            Ok(heap.alloc_string(s))
+        },
         (Resolved::Vec(va), Resolved::Vec(vb)) => {
             let mut result = Vec::with_capacity(va.len() + vb.len());
             result.extend_from_slice(va);
