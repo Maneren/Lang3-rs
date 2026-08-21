@@ -1,8 +1,8 @@
 use std::io::{Read, Write};
 
 use l3_ast::{ast_printer, dot_printer};
-use l3_bytecode::{format as bytecode_fmt, optimizer::Optimizer};
-use l3_compiler::Compiler;
+use l3_bytecode::format as bytecode_fmt;
+use l3_compiler::{Compiler, optimizer::Optimizer};
 use l3_parser::parse_program;
 use l3_vm::BytecodeVM;
 

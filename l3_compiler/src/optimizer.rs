@@ -1,11 +1,10 @@
 use std::{cmp::Ordering, collections::VecDeque, mem};
 
-use l3_runtime::{Function, HeapData, Primitive, primitive::compare_primitives};
-
-use crate::{
+use l3_bytecode::{
     Chunk, Code, CodeOffset, ConstantIndex, ConstantPool, Instruction, LocalIndex, ProgramBytecode,
     idx,
 };
+use l3_runtime::{Function, HeapData, Primitive, primitive::compare_primitives};
 
 /// A whole-program bytecode optimizer. Runs after compilation, before
 /// execution.
@@ -552,7 +551,7 @@ fn transfer_instruction(inst: &Instruction, stack: &mut AbstractStack) {
 // needed. Only results that can be represented standalone (nil, primitives,
 // strings) are folded; vector/function results are left to the interpreter.
 
-pub fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
+fn fold_constants(chunk: &Chunk, pool: &mut ConstantPool) -> (Chunk, bool) {
     let len = chunk.code.len().as_index();
     let mut new_code = Vec::with_capacity(len);
     let mut new_locations = Vec::with_capacity(len);

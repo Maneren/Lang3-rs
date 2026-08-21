@@ -1,7 +1,6 @@
 pub mod format;
 pub mod indices;
 pub mod instructions;
-pub mod optimizer;
 
 use std::{
     fmt::Debug,

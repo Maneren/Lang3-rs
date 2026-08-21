@@ -9,6 +9,7 @@ mod alias;
 mod compile;
 mod context;
 mod fold;
+pub mod optimizer;
 
 use context::{Context, LoopContext};
 
