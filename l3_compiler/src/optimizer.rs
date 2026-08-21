@@ -114,7 +114,10 @@ fn remove_dead_code(chunk: Chunk) -> (Chunk, bool) {
             new_code.push(inst.clone());
             new_locations.push(loc.clone());
         } else {
-            *slot = new_code.len().saturating_sub(1);
+            // Dead offsets are never referenced by reachable code (successors
+            // would have made them reachable). Map to entry to avoid
+            // accidentally valid remaps.
+            *slot = 0;
         }
     }
     for inst in &mut new_code {
